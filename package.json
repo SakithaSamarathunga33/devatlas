@@ -1,0 +1,30 @@
+{
+  "name": "devatlas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DevAtlas — a local-first developer resource intelligence platform.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.34.7",
+  "engines": {
+    "node": ">=22.22.0",
+    "pnpm": ">=10.0.0 <11.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @devatlas/desktop tauri dev",
+    "build": "pnpm --filter @devatlas/desktop tauri build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "rust:check": "cargo check --workspace --all-targets",
+    "rust:fmt": "cargo fmt --all -- --check",
+    "rust:clippy": "cargo clippy --workspace --all-targets -- -D warnings",
+    "rust:test": "cargo test --workspace",
+    "test": "pnpm -r test && cargo test --workspace"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10",
+    "prettier-plugin-tailwindcss": "^0.8.1"
+  }
+}

@@ -1,0 +1,26 @@
+[package]
+name = "devatlas-desktop"
+description = "DevAtlas desktop application — the Tauri 2 delivery boundary."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "devatlas_desktop_lib"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+devatlas-application.workspace = true
+tauri.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

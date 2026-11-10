@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Uses the pnpm version pinned in package.json#packageManager.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm --filter @devatlas/desktop test
+      - run: pnpm format:check
+
+  rust:
+    name: Rust checks (Windows)
+    # windows-latest ships the MSVC build tools, the Windows SDK and WebView2,
+    # which are the native dependencies Tauri needs on Windows.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo check --workspace --all-targets
+      - run: cargo test --workspace
+
+  desktop-build:
+    name: Windows desktop build
+    needs: [frontend, rust]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+
+      - run: pnpm install --frozen-lockfile
+
+      # Runs the frontend build (typecheck + Vite) and produces NSIS and MSI installers.
+      - run: pnpm build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: devatlas-windows-installers
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 7

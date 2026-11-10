@@ -1,0 +1,18 @@
+[package]
+name = "devatlas-application"
+description = "DevAtlas use cases and application-level interfaces. Framework-agnostic."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+devatlas-domain.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

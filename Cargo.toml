@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+    "apps/desktop/src-tauri",
+    "crates/domain",
+    "crates/application",
+    "crates/storage",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+devatlas-application = { path = "crates/application" }
+devatlas-domain = { path = "crates/domain" }
+devatlas-storage = { path = "crates/storage" }
+
+# External crates — enable only the features that are actually used.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
