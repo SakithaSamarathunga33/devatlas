@@ -13,6 +13,10 @@ foundation only (milestone DEVATLAS-001):
 - A Tauri 2 desktop shell with a React 19 + TypeScript frontend.
 - A layered Rust workspace (`domain`, `application`, `storage`).
 - One end-to-end Rust ↔ frontend integration: the `get_app_info` command, shown on the dashboard.
+- A **Library** read live (read-only) from your Brave bookmarks: everything in the bookmarks-bar
+  folder `develop` (including subfolders) is cleaned, de-duplicated, and sorted into UI
+  components, design inspiration, animation, icons, tools, and cloud consoles. Links open in your
+  default browser.
 - Linting, formatting, tests, and CI.
 
 Resource management, search, discovery, the browser extension, AI features, and sync are **not
@@ -118,9 +122,11 @@ Installers are written to `target/release/bundle/`.
 
 ## Current scope and known limitations
 
-- Only the dashboard route exists. It shows real backend data (name, version, OS) and an honest
-  empty state; there are no resources, statistics, or activity yet.
-- No database, persistence, search, browser extension, AI, sync, or accounts.
+- The dashboard and Library are the only routes. The Library mirrors Brave's `develop` folder
+  (Default profile); to add or remove a resource, change the bookmark in Brave. Categories come
+  from a built-in list of known sites.
+- No database or persistence yet, so DevAtlas cannot edit, tag, or store resources itself.
+- No browser extension, AI, sync, or accounts.
 - Dark theme only.
 - Builds and CI target Windows; Linux and macOS are kept in mind architecturally but are untested.
 

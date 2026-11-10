@@ -11,7 +11,11 @@ pub fn run() -> tauri::Result<()> {
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting DevAtlas");
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![commands::app_info::get_app_info])
+        .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![
+            commands::app_info::get_app_info,
+            commands::library::list_library,
+        ])
         .run(tauri::generate_context!())
 }
 

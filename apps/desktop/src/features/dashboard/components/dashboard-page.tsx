@@ -1,7 +1,7 @@
 import { BlurFade } from "@/components/ui/blur-fade";
 
 import { AppInfoPanel } from "./app-info-panel";
-import { LibrarySetupNotice } from "./library-setup-notice";
+import { LibrarySummary } from "./library-summary";
 import { RoadmapGrid } from "./roadmap-grid";
 import { WelcomeHero } from "./welcome-hero";
 
@@ -14,7 +14,7 @@ export function DashboardPage() {
           <AppInfoPanel />
         </BlurFade>
         <BlurFade delay={0.36} className="lg:col-span-2">
-          <LibrarySetupNotice />
+          <LibrarySummary />
         </BlurFade>
       </div>
       <RoadmapGrid />

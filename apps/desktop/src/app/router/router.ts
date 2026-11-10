@@ -2,6 +2,7 @@ import { createBrowserRouter, redirect, type RouteObject } from "react-router";
 
 import { AppLayout } from "@/app/layouts/app-layout";
 import { DashboardPage } from "@/features/dashboard";
+import { LibraryPage } from "@/features/library";
 import type { RouteHandle } from "@/hooks/use-page-title";
 
 export const routes: RouteObject[] = [
@@ -14,7 +15,12 @@ export const routes: RouteObject[] = [
         Component: DashboardPage,
         handle: { title: "Dashboard" } satisfies RouteHandle,
       },
-      // Only the dashboard exists today; unknown paths return to it.
+      {
+        path: "library",
+        Component: LibraryPage,
+        handle: { title: "Library" } satisfies RouteHandle,
+      },
+      // Unknown paths return to the dashboard.
       { path: "*", loader: () => redirect("/") },
     ],
   },

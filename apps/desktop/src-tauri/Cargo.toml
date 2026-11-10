@@ -15,7 +15,9 @@ tauri-build.workspace = true
 
 [dependencies]
 devatlas-application.workspace = true
+devatlas-storage.workspace = true
 tauri.workspace = true
+tauri-plugin-opener.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

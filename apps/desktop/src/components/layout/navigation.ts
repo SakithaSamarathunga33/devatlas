@@ -20,12 +20,7 @@ export interface NavigationItem {
 
 export const primaryNavigation: readonly NavigationItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/" },
-  {
-    label: "Library",
-    icon: Library,
-    description:
-      "Capture UI components, libraries, tools, and references once, and keep them in one searchable place.",
-  },
+  { label: "Library", icon: Library, to: "/library" },
   {
     label: "Collections",
     icon: Layers,
