@@ -13,11 +13,11 @@
   color-scheme: dark;
   --radius: 0.5rem;
 
-  --background: #0c0c11;
+  --background: #08080d;
   --foreground: #ececf1;
-  --card: #121219;
+  --card: #0f0f17;
   --card-foreground: #ececf1;
-  --popover: #17171f;
+  --popover: #15151f;
   --popover-foreground: #ececf1;
   --primary: #8b6cff;
   --primary-foreground: #0c0c11;
@@ -28,7 +28,7 @@
   --accent: #1c1c27;
   --accent-foreground: #ececf1;
   --destructive: #f2555a;
-  --border: #23232f;
+  --border: #1f1f2c;
   --input: #2a2a38;
   --ring: #8b6cff;
 
@@ -36,7 +36,7 @@
   --success: #3fcf8e;
   --warning: #f5b544;
 
-  --sidebar: #0f0f15;
+  --sidebar: #0b0b12;
   --sidebar-foreground: #ececf1;
   --sidebar-primary: #8b6cff;
   --sidebar-primary-foreground: #0c0c11;
@@ -98,5 +98,50 @@
 
   ::selection {
     background-color: color-mix(in oklab, var(--primary) 35%, transparent);
+  }
+}
+
+/* Animations used by Magic UI AuroraText and AnimatedShinyText. */
+@theme {
+  --animate-aurora: aurora 10s ease-in-out infinite alternate;
+  --animate-shiny-text: shiny-text 8s infinite;
+
+  @keyframes aurora {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  @keyframes shiny-text {
+    0%,
+    90%,
+    100% {
+      background-position: calc(-100% - var(--shiny-width)) 0;
+    }
+    30%,
+    60% {
+      background-position: calc(100% + var(--shiny-width)) 0;
+    }
+  }
+}
+
+/* Gradient hairline border (Uiverse-style), used by ShineButton. */
+@utility gradient-border {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--color-card), var(--color-card)) padding-box,
+    linear-gradient(135deg, var(--color-primary), var(--color-info)) border-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora,
+  .animate-shiny-text {
+    animation: none;
   }
 }

@@ -11,19 +11,19 @@ export function AppHeader() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
+    <header className="relative z-10 flex h-16 shrink-0 items-center gap-2 border-b border-white/[0.06] bg-background/30 px-4 backdrop-blur-xl">
       <Button
         variant="ghost"
         size="icon-sm"
         onClick={toggleSidebar}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         aria-expanded={!collapsed}
-        className="text-muted-foreground"
+        className="text-muted-foreground hover:bg-white/[0.06]"
       >
         {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
       </Button>
       <span className="text-sm font-medium">{title}</span>
-      <BackendStatus className="ml-auto pr-2" />
+      <BackendStatus className="ml-auto" />
     </header>
   );
 }
