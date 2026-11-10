@@ -13,37 +13,40 @@
   color-scheme: dark;
   --radius: 0.5rem;
 
-  --background: #08080d;
-  --foreground: #ececf1;
-  --card: #0f0f17;
-  --card-foreground: #ececf1;
-  --popover: #15151f;
-  --popover-foreground: #ececf1;
-  --primary: #f4b25b;
-  --primary-foreground: #1c1206;
-  --secondary: #1a1a24;
-  --secondary-foreground: #ececf1;
-  --muted: #16161e;
-  --muted-foreground: #8e8ea6;
-  --accent: #1c1c27;
-  --accent-foreground: #ececf1;
+  /* "Atlas ink": blue-black chart paper, sea-teal for actions, amber only for what's new. */
+  --background: #090d13;
+  --foreground: #e8edf4;
+  --card: #0f151d;
+  --card-foreground: #e8edf4;
+  --popover: #141b25;
+  --popover-foreground: #e8edf4;
+  --primary: #3ed6c0;
+  --primary-foreground: #03201b;
+  --secondary: #17202b;
+  --secondary-foreground: #e8edf4;
+  --muted: #131a23;
+  --muted-foreground: #8b97a8;
+  --accent: #19222d;
+  --accent-foreground: #e8edf4;
   --destructive: #f2555a;
-  --border: #1f1f2c;
-  --input: #2a2a38;
-  --ring: #f4b25b;
+  --border: #1c2531;
+  --input: #263141;
+  --ring: #3ed6c0;
 
-  --info: #3aa0ff;
+  --info: #5aa9ff;
   --success: #3fcf8e;
   --warning: #f5b544;
+  --highlight: #f6b85a;
+  --highlight-foreground: #241604;
 
-  --sidebar: #0b0b12;
-  --sidebar-foreground: #ececf1;
-  --sidebar-primary: #f4b25b;
-  --sidebar-primary-foreground: #1c1206;
-  --sidebar-accent: #191922;
-  --sidebar-accent-foreground: #ececf1;
-  --sidebar-border: #1d1d27;
-  --sidebar-ring: #f4b25b;
+  --sidebar: #0b1017;
+  --sidebar-foreground: #e8edf4;
+  --sidebar-primary: #3ed6c0;
+  --sidebar-primary-foreground: #03201b;
+  --sidebar-accent: #16202a;
+  --sidebar-accent-foreground: #e8edf4;
+  --sidebar-border: #19222d;
+  --sidebar-ring: #3ed6c0;
 }
 
 @theme inline {
@@ -76,6 +79,8 @@
   --color-info: var(--info);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -94,6 +99,21 @@
   body {
     @apply bg-background font-sans text-foreground antialiased;
     font-feature-settings: "ss01", "cv11";
+  }
+
+  img {
+    outline: 1px solid rgb(255 255 255 / 0.08);
+    outline-offset: -1px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   ::selection {
@@ -136,7 +156,7 @@
   border: 1px solid transparent;
   background:
     linear-gradient(var(--color-card), var(--color-card)) padding-box,
-    linear-gradient(135deg, var(--color-primary), #e8692e) border-box;
+    linear-gradient(135deg, var(--color-primary), var(--color-info)) border-box;
 }
 
 @media (prefers-reduced-motion: reduce) {

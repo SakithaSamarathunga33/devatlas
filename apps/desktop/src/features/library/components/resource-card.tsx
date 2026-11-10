@@ -13,7 +13,7 @@ import type { Resource } from "@/types/library.types";
 import { useResourceActions, viewerPath } from "../hooks/use-resource-actions";
 
 const cardAction =
-  "rounded-full bg-black/55 p-1.5 text-white/90 opacity-0 backdrop-blur transition-opacity outline-none group-hover/card:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring";
+  "rounded-full bg-black/55 p-2 text-white/90 opacity-0 backdrop-blur transition-opacity outline-none group-hover/card:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring";
 
 /** Initial of the site's name: "ui.aceternity.com" → "A", "reactbits.dev" → "R". */
 function siteInitial(host: string): string {
@@ -60,10 +60,10 @@ export function ResourceCard({ resource }: { resource: Resource }) {
               />
             )}
             {resource.isNew && (
-              <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 rounded-full bg-linear-to-b from-amber-300 to-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-amber-950 shadow-[0_0_18px_-2px_var(--color-primary)]">
+              <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 rounded-full bg-highlight px-2.5 py-0.5 text-[11px] font-semibold text-highlight-foreground shadow-[0_0_18px_-4px_var(--color-highlight)]">
                 <span
                   aria-hidden
-                  className="size-1.5 animate-pulse rounded-full bg-amber-950 motion-reduce:animate-none"
+                  className="size-1.5 animate-pulse rounded-full bg-highlight-foreground motion-reduce:animate-none"
                 />
                 New
               </span>

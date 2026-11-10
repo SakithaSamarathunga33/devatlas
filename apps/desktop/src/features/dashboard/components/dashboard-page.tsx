@@ -130,7 +130,7 @@ function StatCards({ resources }: { resources: readonly Resource[] }) {
       value: resources.length,
       note: `+${String(thisMonth)} this month`,
       icon: Layers,
-      tone: "text-amber-300",
+      tone: "text-primary",
       series: cumulative,
     },
     {
@@ -138,7 +138,7 @@ function StatCards({ resources }: { resources: readonly Resource[] }) {
       value: thisMonth,
       note: `${String(lastMonth)} last month`,
       icon: CalendarPlus,
-      tone: "text-primary",
+      tone: "text-sky-300",
       series: monthly,
     },
     {
@@ -146,7 +146,7 @@ function StatCards({ resources }: { resources: readonly Resource[] }) {
       value: resources.filter((resource) => resource.isNew).length,
       note: "Not opened yet",
       icon: Sparkles,
-      tone: "text-emerald-300",
+      tone: "text-highlight",
       series: [],
     },
     {
@@ -154,7 +154,7 @@ function StatCards({ resources }: { resources: readonly Resource[] }) {
       value: categories.length,
       note: `${String(resources.filter((r) => r.origin === "devatlas").length)} added in DevAtlas`,
       icon: Shapes,
-      tone: "text-sky-300",
+      tone: "text-rose-300",
       series: categories.map(({ count }) => count),
     },
   ];
@@ -162,7 +162,7 @@ function StatCards({ resources }: { resources: readonly Resource[] }) {
   return (
     <ul className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map((stat) => (
-        <li key={stat.label}>
+        <li key={stat.label} className="min-w-0">
           <StatCard {...stat} />
         </li>
       ))}
@@ -181,16 +181,16 @@ interface StatProps {
 
 function StatCard({ label, value, note, icon: Icon, tone, series }: StatProps) {
   return (
-    <div className="flex items-end justify-between gap-3 rounded-2xl border border-white/[0.06] bg-card/70 p-5 backdrop-blur">
-      <div className="flex items-start gap-3">
-        <Icon className={cn("mt-1 size-6", tone)} aria-hidden />
-        <div>
-          <p className="text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className={cn("mt-1 text-xs", tone)}>{note}</p>
-        </div>
+    <div className="flex h-full flex-col rounded-2xl border border-white/[0.06] bg-card/70 p-5 backdrop-blur">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Icon className={cn("size-4 shrink-0", tone)} aria-hidden />
+        <span className="truncate">{label}</span>
+      </p>
+      <div className="mt-3 flex min-h-10 items-end justify-between gap-3">
+        <p className="text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
+        <Sparkline values={series} className={tone} />
       </div>
-      <Sparkline values={series} className={tone} />
+      <p className={cn("mt-1.5 truncate text-xs", tone)}>{note}</p>
     </div>
   );
 }
@@ -210,7 +210,7 @@ function Sparkline({ values, className }: { values: number[]; className?: string
       viewBox="0 0 100 32"
       preserveAspectRatio="none"
       aria-hidden
-      className={cn("h-12 w-28 shrink-0", className)}
+      className={cn("h-10 w-24 shrink-0", className)}
     >
       <path d={`${line} L100,32 L0,32 Z`} fill="currentColor" opacity={0.12} />
       <path

@@ -58,9 +58,7 @@ export function LibraryPage() {
   return (
     <div className="w-full px-5 pt-6 pb-16 lg:px-8">
       <BlurFade>
-        <h1 className="w-fit bg-linear-to-r from-amber-100 via-primary to-orange-400 bg-clip-text text-4xl font-semibold tracking-[-0.03em] text-transparent">
-          Library
-        </h1>
+        <h1 className="text-4xl font-semibold tracking-[-0.03em]">Library</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {query.isSuccess
             ? librarySummary(query.data)
@@ -83,7 +81,7 @@ export function LibraryPage() {
             onClick={() => {
               setParam("add", adding ? null : "1");
             }}
-            className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-linear-to-b from-amber-300 to-amber-500 px-5 text-sm font-semibold text-amber-950 shadow-[0_0_32px_-8px_var(--color-primary)] transition-[filter,box-shadow] outline-none hover:shadow-[0_0_40px_-6px_var(--color-primary)] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[0_0_32px_-10px_var(--color-primary)] transition-[background-color,box-shadow,transform] duration-150 outline-none hover:bg-primary/90 hover:shadow-[0_0_40px_-8px_var(--color-primary)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97] motion-reduce:active:scale-100"
           >
             <Plus
               aria-hidden
@@ -323,14 +321,19 @@ function FilterChip({ label, count, active, onSelect }: FilterChipProps) {
       aria-pressed={active}
       onClick={onSelect}
       className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-medium transition-[background-color,color,transform] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:active:scale-100",
         active
-          ? "border-transparent bg-linear-to-b from-amber-300 to-amber-500 text-amber-950 shadow-[0_0_20px_-6px_var(--color-primary)]"
+          ? "border-transparent bg-primary text-primary-foreground shadow-[0_0_20px_-8px_var(--color-primary)]"
           : "border-white/10 bg-white/[0.03] text-foreground/80 hover:bg-white/[0.06] hover:text-foreground",
       )}
     >
       {label}
-      <span className={cn("tabular-nums", active ? "text-amber-950/70" : "text-muted-foreground")}>
+      <span
+        className={cn(
+          "tabular-nums",
+          active ? "text-primary-foreground/70" : "text-muted-foreground",
+        )}
+      >
         {count}
       </span>
     </button>
