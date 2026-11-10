@@ -13,40 +13,44 @@
   color-scheme: dark;
   --radius: 0.5rem;
 
-  /* "Atlas ink": blue-black chart paper, sea-teal for actions, amber only for what's new. */
-  --background: #090d13;
-  --foreground: #e8edf4;
-  --card: #0f151d;
-  --card-foreground: #e8edf4;
-  --popover: #141b25;
-  --popover-foreground: #e8edf4;
-  --primary: #3ed6c0;
-  --primary-foreground: #03201b;
-  --secondary: #17202b;
-  --secondary-foreground: #e8edf4;
-  --muted: #131a23;
-  --muted-foreground: #8b97a8;
-  --accent: #19222d;
-  --accent-foreground: #e8edf4;
+  /*
+   * "Atlas": a map-blue sidebar rail is the one committed colour; the work area is neutral
+   * graphite so previews and data read true. Saffron marks actions and the current selection
+   * only; sky marks what is new. No glows: depth comes from offset shadows and borders.
+   */
+  --background: #121316;
+  --foreground: #ebedf0;
+  --card: #18191d;
+  --card-foreground: #ebedf0;
+  --popover: #1e2025;
+  --popover-foreground: #ebedf0;
+  --primary: #f0a63c;
+  --primary-foreground: #1d1204;
+  --secondary: #202227;
+  --secondary-foreground: #ebedf0;
+  --muted: #1a1c20;
+  --muted-foreground: #9aa0aa;
+  --accent: #22252b;
+  --accent-foreground: #ebedf0;
   --destructive: #f2555a;
-  --border: #1c2531;
-  --input: #263141;
-  --ring: #3ed6c0;
+  --border: #272a30;
+  --input: #30343b;
+  --ring: #f0a63c;
 
-  --info: #5aa9ff;
-  --success: #3fcf8e;
+  --info: #7cbcff;
+  --success: #4fc98a;
   --warning: #f5b544;
-  --highlight: #f6b85a;
-  --highlight-foreground: #241604;
+  --highlight: #7cbcff;
+  --highlight-foreground: #06192e;
 
-  --sidebar: #0b1017;
-  --sidebar-foreground: #e8edf4;
-  --sidebar-primary: #3ed6c0;
-  --sidebar-primary-foreground: #03201b;
-  --sidebar-accent: #16202a;
-  --sidebar-accent-foreground: #e8edf4;
-  --sidebar-border: #19222d;
-  --sidebar-ring: #3ed6c0;
+  --sidebar: #142036;
+  --sidebar-foreground: #dde5f2;
+  --sidebar-primary: #f0a63c;
+  --sidebar-primary-foreground: #1d1204;
+  --sidebar-accent: #1f2f4d;
+  --sidebar-accent-foreground: #f4f7fb;
+  --sidebar-border: #1d2b44;
+  --sidebar-ring: #f0a63c;
 }
 
 @theme inline {
@@ -96,9 +100,18 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    scrollbar-color: #3a3e46 transparent;
+  }
+
   body {
     @apply bg-background font-sans text-foreground antialiased;
     font-feature-settings: "ss01", "cv11";
+  }
+
+  input,
+  textarea {
+    caret-color: var(--primary);
   }
 
   img {
@@ -118,50 +131,5 @@
 
   ::selection {
     background-color: color-mix(in oklab, var(--primary) 35%, transparent);
-  }
-}
-
-/* Animations used by Magic UI AuroraText and AnimatedShinyText. */
-@theme {
-  --animate-aurora: aurora 10s ease-in-out infinite alternate;
-  --animate-shiny-text: shiny-text 8s infinite;
-
-  @keyframes aurora {
-    0% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-    100% {
-      background-position: 0% 50%;
-    }
-  }
-
-  @keyframes shiny-text {
-    0%,
-    90%,
-    100% {
-      background-position: calc(-100% - var(--shiny-width)) 0;
-    }
-    30%,
-    60% {
-      background-position: calc(100% + var(--shiny-width)) 0;
-    }
-  }
-}
-
-/* Gradient hairline border (Uiverse-style), used by ShineButton. */
-@utility gradient-border {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(var(--color-card), var(--color-card)) padding-box,
-    linear-gradient(135deg, var(--color-primary), var(--color-info)) border-box;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-aurora,
-  .animate-shiny-text {
-    animation: none;
   }
 }

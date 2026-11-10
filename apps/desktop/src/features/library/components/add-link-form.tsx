@@ -4,7 +4,7 @@ import { Link2, LoaderCircle, Plus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { ShineButton } from "@/components/shared/shine-button";
+import { Button } from "@/components/ui/button";
 import { libraryQueryKey } from "@/hooks/use-library";
 import { describeError } from "@/services/ipc";
 import { addLink } from "@/services/library.service";
@@ -63,17 +63,17 @@ export function AddLinkForm({ autoFocus = false }: { autoFocus?: boolean }) {
             aria-invalid={message !== undefined}
             aria-describedby={message === undefined ? undefined : "add-link-error"}
             disabled={save.isPending}
-            className="h-11 w-full rounded-full border border-white/10 bg-white/[0.03] pr-4 pl-10 text-sm backdrop-blur outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 aria-invalid:border-destructive/60"
+            className="h-11 w-full rounded-xl border border-input bg-card pr-4 pl-10 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-60 aria-invalid:border-destructive/60"
           />
         </label>
-        <ShineButton type="submit" disabled={save.isPending} className="h-11 px-5">
+        <Button type="submit" disabled={save.isPending} className="h-11 rounded-xl px-5">
           {save.isPending ? (
             <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden />
           ) : (
             <Plus aria-hidden />
           )}
           {save.isPending ? "Fetching details" : "Save link"}
-        </ShineButton>
+        </Button>
       </div>
       {message !== undefined && (
         <p id="add-link-error" role="alert" className="mt-2 pl-4 text-xs text-destructive">

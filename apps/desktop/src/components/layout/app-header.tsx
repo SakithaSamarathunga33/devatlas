@@ -32,7 +32,7 @@ export function AppHeader() {
   return (
     <header
       data-tauri-drag-region
-      className="relative z-10 flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-background/30 pl-4 backdrop-blur-xl"
+      className="relative z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background pl-4"
     >
       <Button
         variant="ghost"
@@ -75,9 +75,9 @@ function HeaderSearch() {
         type="search"
         aria-label="Search resources"
         placeholder="Search resources, tools, or topics…"
-        className="h-9 w-full rounded-xl border border-white/10 bg-white/[0.04] pr-16 pl-10 text-sm outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-9 w-full rounded-lg border border-input bg-card pr-16 pl-10 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30"
       />
-      <kbd className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground">
+      <kbd className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded border border-input bg-secondary px-1.5 py-0.5 font-sans text-[11px] text-muted-foreground">
         Ctrl K
       </kbd>
     </form>

@@ -1,6 +1,5 @@
 import { Outlet } from "react-router";
 
-import { AmbientBackground } from "@/components/layout/ambient-background";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { BackendStatus } from "@/components/shared/backend-status";
@@ -14,10 +13,9 @@ export function AppLayout() {
     <div className="flex h-dvh overflow-hidden">
       <LibraryWatcher />
       <AppSidebar />
-      <div className="relative isolate flex min-w-0 flex-1 flex-col">
-        <AmbientBackground />
+      <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />
-        <main className="relative flex-1 overflow-x-hidden overflow-y-auto">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto">
           <Outlet />
         </main>
         <StatusBar />
@@ -30,8 +28,8 @@ function StatusBar() {
   const appInfo = useAppInfo();
   const library = useLibrary();
   return (
-    <footer className="relative z-10 flex h-9 shrink-0 items-center gap-4 border-t border-white/[0.06] bg-background/70 px-4 text-xs text-muted-foreground backdrop-blur">
-      <BackendStatus className="border-0 bg-transparent px-0 py-0 backdrop-blur-none" />
+    <footer className="relative z-10 flex h-9 shrink-0 items-center gap-4 border-t border-border bg-background px-4 text-xs text-muted-foreground">
+      <BackendStatus className="border-0 bg-transparent px-0 py-0" />
       {library.isSuccess && <span>{library.data.resources.length} resources</span>}
       <span className="ml-auto">
         {appInfo.isSuccess

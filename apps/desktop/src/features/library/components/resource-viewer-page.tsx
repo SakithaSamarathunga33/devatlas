@@ -124,7 +124,7 @@ function ResourceViewer({ resource }: { resource: Resource }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-12 shrink-0 items-center gap-1 border-b border-white/[0.06] bg-background/70 px-3 backdrop-blur-xl">
+      <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-background px-3">
         <Button variant="ghost" size="icon-sm" asChild className="text-muted-foreground">
           <Link to="/library" aria-label="Back to library">
             <ArrowLeft />

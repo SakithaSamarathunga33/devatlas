@@ -58,7 +58,7 @@ export function DashboardPage() {
       <WelcomeHero />
       <StatCards resources={resources} />
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Panel title="Featured resources" icon={Star} viewAll="/library">
           {status ?? <FeaturedResources resources={resources} />}
         </Panel>
@@ -67,7 +67,7 @@ export function DashboardPage() {
         </Panel>
       </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Panel title="Your collections" icon={FolderOpen} viewAll="/library">
           {status ?? <Collections resources={resources} />}
         </Panel>
@@ -89,19 +89,16 @@ interface PanelProps {
 function Panel({ title, icon: Icon, viewAll, children }: PanelProps) {
   const id = `panel-${title.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <section
-      aria-labelledby={id}
-      className="rounded-2xl border border-white/[0.06] bg-card/70 p-5 text-sm text-muted-foreground backdrop-blur"
-    >
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section aria-labelledby={id} className="min-w-0 text-sm text-muted-foreground">
+      <div className="mb-3 flex h-8 items-center justify-between gap-3">
         <h2 id={id} className="flex items-center gap-2 text-base font-semibold text-foreground">
-          <Icon className="size-[18px] text-primary" aria-hidden />
+          <Icon className="size-4 text-muted-foreground" aria-hidden />
           {title}
         </h2>
         {viewAll !== undefined && (
           <Link
             to={viewAll}
-            className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-primary outline-none hover:text-white focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-md px-1 py-1 text-xs font-medium text-primary outline-none hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring"
           >
             View all
             <ArrowRight className="size-3.5" aria-hidden />
@@ -138,7 +135,7 @@ function StatCards({ resources }: { resources: readonly Resource[] }) {
       value: thisMonth,
       note: `${String(lastMonth)} last month`,
       icon: CalendarPlus,
-      tone: "text-sky-300",
+      tone: "text-emerald-300",
       series: monthly,
     },
     {
@@ -181,7 +178,7 @@ interface StatProps {
 
 function StatCard({ label, value, note, icon: Icon, tone, series }: StatProps) {
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-white/[0.06] bg-card/70 p-5 backdrop-blur">
+    <div className="flex h-full flex-col rounded-xl border border-border bg-card p-5">
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Icon className={cn("size-4 shrink-0", tone)} aria-hidden />
         <span className="truncate">{label}</span>
@@ -258,9 +255,12 @@ function QuickActions() {
         <li key={label}>
           <Link
             to={to}
-            className="flex h-full flex-col items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-2 py-3.5 text-center text-xs text-foreground/85 transition-colors outline-none hover:border-primary/40 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
+            className="group/action flex h-full flex-col items-center gap-2 rounded-xl border border-border bg-card px-2 py-3.5 text-center text-xs text-foreground/85 transition-[background-color,border-color,transform] duration-150 outline-none hover:border-primary/50 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:active:scale-100"
           >
-            <Icon className="size-5 text-primary" aria-hidden />
+            <Icon
+              className="size-5 text-muted-foreground transition-colors group-hover/action:text-primary"
+              aria-hidden
+            />
             {label}
           </Link>
         </li>
@@ -278,7 +278,7 @@ function Collections({ resources }: { resources: readonly Resource[] }) {
           <li key={category}>
             <Link
               to={`/library?filter=${category}`}
-              className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 outline-none hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-[background-color,border-color] duration-150 outline-none hover:border-white/15 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span
                 className={cn(
@@ -306,14 +306,14 @@ function RecentActivity({ resources }: { resources: readonly Resource[] }) {
     .slice(0, 5);
   if (recent.length === 0) return <p>Nothing saved yet.</p>;
   return (
-    <ul className="space-y-3">
+    <ul className="divide-y divide-border rounded-xl border border-border bg-card">
       {recent.map((resource) => {
         const added = resource.origin === "devatlas";
         const Icon = added ? Plus : Bookmark;
         return (
-          <li key={resource.id} className="flex items-center gap-3">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15">
-              <Icon className="size-3.5 text-primary" aria-hidden />
+          <li key={resource.id} className="flex items-center gap-3 px-3 py-2.5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary">
+              <Icon className="size-3.5 text-muted-foreground" aria-hidden />
             </span>
             <span className="min-w-0 flex-1 truncate">
               {added ? "Added " : "Saved "}
@@ -324,7 +324,7 @@ function RecentActivity({ resources }: { resources: readonly Resource[] }) {
                 {resource.title}
               </Link>
             </span>
-            <time className="shrink-0 text-xs">
+            <time className="shrink-0 text-xs tabular-nums">
               {formatDistanceToNowStrict(resource.addedAt ?? 0, { addSuffix: true })}
             </time>
           </li>

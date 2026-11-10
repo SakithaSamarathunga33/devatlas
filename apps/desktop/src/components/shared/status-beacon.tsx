@@ -1,15 +1,15 @@
 import { cn } from "@/lib/utils";
 
 const TONES = {
-  success: "bg-success shadow-[0_0_10px_var(--color-success)]",
-  warning: "bg-warning shadow-[0_0_10px_var(--color-warning)]",
-  destructive: "bg-destructive shadow-[0_0_10px_var(--color-destructive)]",
+  success: "bg-success",
+  warning: "bg-warning",
+  destructive: "bg-destructive",
 } as const;
 
 export type BeaconTone = keyof typeof TONES;
 
-/** Uiverse-style status light: a glowing dot with an expanding ping ring. */
-export function StatusBeacon({ tone, pulse = true }: { tone: BeaconTone; pulse?: boolean }) {
+/** Status light; the ping ring only runs while the state is still changing. */
+export function StatusBeacon({ tone, pulse = false }: { tone: BeaconTone; pulse?: boolean }) {
   return (
     <span aria-hidden className="relative flex size-2">
       {pulse && (

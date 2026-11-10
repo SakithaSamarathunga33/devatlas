@@ -22,7 +22,7 @@ export const CATEGORY_META: Record<ResourceCategory, CategoryMeta> = {
   "ui-components": {
     label: "UI components",
     icon: Component,
-    tint: "from-violet-500/40 to-fuchsia-500/10",
+    tint: "from-orange-500/40 to-amber-500/10",
   },
   inspiration: {
     label: "Design inspiration",
@@ -30,9 +30,9 @@ export const CATEGORY_META: Record<ResourceCategory, CategoryMeta> = {
     tint: "from-pink-500/40 to-orange-400/10",
   },
   animation: { label: "Animation", icon: Sparkles, tint: "from-sky-500/40 to-indigo-500/10" },
-  icons: { label: "Icons", icon: Shapes, tint: "from-emerald-500/40 to-teal-500/10" },
-  tools: { label: "Tools & directories", icon: Wrench, tint: "from-amber-500/40 to-yellow-500/10" },
-  cloud: { label: "Cloud consoles", icon: Cloud, tint: "from-blue-500/40 to-cyan-400/10" },
+  icons: { label: "Icons", icon: Shapes, tint: "from-emerald-500/40 to-green-700/10" },
+  tools: { label: "Tools & directories", icon: Wrench, tint: "from-lime-500/35 to-green-600/10" },
+  cloud: { label: "Cloud consoles", icon: Cloud, tint: "from-blue-500/40 to-slate-500/10" },
   other: { label: "Other", icon: Link2, tint: "from-zinc-400/30 to-zinc-500/10" },
 };
 

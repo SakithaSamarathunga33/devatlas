@@ -27,18 +27,18 @@ implemented yet**. Navigation entries for them are visible but disabled and mark
 
 ## Technology stack
 
-| Area             | Technology                                                                                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Desktop runtime  | Tauri 2, Rust (stable, edition 2024)                                                                                           |
-| Frontend         | React 19, TypeScript 6, Vite 8                                                                                                 |
-| UI               | Tailwind CSS 4, shadcn/ui (Radix), Lucide icons, Motion, Geist fonts                                                           |
-| UI effects       | Magic UI (Globe via cobe, MagicCard, BorderBeam, AuroraText, BlurFade), React Bits (Aurora, RotatingText), Kokonut UI (Loader) |
-| State & data     | TanStack Query (backend data), Zustand (shared UI state), Zod (IPC validation)                                                 |
-| Forms (upcoming) | React Hook Form + @hookform/resolvers                                                                                          |
-| Other            | React Router, Sonner (toasts), date-fns                                                                                        |
-| Rust crates      | serde, tracing, tracing-subscriber                                                                                             |
-| Tooling          | pnpm 10 workspaces, Cargo workspace, ESLint, Prettier, Vitest, rustfmt, Clippy                                                 |
-| Planned          | SQLite + SQLx (DEVATLAS-002), WXT browser extension (later milestone)                                                          |
+| Area             | Technology                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| Desktop runtime  | Tauri 2, Rust (stable, edition 2024)                                                  |
+| Frontend         | React 19, TypeScript 6, Vite 8                                                        |
+| UI               | Tailwind CSS 4, shadcn/ui (Radix), Lucide icons, Motion, Geist fonts                  |
+| UI effects       | Magic UI (BlurFade, dashboard greeting only), Kokonut UI (Loader, in-app viewer only) |
+| State & data     | TanStack Query (backend data), Zustand (shared UI state), Zod (IPC validation)        |
+| Forms (upcoming) | React Hook Form + @hookform/resolvers                                                 |
+| Other            | React Router, Sonner (toasts), date-fns                                               |
+| Rust crates      | serde, tracing, tracing-subscriber                                                    |
+| Tooling          | pnpm 10 workspaces, Cargo workspace, ESLint, Prettier, Vitest, rustfmt, Clippy        |
+| Planned          | SQLite + SQLx (DEVATLAS-002), WXT browser extension (later milestone)                 |
 
 TypeScript is pinned to 6.0.x because `typescript-eslint` does not yet support TypeScript 7.
 

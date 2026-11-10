@@ -2,9 +2,8 @@ import { CircleAlert, LayoutGrid, List, Plus, RotateCw, Search } from "lucide-re
 import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
-import Loader from "@/components/kokonutui/loader";
-import { ShineButton } from "@/components/shared/shine-button";
-import { BlurFade } from "@/components/ui/blur-fade";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLibrary } from "@/hooks/use-library";
 import { CATEGORY_META, countByCategory } from "@/lib/resource-categories";
 import { cn } from "@/lib/utils";
@@ -57,52 +56,46 @@ export function LibraryPage() {
 
   return (
     <div className="w-full px-5 pt-6 pb-16 lg:px-8">
-      <BlurFade>
-        <h1 className="text-4xl font-semibold tracking-[-0.03em]">Library</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {query.isSuccess
-            ? librarySummary(query.data)
-            : "Your developer bookmarks, read live from Brave."}
-        </p>
-      </BlurFade>
+      <h1 className="text-3xl font-semibold tracking-[-0.025em]">Library</h1>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        {query.isSuccess
+          ? librarySummary(query.data)
+          : "Your developer bookmarks, read live from Brave."}
+      </p>
 
-      <BlurFade delay={0.04}>
-        <div className="mt-5 flex items-center gap-3">
-          <SearchField
-            value={params.get("q") ?? ""}
-            onChange={(value) => {
-              setParam("q", value);
-            }}
+      <div className="mt-5 flex items-center gap-3">
+        <SearchField
+          value={params.get("q") ?? ""}
+          onChange={(value) => {
+            setParam("q", value);
+          }}
+        />
+        <button
+          type="button"
+          aria-expanded={adding}
+          aria-controls="add-link-panel"
+          onClick={() => {
+            setParam("add", adding ? null : "1");
+          }}
+          className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/0.4)] transition-[background-color,transform] duration-150 outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97] motion-reduce:active:scale-100"
+        >
+          <Plus
+            aria-hidden
+            className={cn(
+              "size-4 transition-transform motion-reduce:transition-none",
+              adding && "rotate-45",
+            )}
           />
-          <button
-            type="button"
-            aria-expanded={adding}
-            aria-controls="add-link-panel"
-            onClick={() => {
-              setParam("add", adding ? null : "1");
-            }}
-            className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[0_0_32px_-10px_var(--color-primary)] transition-[background-color,box-shadow,transform] duration-150 outline-none hover:bg-primary/90 hover:shadow-[0_0_40px_-8px_var(--color-primary)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97] motion-reduce:active:scale-100"
-          >
-            <Plus
-              aria-hidden
-              className={cn(
-                "size-4 transition-transform motion-reduce:transition-none",
-                adding && "rotate-45",
-              )}
-            />
-            Add link
-          </button>
+          Add link
+        </button>
+      </div>
+      {adding && (
+        <div id="add-link-panel">
+          <AddLinkForm autoFocus />
         </div>
-        {adding && (
-          <div id="add-link-panel">
-            <AddLinkForm autoFocus />
-          </div>
-        )}
-      </BlurFade>
-
-      {query.isPending && (
-        <Loader size="md" title="Reading your Brave bookmarks" subtitle="" className="mt-16" />
       )}
+
+      {query.isPending && <LibrarySkeleton />}
 
       {query.isError && (
         <div role="alert" className="mt-10 flex flex-col items-start gap-3">
@@ -111,10 +104,14 @@ export function LibraryPage() {
             Library unavailable
           </p>
           <p className="text-sm text-muted-foreground">{query.error.message}</p>
-          <ShineButton onClick={() => void query.refetch()} disabled={query.isFetching}>
+          <Button
+            variant="outline"
+            onClick={() => void query.refetch()}
+            disabled={query.isFetching}
+          >
             <RotateCw aria-hidden />
             Try again
-          </ShineButton>
+          </Button>
         </div>
       )}
 
@@ -150,11 +147,11 @@ function SearchField({ value, onChange }: { value: string; onChange: (value: str
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] pr-24 pl-11 text-sm backdrop-blur outline-none placeholder:text-muted-foreground/70 focus-visible:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="h-12 w-full rounded-xl border border-input bg-card pr-24 pl-11 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30"
       />
       <kbd className="pointer-events-none absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1 font-sans text-[11px] text-muted-foreground">
-        <span className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5">Ctrl</span>+
-        <span className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5">K</span>
+        <span className="rounded border border-input bg-secondary px-1.5 py-0.5">Ctrl</span>+
+        <span className="rounded border border-input bg-secondary px-1.5 py-0.5">K</span>
       </kbd>
     </label>
   );
@@ -206,101 +203,97 @@ function LibraryBrowser({
 
   return (
     <>
-      <BlurFade delay={0.08}>
-        <div className="mt-5 flex items-start justify-between gap-4">
-          <div role="group" aria-label="Filter by category" className="flex flex-wrap gap-2">
+      <div className="mt-5 flex items-start justify-between gap-4">
+        <div role="group" aria-label="Filter by category" className="flex flex-wrap gap-2">
+          <FilterChip
+            label="All"
+            count={snapshot.resources.length}
+            active={category === "all"}
+            onSelect={() => {
+              onCategoryChange("all");
+            }}
+          />
+          {newCount > 0 && (
             <FilterChip
-              label="All"
-              count={snapshot.resources.length}
-              active={category === "all"}
+              label="New"
+              count={newCount}
+              active={category === "new"}
               onSelect={() => {
-                onCategoryChange("all");
+                onCategoryChange("new");
               }}
             />
-            {newCount > 0 && (
-              <FilterChip
-                label="New"
-                count={newCount}
-                active={category === "new"}
-                onSelect={() => {
-                  onCategoryChange("new");
-                }}
-              />
-            )}
-            {countByCategory(snapshot.resources).map(({ category: value, count }) => (
-              <FilterChip
-                key={value}
-                label={CATEGORY_META[value].label}
-                count={count}
-                active={category === value}
-                onSelect={() => {
-                  onCategoryChange(value);
-                }}
-              />
-            ))}
-          </div>
-          <div
-            role="group"
-            aria-label="Layout"
-            className="flex shrink-0 rounded-lg border border-white/10 bg-white/[0.03] p-0.5"
-          >
-            <ViewButton
-              label="Grid view"
-              active={view === "grid"}
+          )}
+          {countByCategory(snapshot.resources).map(({ category: value, count }) => (
+            <FilterChip
+              key={value}
+              label={CATEGORY_META[value].label}
+              count={count}
+              active={category === value}
               onSelect={() => {
-                onViewChange("grid");
+                onCategoryChange(value);
               }}
-            >
-              <LayoutGrid aria-hidden />
-            </ViewButton>
-            <ViewButton
-              label="List view"
-              active={view === "list"}
-              onSelect={() => {
-                onViewChange("list");
-              }}
-            >
-              <List aria-hidden />
-            </ViewButton>
-          </div>
+            />
+          ))}
         </div>
-      </BlurFade>
+        <div
+          role="group"
+          aria-label="Layout"
+          className="flex shrink-0 rounded-lg border border-border bg-card p-0.5"
+        >
+          <ViewButton
+            label="Grid view"
+            active={view === "grid"}
+            onSelect={() => {
+              onViewChange("grid");
+            }}
+          >
+            <LayoutGrid aria-hidden />
+          </ViewButton>
+          <ViewButton
+            label="List view"
+            active={view === "list"}
+            onSelect={() => {
+              onViewChange("list");
+            }}
+          >
+            <List aria-hidden />
+          </ViewButton>
+        </div>
+      </div>
 
       {groups.length === 0 && (
         <p className="mt-10 text-sm text-muted-foreground">No resources match “{search}”.</p>
       )}
 
-      {groups.map(({ category: group, items }, index) => {
+      {groups.map(({ category: group, items }) => {
         const { label, icon: Icon } = CATEGORY_META[group];
         return (
-          <BlurFade key={group} delay={0.12 + index * 0.04}>
-            <section aria-labelledby={`category-${group}`} className="mt-9">
-              <div className="flex items-center gap-2.5">
-                <Icon className="size-4 text-primary" aria-hidden />
-                <h2 id={`category-${group}`} className="text-sm font-semibold">
-                  {label}
-                </h2>
-                <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>
-              </div>
-              {view === "grid" ? (
-                <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
-                  {items.map((resource) => (
-                    <li key={resource.id}>
-                      <ResourceCard resource={resource} />
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <ul className="mt-3 divide-y divide-white/[0.05] rounded-2xl border border-white/[0.06] bg-card/60 p-1.5 backdrop-blur">
-                  {items.map((resource) => (
-                    <li key={resource.id}>
-                      <ResourceRow resource={resource} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </BlurFade>
+          <section key={group} aria-labelledby={`category-${group}`} className="mt-9">
+            <div className="flex items-center gap-2.5">
+              <Icon className="size-4 text-muted-foreground" aria-hidden />
+              <h2 id={`category-${group}`} className="text-sm font-semibold">
+                {label}
+              </h2>
+              <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>
+            </div>
+            {view === "grid" ? (
+              <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
+                {items.map((resource) => (
+                  <li key={resource.id}>
+                    <ResourceCard resource={resource} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ul className="mt-3 divide-y divide-border rounded-xl border border-border bg-card p-1.5">
+                {items.map((resource) => (
+                  <li key={resource.id}>
+                    <ResourceRow resource={resource} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         );
       })}
     </>
@@ -323,8 +316,8 @@ function FilterChip({ label, count, active, onSelect }: FilterChipProps) {
       className={cn(
         "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-medium transition-[background-color,color,transform] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:active:scale-100",
         active
-          ? "border-transparent bg-primary text-primary-foreground shadow-[0_0_20px_-8px_var(--color-primary)]"
-          : "border-white/10 bg-white/[0.03] text-foreground/80 hover:bg-white/[0.06] hover:text-foreground",
+          ? "border-transparent bg-primary text-primary-foreground"
+          : "border-border bg-card text-foreground/80 hover:bg-secondary hover:text-foreground",
       )}
     >
       {label}
@@ -358,11 +351,35 @@ function ViewButton({ label, active, onSelect, children }: ViewButtonProps) {
       className={cn(
         "flex size-8 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4",
         active
-          ? "bg-primary/15 text-primary"
+          ? "bg-secondary text-primary"
           : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
       )}
     >
       {children}
     </button>
+  );
+}
+
+/** Card-shaped placeholders while Brave's bookmarks are read. */
+function LibrarySkeleton() {
+  return (
+    <div role="status" aria-busy="true" className="mt-9">
+      <span className="sr-only">Reading your Brave bookmarks</span>
+      <Skeleton className="h-5 w-40" />
+      <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
+        {Array.from({ length: 6 }, (_, index) => (
+          <li key={index} className="overflow-hidden rounded-xl border border-border bg-card">
+            <Skeleton className="aspect-[1200/630] rounded-none" />
+            <div className="flex gap-3 p-4">
+              <Skeleton className="size-9 rounded-lg" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

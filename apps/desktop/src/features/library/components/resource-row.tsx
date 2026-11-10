@@ -35,7 +35,7 @@ export function ResourceRow({ resource }: { resource: Resource }) {
           <span className="flex items-center gap-2">
             <span className="truncate text-sm font-medium">{resource.title}</span>
             {resource.isNew && (
-              <span className="shrink-0 rounded-full bg-highlight px-2 py-px text-[10px] font-semibold text-highlight-foreground">
+              <span className="shrink-0 rounded-full bg-highlight px-2 py-px text-[11px] font-semibold text-highlight-foreground">
                 New
               </span>
             )}
@@ -47,7 +47,7 @@ export function ResourceRow({ resource }: { resource: Resource }) {
         <span className="hidden w-36 shrink-0 truncate text-xs text-muted-foreground md:block">
           {label}
         </span>
-        <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground/70 tabular-nums sm:block">
+        <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums sm:block">
           {resource.addedAt === null ? "" : format(resource.addedAt, "MMM yyyy")}
         </span>
       </Link>

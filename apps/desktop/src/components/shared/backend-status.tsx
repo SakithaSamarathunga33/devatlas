@@ -17,11 +17,11 @@ export function BackendStatus({ className }: { className?: string }) {
     <span
       role="status"
       className={cn(
-        "inline-flex items-center gap-2.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-muted-foreground backdrop-blur",
+        "inline-flex items-center gap-2.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground",
         className,
       )}
     >
-      <StatusBeacon tone={tone} pulse={status !== "error"} />
+      <StatusBeacon tone={tone} pulse={status === "pending"} />
       {label}
     </span>
   );
