@@ -2,10 +2,10 @@ import { CircleAlert, LayoutGrid, List } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { selectClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 
 import { useSavedRepos, type SavedRepo } from "../hooks/use-saved-repos";
-import { selectClass } from "../repo-utils";
 import { RemoveRepoButton, RepoCard, RepoRow } from "./repo-ui";
 
 const SORTS = {

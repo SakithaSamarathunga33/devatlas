@@ -6,11 +6,12 @@ import { SearchField } from "@/components/shared/search-field";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLibrary } from "@/hooks/use-library";
+import { selectClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import { trendingPeriods, type GithubRepo, type TrendingPeriod } from "@/types/discovery.types";
 
 import { useTrendingRepos } from "../hooks/use-trending-repos";
-import { githubFullName, LANGUAGES, libraryId, selectClass, type Language } from "../repo-utils";
+import { githubFullName, LANGUAGES, libraryId, type Language } from "../repo-utils";
 import { GithubMark, RepoRow, SaveRepoButton } from "./repo-ui";
 import { SavedRepos } from "./saved-repos";
 

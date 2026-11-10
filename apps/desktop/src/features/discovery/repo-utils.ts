@@ -22,10 +22,6 @@ export function languageColor(language: string): string | undefined {
   return (LANGUAGE_COLORS as Record<string, string | undefined>)[language];
 }
 
-/** Native `<select>` styling shared by the Discovery filters. */
-export const selectClass =
-  "h-9 rounded-lg border border-input bg-card px-3 text-sm text-foreground outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30";
-
 export const compactNumber = new Intl.NumberFormat("en", {
   notation: "compact",
   maximumFractionDigits: 1,

@@ -29,6 +29,10 @@ reqwest = { version = "0.13", default-features = false, features = [
     "gzip",
 ] }
 scraper = "0.29"
+# RSS/Atom parsing for Discovery's news view.
+feed-rs = "3"
+# `join_all` to fetch news feeds concurrently.
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }
 tauri-build = { version = "2", features = [] }

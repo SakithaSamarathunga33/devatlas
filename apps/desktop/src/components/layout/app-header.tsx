@@ -12,15 +12,15 @@ import { useUiStore } from "@/stores/ui-store";
 export function AppHeader() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
-  // The Library and Discovery pages have their own, larger search.
+  // The Library, Discovery and News pages have their own, larger search.
   const pathname = useLocation().pathname;
-  const pageHasSearch = pathname === "/library" || pathname === "/discovery";
+  const pageHasSearch = ["/library", "/discovery", "/news"].includes(pathname);
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        // The header's search, or the page's own search on Library and Discovery.
+        // The header's search, or the page's own search on Library, Discovery and News.
         document.querySelector<HTMLInputElement>("[data-search-shortcut]")?.focus();
       }
     };

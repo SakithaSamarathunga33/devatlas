@@ -15,7 +15,9 @@ export function AppLayout() {
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto">
+        {/* `relative` keeps absolutely positioned descendants (such as `sr-only` labels) inside
+            this scroll container; without it they extend the page and the whole window scrolls. */}
+        <main className="relative flex-1 overflow-x-hidden overflow-y-auto">
           <Outlet />
         </main>
         <StatusBar />

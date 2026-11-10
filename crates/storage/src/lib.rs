@@ -9,6 +9,8 @@ pub mod brave;
 pub mod github;
 pub mod json_file;
 pub mod library_memory;
+pub mod news;
 pub mod preview_cache;
+pub mod rankings;
 pub mod saved_links;
 pub mod web_preview;

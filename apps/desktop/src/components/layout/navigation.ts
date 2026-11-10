@@ -4,8 +4,10 @@ import {
   Layers,
   LayoutDashboard,
   Library,
+  Newspaper,
   Settings,
   Telescope,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +38,18 @@ export const primaryNavigation: readonly NavigationItem[] = [
     icon: Telescope,
     to: "/discovery",
     description: "Find new packages, releases, and design inspiration worth saving.",
+  },
+  {
+    label: "News",
+    icon: Newspaper,
+    to: "/news",
+    description: "Top developer stories and official language, framework, database and tool blogs.",
+  },
+  {
+    label: "Rankings",
+    icon: Trophy,
+    to: "/rankings",
+    description: "How popular programming languages are (TIOBE and PYPL, monthly).",
   },
   {
     label: "Projects",

@@ -20,12 +20,16 @@ pub fn run() -> tauri::Result<()> {
             let data_dir = app.path().app_data_dir()?;
             app.manage(commands::library::LibraryStore::new(&data_dir));
             app.manage(commands::discovery::Discovery::new()?);
+            app.manage(commands::news::News::new()?);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info::get_app_info,
             commands::discovery::list_trending_repos,
             commands::discovery::get_github_repo,
+            commands::news::list_news,
+            commands::news::list_top_stories,
+            commands::news::list_language_rankings,
             commands::library::list_library,
             commands::library::mark_resource_opened,
             commands::library::add_link,

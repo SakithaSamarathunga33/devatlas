@@ -26,10 +26,15 @@ foundation only (milestone DEVATLAS-001):
   [star-history.com](https://www.star-history.com). **Saved repos** lists the GitHub
   repositories in your library as cards or rows, with search, language and sort filters (their
   details come from GitHub's API and are cached for an hour). The dashboard shows this week's
-  top five.
-  GitHub has no API for
-  its Trending page, so this uses the official Search API (repositories created in the period,
-  most stars first), cached for 15 minutes to respect its rate limit.
+  top five. GitHub has no API for its Trending page, so this uses the official Search API
+  (repositories created in the period, most stars first), cached for 15 minutes to respect its
+  rate limit.
+- **News**: the stories developers are discussing now (Hacker News front page) and the latest
+  posts from 35 official blogs, grouped into languages, frameworks, databases, and tools &
+  platforms, each with its logo (from Simple Icons). Feeds are read in Rust from a fixed
+  allow-list and cached for 30 minutes.
+- **Rankings**: how popular programming languages are, from the two indexes that update
+  monthly (TIOBE and PYPL), side by side, with each language's movement over the last year.
 - Linting, formatting, tests, and CI.
 
 Resource management, search, discovery, the browser extension, AI features, and sync are **not
@@ -135,7 +140,7 @@ Installers are written to `target/release/bundle/`.
 
 ## Current scope and known limitations
 
-- The dashboard, Library, and Discovery are the only routes; Collections, Explorer, Projects,
+- The dashboard, Library, Discovery, News, and Rankings are the only routes; Collections, Explorer, Projects,
   and Settings are planned. The Library mirrors Brave's `develop` folder (Default profile);
   removing a Brave bookmark in DevAtlas hides it there without touching Brave. Categories come
   from a built-in list of known sites.
