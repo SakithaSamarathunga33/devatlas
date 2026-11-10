@@ -6,6 +6,7 @@
 //! adapters and hand them to use cases.
 
 pub mod brave;
+pub mod github;
 pub mod json_file;
 pub mod library_memory;
 pub mod preview_cache;

@@ -10,12 +10,14 @@ import {
   Shapes,
   Sparkles,
   Star,
+  TrendingUp,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 
+import { TrendingPreview } from "@/features/discovery";
 import { ResourceCard } from "@/features/library";
 import { useLibrary } from "@/hooks/use-library";
 import { CATEGORY_META, countByCategory } from "@/lib/resource-categories";
@@ -62,6 +64,12 @@ export function DashboardPage() {
         </Panel>
         <Panel title="Quick actions" icon={Zap}>
           <QuickActions />
+        </Panel>
+      </div>
+
+      <div className="mt-8">
+        <Panel title="Trending on GitHub" icon={TrendingUp} viewAll="/discovery">
+          <TrendingPreview />
         </Panel>
       </div>
 

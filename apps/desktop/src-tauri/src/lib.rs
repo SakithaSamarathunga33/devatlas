@@ -19,10 +19,13 @@ pub fn run() -> tauri::Result<()> {
             app.manage(commands::preview::Previews::new(cache_file)?);
             let data_dir = app.path().app_data_dir()?;
             app.manage(commands::library::LibraryStore::new(&data_dir));
+            app.manage(commands::discovery::Discovery::new()?);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info::get_app_info,
+            commands::discovery::list_trending_repos,
+            commands::discovery::get_github_repo,
             commands::library::list_library,
             commands::library::mark_resource_opened,
             commands::library::add_link,

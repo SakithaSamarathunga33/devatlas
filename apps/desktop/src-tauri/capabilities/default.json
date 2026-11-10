@@ -10,6 +10,8 @@
     "allow-add-link",
     "allow-remove-link",
     "allow-get-resource-preview",
+    "allow-list-trending-repos",
+    "allow-get-github-repo",
     "allow-viewer-open",
     "allow-viewer-set-bounds",
     "allow-viewer-close",

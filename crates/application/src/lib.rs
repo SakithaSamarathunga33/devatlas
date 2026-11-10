@@ -5,5 +5,6 @@
 //! mechanisms such as Tauri commands call into this crate instead of holding logic themselves.
 
 pub mod app_info;
+pub mod discovery;
 pub mod library;
 pub mod preview;

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-github-repo"
+description = "Enables the get_github_repo command without any pre-configured scope."
+commands.allow = ["get_github_repo"]
+
+[[permission]]
+identifier = "deny-get-github-repo"
+description = "Denies the get_github_repo command without any pre-configured scope."
+commands.deny = ["get_github_repo"]

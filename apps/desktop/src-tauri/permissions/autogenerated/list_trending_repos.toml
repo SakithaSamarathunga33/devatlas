@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-list-trending-repos"
+description = "Enables the list_trending_repos command without any pre-configured scope."
+commands.allow = ["list_trending_repos"]
+
+[[permission]]
+identifier = "deny-list-trending-repos"
+description = "Denies the list_trending_repos command without any pre-configured scope."
+commands.deny = ["list_trending_repos"]

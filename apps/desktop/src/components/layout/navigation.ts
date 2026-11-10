@@ -34,6 +34,7 @@ export const primaryNavigation: readonly NavigationItem[] = [
   {
     label: "Discovery",
     icon: Telescope,
+    to: "/discovery",
     description: "Find new packages, releases, and design inspiration worth saving.",
   },
   {

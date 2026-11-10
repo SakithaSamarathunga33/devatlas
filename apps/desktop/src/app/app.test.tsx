@@ -32,10 +32,22 @@ const LIBRARY: LibrarySnapshot = {
   ],
 };
 
+const TRENDING = {
+  fullName: "tauri-apps/tauri",
+  url: "https://github.com/tauri-apps/tauri",
+  description: "Build smaller, faster desktop apps.",
+  language: "Rust",
+  stars: 1234,
+  forks: 56,
+  ownerAvatar: null,
+  createdAt: new Date(Date.now() - 86_400_000).toISOString(),
+};
+
 function mockBackend(appInfo: () => Promise<unknown>) {
   invokeMock.mockImplementation((command) => {
     if (command === "get_app_info") return appInfo();
     if (command === "list_library") return Promise.resolve(LIBRARY);
+    if (command === "list_trending_repos") return Promise.resolve([TRENDING]);
     return Promise.resolve({ title: null, image: null, icon: null });
   });
 }
@@ -95,6 +107,12 @@ describe("App", () => {
       "href",
       "/library?filter=new",
     );
+    const trending = await screen.findByRole("list", { name: "Trending this week" });
+    expect(within(trending).getByRole("link", { name: /tauri-apps/ })).toHaveAttribute(
+      "href",
+      "https://github.com/tauri-apps/tauri",
+    );
+    expect(screen.getByRole("region", { name: "Trending on GitHub" })).toBeInTheDocument();
     const collections = await screen.findByRole("region", { name: "Your collections" });
     expect(await within(collections).findByRole("link", { name: /UI components/ })).toHaveAttribute(
       "href",

@@ -1,7 +1,8 @@
-import { CircleAlert, LayoutGrid, List, Plus, RotateCw, Search } from "lucide-react";
+import { CircleAlert, LayoutGrid, List, Plus, RotateCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
+import { SearchField } from "@/components/shared/search-field";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLibrary } from "@/hooks/use-library";
@@ -69,6 +70,8 @@ export function LibraryPage() {
           onChange={(value) => {
             setParam("q", value);
           }}
+          label="Search library"
+          placeholder="Search resources, tools, or topics…"
         />
         <button
           type="button"
@@ -128,32 +131,6 @@ export function LibraryPage() {
         />
       )}
     </div>
-  );
-}
-
-function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return (
-    <label className="relative block max-w-3xl flex-1">
-      <Search
-        aria-hidden
-        className="pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2 text-muted-foreground"
-      />
-      <input
-        data-search-shortcut
-        type="search"
-        aria-label="Search library"
-        placeholder="Search resources, tools, or topics…"
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-        className="h-12 w-full rounded-xl border border-input bg-card pr-24 pl-11 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30"
-      />
-      <kbd className="pointer-events-none absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1 font-sans text-[11px] text-muted-foreground">
-        <span className="rounded border border-input bg-secondary px-1.5 py-0.5">Ctrl</span>+
-        <span className="rounded border border-input bg-secondary px-1.5 py-0.5">K</span>
-      </kbd>
-    </label>
   );
 }
 

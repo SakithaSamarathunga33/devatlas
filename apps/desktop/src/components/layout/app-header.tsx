@@ -12,14 +12,15 @@ import { useUiStore } from "@/stores/ui-store";
 export function AppHeader() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
-  // The Library page has its own, larger search.
-  const onLibrary = useLocation().pathname === "/library";
+  // The Library and Discovery pages have their own, larger search.
+  const pathname = useLocation().pathname;
+  const pageHasSearch = pathname === "/library" || pathname === "/discovery";
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        // The header's search, or the Library page's own search on /library.
+        // The header's search, or the page's own search on Library and Discovery.
         document.querySelector<HTMLInputElement>("[data-search-shortcut]")?.focus();
       }
     };
@@ -44,7 +45,7 @@ export function AppHeader() {
       >
         {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
       </Button>
-      {!onLibrary && <HeaderSearch />}
+      {!pageHasSearch && <HeaderSearch />}
       <div data-tauri-drag-region className="h-full flex-1" />
       <WindowControls />
     </header>

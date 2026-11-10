@@ -9,6 +9,8 @@ const COMMANDS: &[&str] = &[
     "add_link",
     "remove_link",
     "get_resource_preview",
+    "list_trending_repos",
+    "get_github_repo",
     "viewer_open",
     "viewer_set_bounds",
     "viewer_close",
