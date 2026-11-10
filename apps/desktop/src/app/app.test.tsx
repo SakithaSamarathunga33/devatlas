@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { describe, expect, it, vi } from "vitest";
 
 import { App } from "@/app/app";
+import { useUiStore } from "@/stores/ui-store";
 import type { LibrarySnapshot } from "@/types/library.types";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -55,6 +56,29 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
     expect(await screen.findByText("DevAtlas 0.1.0 · Windows")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Backend connected");
+  });
+
+  it("keeps the navigation links styled when the sidebar is collapsed", () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+    useUiStore.setState({ sidebarCollapsed: true });
+
+    try {
+      render(<App />);
+
+      // Collapsed links sit inside a Radix tooltip trigger, which merges class names as
+      // strings; a function className used to arrive as its source text.
+      for (const name of ["Dashboard", "Library"]) {
+        const link = screen.getByRole("link", { name });
+        expect(link).toHaveClass("h-10");
+        expect(link.className).not.toContain("=>");
+      }
+      expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+    } finally {
+      useUiStore.setState({ sidebarCollapsed: false });
+    }
   });
 
   it("shows real library numbers, collections and recent activity", async () => {

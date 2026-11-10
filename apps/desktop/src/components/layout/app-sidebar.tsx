@@ -97,15 +97,14 @@ function SidebarItem({ item, collapsed }: { item: NavigationItem; collapsed: boo
       <NavLink
         to={item.to}
         end
-        className={({ isActive }) =>
-          cn(
-            itemBase,
-            "transition-[background-color,color,box-shadow] duration-200",
-            isActive
-              ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground [&>svg]:text-sidebar-primary"
-              : "text-sidebar-foreground/75 hover:bg-white/[0.06] hover:text-sidebar-accent-foreground",
-          )
-        }
+        // A plain string, not NavLink's className function: when collapsed, the link sits in a
+        // Radix tooltip trigger (Slot), which can only merge string class names. NavLink marks
+        // the active link with aria-current="page", so the active style keys off that.
+        className={cn(
+          itemBase,
+          "text-sidebar-foreground/75 transition-[background-color,color] duration-200 hover:text-sidebar-accent-foreground not-aria-[current=page]:hover:bg-white/[0.06]",
+          "aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground aria-[current=page]:[&>svg]:text-sidebar-primary",
+        )}
       >
         {content}
       </NavLink>
