@@ -55,6 +55,7 @@ mod tests {
             ResourceMemory {
                 first_seen: 42,
                 opened: false,
+                hidden: true,
             },
         )]);
 

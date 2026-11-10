@@ -1,27 +1,19 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ExternalLink, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { toast } from "sonner";
 
 import { MagicCard } from "@/components/ui/magic-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { libraryQueryKey } from "@/hooks/use-library";
 import { useResourcePreview } from "@/hooks/use-resource-preview";
 import { CATEGORY_META } from "@/lib/resource-categories";
 import { cn } from "@/lib/utils";
-import { describeError } from "@/services/ipc";
-import { addLink, openInBrowser, removeLink } from "@/services/library.service";
 import type { Resource } from "@/types/library.types";
+
+import { useResourceActions, viewerPath } from "../hooks/use-resource-actions";
 
 const cardAction =
   "rounded-full bg-black/55 p-1.5 text-white/90 opacity-0 backdrop-blur transition-opacity outline-none group-hover/card:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring";
-
-/** Path of the in-app viewer for a resource. */
-function viewerPath(resource: Resource): string {
-  return `/library/${encodeURIComponent(resource.id)}`;
-}
 
 /** Initial of the site's name: "ui.aceternity.com" → "A", "reactbits.dev" → "R". */
 function siteInitial(host: string): string {
@@ -34,37 +26,7 @@ function siteInitial(host: string): string {
 export function ResourceCard({ resource }: { resource: Resource }) {
   const preview = useResourcePreview(resource.url);
   const tint = CATEGORY_META[resource.category].tint;
-
-  const queryClient = useQueryClient();
-  const refreshLibrary = () => queryClient.invalidateQueries({ queryKey: libraryQueryKey });
-
-  const openExternally = () => {
-    openInBrowser(resource.url).catch((error: unknown) => {
-      toast.error(`Couldn't open ${resource.host}`, { description: describeError(error) });
-    });
-  };
-
-  const remove = () => {
-    removeLink(resource.id)
-      .then(async () => {
-        await refreshLibrary();
-        toast(`Removed “${resource.title}”`, {
-          action: {
-            label: "Undo",
-            onClick: () => {
-              addLink(resource.url)
-                .then(refreshLibrary)
-                .catch((error: unknown) => {
-                  toast.error("Couldn't restore the link", { description: describeError(error) });
-                });
-            },
-          },
-        });
-      })
-      .catch((error: unknown) => {
-        toast.error("Couldn't remove the link", { description: describeError(error) });
-      });
-  };
+  const { openExternally, remove } = useResourceActions(resource);
 
   return (
     <MagicCard className="h-full rounded-xl" gradientSize={220}>
@@ -98,10 +60,10 @@ export function ResourceCard({ resource }: { resource: Resource }) {
               />
             )}
             {resource.isNew && (
-              <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 rounded-full bg-linear-to-r from-primary to-info px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-[0_0_18px_-2px_var(--color-primary)]">
+              <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 rounded-full bg-linear-to-b from-amber-300 to-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-amber-950 shadow-[0_0_18px_-2px_var(--color-primary)]">
                 <span
                   aria-hidden
-                  className="size-1.5 animate-pulse rounded-full bg-white motion-reduce:animate-none"
+                  className="size-1.5 animate-pulse rounded-full bg-amber-950 motion-reduce:animate-none"
                 />
                 New
               </span>
@@ -130,17 +92,15 @@ export function ResourceCard({ resource }: { resource: Resource }) {
         </Link>
 
         <div className="absolute top-2.5 right-2.5 flex gap-1.5">
-          {resource.origin === "devatlas" && (
-            <button
-              type="button"
-              onClick={remove}
-              aria-label={`Remove ${resource.title} from your library`}
-              title="Remove from library"
-              className={cardAction}
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={remove}
+            aria-label={`Remove ${resource.title} from your library`}
+            title="Remove from library"
+            className={cardAction}
+          >
+            <Trash2 className="size-3.5" aria-hidden />
+          </button>
           <button
             type="button"
             onClick={openExternally}
@@ -181,7 +141,7 @@ function RemoteImage({ src, className, fallback }: RemoteImageProps) {
   );
 }
 
-function SiteIcon({
+export function SiteIcon({
   icon,
   host,
   className,

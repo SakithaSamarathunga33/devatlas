@@ -69,6 +69,7 @@ async function renderLibrary(
   vi.mocked(invoke).mockImplementation((command, args) => {
     if (command === "list_library") return Promise.resolve(snapshot);
     if (command === "add_link") return addLink();
+    if (command === "remove_link") return Promise.resolve(true);
     const { url } = args as { url: string };
     return Promise.resolve({ title: null, image: `${url}/og.png`, icon: null });
   });
@@ -84,10 +85,11 @@ async function renderLibrary(
 }
 
 function submitLink(url: string) {
+  fireEvent.click(screen.getByRole("button", { name: "Add link" }));
   fireEvent.change(screen.getByRole("textbox", { name: "Link to save" }), {
     target: { value: url },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save link" }));
 }
 
 describe("LibraryPage", () => {
@@ -121,23 +123,31 @@ describe("LibraryPage", () => {
   it("asks for a link before submitting", async () => {
     await renderLibrary();
 
+    expect(screen.queryByRole("textbox", { name: "Link to save" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+    expect(screen.getByRole("button", { name: "Add link" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save link" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Paste a link to save it.");
     expect(invoke).not.toHaveBeenCalledWith("add_link", expect.anything());
   });
 
-  it("lets you remove only links added in DevAtlas", async () => {
+  it("lets you remove any resource, including Brave bookmarks", async () => {
     await renderLibrary({
       ...SNAPSHOT,
       resources: [...SNAPSHOT.resources, { ...AWWWARDS, isNew: true }],
     });
 
-    expect(
-      screen.getByRole("button", { name: "Remove Best Portfolio Websites from your library" }),
-    ).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(4);
     expect(screen.getByText(/and 1 added in DevAtlas/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Docs | Motion from your library" }));
+
+    expect(await screen.findByText("Removed “Docs | Motion”")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("remove_link", { id: "motion.dev/docs" });
   });
 
   it("groups resources from Brave under their categories", async () => {
@@ -194,6 +204,24 @@ describe("LibraryPage", () => {
     });
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByText("uiverse.io")).toBeInTheDocument();
+  });
+
+  it("switches between the grid and a compact list", async () => {
+    await renderLibrary();
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
+
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+
+    expect(screen.getByRole("button", { name: "List view" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Docs \| Motion/ })).toHaveAttribute(
+      "href",
+      "/library/motion.dev%2Fdocs",
+    );
+    expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(3);
   });
 
   it("opens resources inside DevAtlas, with the browser as an explicit option", async () => {

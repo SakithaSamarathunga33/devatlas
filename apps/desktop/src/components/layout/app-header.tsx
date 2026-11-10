@@ -2,7 +2,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, PanelLeftClose, PanelLeftOpen, Search, Square, X } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,22 @@ import { useUiStore } from "@/stores/ui-store";
 export function AppHeader() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  // The Library page has its own, larger search.
+  const onLibrary = useLocation().pathname === "/library";
+
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        // The header's search, or the Library page's own search on /library.
+        document.querySelector<HTMLInputElement>("[data-search-shortcut]")?.focus();
+      }
+    };
+    window.addEventListener("keydown", focusSearch);
+    return () => {
+      window.removeEventListener("keydown", focusSearch);
+    };
+  }, []);
 
   return (
     <header
@@ -28,7 +44,7 @@ export function AppHeader() {
       >
         {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
       </Button>
-      <HeaderSearch />
+      {!onLibrary && <HeaderSearch />}
       <div data-tauri-drag-region className="h-full flex-1" />
       <WindowControls />
     </header>
@@ -38,19 +54,6 @@ export function AppHeader() {
 function HeaderSearch() {
   const navigate = useNavigate();
   const input = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const focusSearch = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        input.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", focusSearch);
-    return () => {
-      window.removeEventListener("keydown", focusSearch);
-    };
-  }, []);
 
   return (
     <form
@@ -68,6 +71,7 @@ function HeaderSearch() {
       />
       <input
         ref={input}
+        data-search-shortcut
         type="search"
         aria-label="Search resources"
         placeholder="Search resources, tools, or topics…"

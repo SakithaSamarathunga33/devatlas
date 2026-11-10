@@ -101,7 +101,7 @@ function Panel({ title, icon: Icon, viewAll, children }: PanelProps) {
         {viewAll !== undefined && (
           <Link
             to={viewAll}
-            className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-violet-300 outline-none hover:text-white focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-primary outline-none hover:text-white focus-visible:ring-2 focus-visible:ring-ring"
           >
             View all
             <ArrowRight className="size-3.5" aria-hidden />
@@ -138,7 +138,7 @@ function StatCards({ resources }: { resources: readonly Resource[] }) {
       value: thisMonth,
       note: `${String(lastMonth)} last month`,
       icon: CalendarPlus,
-      tone: "text-violet-300",
+      tone: "text-primary",
       series: monthly,
     },
     {
@@ -260,7 +260,7 @@ function QuickActions() {
             to={to}
             className="flex h-full flex-col items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-2 py-3.5 text-center text-xs text-foreground/85 transition-colors outline-none hover:border-primary/40 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <Icon className="size-5 text-violet-300" aria-hidden />
+            <Icon className="size-5 text-primary" aria-hidden />
             {label}
           </Link>
         </li>
@@ -313,7 +313,7 @@ function RecentActivity({ resources }: { resources: readonly Resource[] }) {
         return (
           <li key={resource.id} className="flex items-center gap-3">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15">
-              <Icon className="size-3.5 text-violet-300" aria-hidden />
+              <Icon className="size-3.5 text-primary" aria-hidden />
             </span>
             <span className="min-w-0 flex-1 truncate">
               {added ? "Added " : "Saved "}

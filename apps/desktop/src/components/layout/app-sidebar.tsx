@@ -32,7 +32,7 @@ export function AppSidebar() {
         </div>
         {!collapsed && (
           <div className="min-w-0 leading-tight">
-            <p className="bg-linear-to-r from-white via-violet-200 to-sky-300 bg-clip-text text-[15px] font-semibold tracking-tight text-transparent">
+            <p className="bg-linear-to-r from-white via-amber-100 to-amber-300 bg-clip-text text-[15px] font-semibold tracking-tight text-transparent">
               DevAtlas
             </p>
             <p className="truncate text-[11px] text-muted-foreground">Developer resource atlas</p>
@@ -105,7 +105,7 @@ function SidebarItem({ item, collapsed }: { item: NavigationItem; collapsed: boo
             itemBase,
             "transition-all duration-200",
             isActive
-              ? "bg-linear-to-r from-primary/20 via-primary/[0.08] to-transparent text-white ring-1 ring-white/[0.07] ring-inset before:absolute before:inset-y-2.5 before:-left-3 before:w-[3px] before:rounded-full before:bg-primary before:shadow-[0_0_12px_var(--color-primary)] [&>svg]:text-violet-300"
+              ? "bg-linear-to-r from-primary/20 via-primary/[0.08] to-transparent text-white ring-1 ring-white/[0.07] ring-inset before:absolute before:inset-y-2.5 before:-left-3 before:w-[3px] before:rounded-full before:bg-primary before:shadow-[0_0_12px_var(--color-primary)] [&>svg]:text-primary"
               : "text-muted-foreground hover:bg-white/[0.04] hover:text-sidebar-foreground",
           )
         }

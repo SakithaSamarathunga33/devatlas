@@ -49,7 +49,7 @@ export function ResourceViewerPage() {
             ? library.error.message
             : "This resource is no longer in your Brave develop folder."}
         </p>
-        <Link to="/library" className="mt-4 inline-flex items-center gap-1.5 text-violet-200">
+        <Link to="/library" className="mt-4 inline-flex items-center gap-1.5 text-primary">
           <ArrowLeft className="size-4" aria-hidden />
           Back to library
         </Link>

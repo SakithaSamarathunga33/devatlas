@@ -1,7 +1,7 @@
 import Aurora from "@/components/ui/aurora";
 import { supportsWebGL } from "@/lib/webgl";
 
-const AURORA_STOPS = ["#5b21b6", "#3b82f6", "#8b5cf6"];
+const AURORA_STOPS = ["#7c2d12", "#f59e0b", "#b45309"];
 
 /** Decorative light behind the header and hero: React Bits Aurora over a faint dot grid. */
 export function AmbientBackground() {

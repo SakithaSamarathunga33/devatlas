@@ -69,6 +69,7 @@ pub async fn add_link<R: Runtime>(
         &source,
         DEVELOPER_FOLDER,
         &store.saved,
+        &store.memory,
         &previews.fetcher,
         &previews.cache,
         &url,
@@ -78,12 +79,12 @@ pub async fn add_link<R: Runtime>(
     .map_err(|error| error.to_string())
 }
 
-/// Removes a link saved in DevAtlas. Brave bookmarks are never modified.
+/// Removes a resource from the library. Brave bookmarks are hidden, never modified.
 #[tauri::command]
 pub async fn remove_link(id: String, store: State<'_, LibraryStore>) -> Result<bool, String> {
     let _guard = store.lock.lock().await;
-    library::remove_link(&store.saved, &id).map_err(|error| {
-        tracing::warn!(%error, "could not remove a saved link");
+    library::remove_link(&store.saved, &store.memory, &id).map_err(|error| {
+        tracing::warn!(%error, "could not remove a library resource");
         error.to_string()
     })
 }

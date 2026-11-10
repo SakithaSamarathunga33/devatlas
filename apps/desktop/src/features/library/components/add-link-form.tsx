@@ -43,7 +43,7 @@ export function AddLinkForm({ autoFocus = false }: { autoFocus?: boolean }) {
           save.mutate(values);
         })(event);
       }}
-      className="mt-6"
+      className="mt-3 max-w-3xl"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label className="relative block flex-1">
@@ -72,7 +72,7 @@ export function AddLinkForm({ autoFocus = false }: { autoFocus?: boolean }) {
           ) : (
             <Plus aria-hidden />
           )}
-          {save.isPending ? "Fetching details" : "Add link"}
+          {save.isPending ? "Fetching details" : "Save link"}
         </ShineButton>
       </div>
       {message !== undefined && (

@@ -1,5 +1,5 @@
-import { CircleAlert, RotateCw, Search } from "lucide-react";
-import { useState } from "react";
+import { CircleAlert, LayoutGrid, List, Plus, RotateCw, Search } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
 import Loader from "@/components/kokonutui/loader";
@@ -16,8 +16,10 @@ import {
 
 import { AddLinkForm } from "./add-link-form";
 import { ResourceCard } from "./resource-card";
+import { ResourceRow } from "./resource-row";
 
 type CategoryFilter = ResourceCategory | "all" | "new";
+type View = "grid" | "list";
 
 function parseFilter(value: string | null): CategoryFilter {
   if (value === "new") return "new";
@@ -33,14 +35,32 @@ function librarySummary({ source, resources }: LibrarySnapshot): string {
     : `${String(resources.length)} developer resources: ${browserPart}, and ${String(added)} added in DevAtlas.`;
 }
 
+/** The library. Search (`q`), category (`filter`) and the add-link panel (`add`) live in
+ * the URL, so the dashboard and the header search can link straight into a view. */
 export function LibraryPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const query = useLibrary();
+  const [view, setView] = useState<View>("grid");
+  const adding = params.get("add") === "1";
+
+  const setParam = (key: string, value: string | null) => {
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value === null || value === "") next.delete(key);
+        else next.set(key, value);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   return (
     <div className="w-full px-5 pt-6 pb-16 lg:px-8">
       <BlurFade>
-        <h1 className="text-3xl font-semibold tracking-[-0.03em]">Library</h1>
+        <h1 className="w-fit bg-linear-to-r from-amber-100 via-primary to-orange-400 bg-clip-text text-4xl font-semibold tracking-[-0.03em] text-transparent">
+          Library
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {query.isSuccess
             ? librarySummary(query.data)
@@ -49,7 +69,37 @@ export function LibraryPage() {
       </BlurFade>
 
       <BlurFade delay={0.04}>
-        <AddLinkForm autoFocus={params.get("add") === "1"} />
+        <div className="mt-5 flex items-center gap-3">
+          <SearchField
+            value={params.get("q") ?? ""}
+            onChange={(value) => {
+              setParam("q", value);
+            }}
+          />
+          <button
+            type="button"
+            aria-expanded={adding}
+            aria-controls="add-link-panel"
+            onClick={() => {
+              setParam("add", adding ? null : "1");
+            }}
+            className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-linear-to-b from-amber-300 to-amber-500 px-5 text-sm font-semibold text-amber-950 shadow-[0_0_32px_-8px_var(--color-primary)] transition-[filter,box-shadow] outline-none hover:shadow-[0_0_40px_-6px_var(--color-primary)] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Plus
+              aria-hidden
+              className={cn(
+                "size-4 transition-transform motion-reduce:transition-none",
+                adding && "rotate-45",
+              )}
+            />
+            Add link
+          </button>
+        </div>
+        {adding && (
+          <div id="add-link-panel">
+            <AddLinkForm autoFocus />
+          </div>
+        )}
       </BlurFade>
 
       {query.isPending && (
@@ -70,16 +120,65 @@ export function LibraryPage() {
         </div>
       )}
 
-      {query.isSuccess && <LibraryBrowser key={params.toString()} snapshot={query.data} />}
+      {query.isSuccess && (
+        <LibraryBrowser
+          snapshot={query.data}
+          category={parseFilter(params.get("filter"))}
+          onCategoryChange={(value) => {
+            setParam("filter", value === "all" ? null : value);
+          }}
+          search={params.get("q") ?? ""}
+          view={view}
+          onViewChange={setView}
+        />
+      )}
     </div>
   );
 }
 
-function LibraryBrowser({ snapshot }: { snapshot: LibrarySnapshot }) {
-  const [params] = useSearchParams();
-  const [category, setCategory] = useState<CategoryFilter>(() => parseFilter(params.get("filter")));
-  const [search, setSearch] = useState(params.get("q") ?? "");
+function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="relative block max-w-3xl flex-1">
+      <Search
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2 text-muted-foreground"
+      />
+      <input
+        data-search-shortcut
+        type="search"
+        aria-label="Search library"
+        placeholder="Search resources, tools, or topics…"
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+        className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] pr-24 pl-11 text-sm backdrop-blur outline-none placeholder:text-muted-foreground/70 focus-visible:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+      />
+      <kbd className="pointer-events-none absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1 font-sans text-[11px] text-muted-foreground">
+        <span className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5">Ctrl</span>+
+        <span className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5">K</span>
+      </kbd>
+    </label>
+  );
+}
 
+interface LibraryBrowserProps {
+  snapshot: LibrarySnapshot;
+  category: CategoryFilter;
+  onCategoryChange: (category: CategoryFilter) => void;
+  search: string;
+  view: View;
+  onViewChange: (view: View) => void;
+}
+
+function LibraryBrowser({
+  snapshot,
+  category,
+  onCategoryChange,
+  search,
+  view,
+  onViewChange,
+}: LibraryBrowserProps) {
   if (snapshot.resources.length === 0) {
     return (
       <p className="mt-10 text-sm text-muted-foreground">
@@ -110,14 +209,14 @@ function LibraryBrowser({ snapshot }: { snapshot: LibrarySnapshot }) {
   return (
     <>
       <BlurFade delay={0.08}>
-        <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mt-5 flex items-start justify-between gap-4">
           <div role="group" aria-label="Filter by category" className="flex flex-wrap gap-2">
             <FilterChip
               label="All"
               count={snapshot.resources.length}
               active={category === "all"}
               onSelect={() => {
-                setCategory("all");
+                onCategoryChange("all");
               }}
             />
             {newCount > 0 && (
@@ -126,7 +225,7 @@ function LibraryBrowser({ snapshot }: { snapshot: LibrarySnapshot }) {
                 count={newCount}
                 active={category === "new"}
                 onSelect={() => {
-                  setCategory("new");
+                  onCategoryChange("new");
                 }}
               />
             )}
@@ -137,27 +236,35 @@ function LibraryBrowser({ snapshot }: { snapshot: LibrarySnapshot }) {
                 count={count}
                 active={category === value}
                 onSelect={() => {
-                  setCategory(value);
+                  onCategoryChange(value);
                 }}
               />
             ))}
           </div>
-          <label className="relative block lg:w-72">
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              type="search"
-              aria-label="Search library"
-              placeholder="Search by name or site"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
+          <div
+            role="group"
+            aria-label="Layout"
+            className="flex shrink-0 rounded-lg border border-white/10 bg-white/[0.03] p-0.5"
+          >
+            <ViewButton
+              label="Grid view"
+              active={view === "grid"}
+              onSelect={() => {
+                onViewChange("grid");
               }}
-              className="h-10 w-full rounded-full border border-white/10 bg-white/[0.03] pr-4 pl-10 text-sm backdrop-blur outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </label>
+            >
+              <LayoutGrid aria-hidden />
+            </ViewButton>
+            <ViewButton
+              label="List view"
+              active={view === "list"}
+              onSelect={() => {
+                onViewChange("list");
+              }}
+            >
+              <List aria-hidden />
+            </ViewButton>
+          </div>
         </div>
       </BlurFade>
 
@@ -169,21 +276,31 @@ function LibraryBrowser({ snapshot }: { snapshot: LibrarySnapshot }) {
         const { label, icon: Icon } = CATEGORY_META[group];
         return (
           <BlurFade key={group} delay={0.12 + index * 0.04}>
-            <section aria-labelledby={`category-${group}`} className="mt-10">
+            <section aria-labelledby={`category-${group}`} className="mt-9">
               <div className="flex items-center gap-2.5">
-                <Icon className="size-4 text-violet-300" aria-hidden />
+                <Icon className="size-4 text-primary" aria-hidden />
                 <h2 id={`category-${group}`} className="text-sm font-semibold">
                   {label}
                 </h2>
                 <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>
               </div>
-              <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
-                {items.map((resource) => (
-                  <li key={resource.id}>
-                    <ResourceCard resource={resource} />
-                  </li>
-                ))}
-              </ul>
+              {view === "grid" ? (
+                <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
+                  {items.map((resource) => (
+                    <li key={resource.id}>
+                      <ResourceCard resource={resource} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className="mt-3 divide-y divide-white/[0.05] rounded-2xl border border-white/[0.06] bg-card/60 p-1.5 backdrop-blur">
+                  {items.map((resource) => (
+                    <li key={resource.id}>
+                      <ResourceRow resource={resource} />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           </BlurFade>
         );
@@ -206,14 +323,43 @@ function FilterChip({ label, count, active, onSelect }: FilterChipProps) {
       aria-pressed={active}
       onClick={onSelect}
       className={cn(
-        "inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "border-primary/40 bg-primary/15 text-white shadow-[0_0_18px_-6px_var(--color-primary)]"
-          : "border-white/10 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
+          ? "border-transparent bg-linear-to-b from-amber-300 to-amber-500 text-amber-950 shadow-[0_0_20px_-6px_var(--color-primary)]"
+          : "border-white/10 bg-white/[0.03] text-foreground/80 hover:bg-white/[0.06] hover:text-foreground",
       )}
     >
       {label}
-      <span className="tabular-nums opacity-70">{count}</span>
+      <span className={cn("tabular-nums", active ? "text-amber-950/70" : "text-muted-foreground")}>
+        {count}
+      </span>
+    </button>
+  );
+}
+
+interface ViewButtonProps {
+  label: string;
+  active: boolean;
+  onSelect: () => void;
+  children: ReactNode;
+}
+
+function ViewButton({ label, active, onSelect, children }: ViewButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={active}
+      onClick={onSelect}
+      className={cn(
+        "flex size-8 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4",
+        active
+          ? "bg-primary/15 text-primary"
+          : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
+      )}
+    >
+      {children}
     </button>
   );
 }

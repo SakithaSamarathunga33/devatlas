@@ -56,6 +56,10 @@ pub struct ResourceMemory {
     pub first_seen: i64,
     /// Whether the user has opened it in DevAtlas (or it predates the memory).
     pub opened: bool,
+    /// Whether the user removed it from DevAtlas. Browser bookmarks are hidden this way
+    /// rather than deleted, so the browser profile is never written to.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hidden: bool,
 }
 
 /// Remembered resources, keyed by resource id.
@@ -113,7 +117,7 @@ pub type LoadResult<B, L, M> = Result<
 >;
 
 #[derive(Debug, thiserror::Error)]
-pub enum AddLinkError<B: std::error::Error, L: std::error::Error> {
+pub enum AddLinkError<B: std::error::Error, L: std::error::Error, M: std::error::Error> {
     #[error("Enter a web address, such as https://www.awwwards.com/websites/portfolio/.")]
     InvalidUrl,
     #[error("\u{201c}{0}\u{201d} is already in your library.")]
@@ -122,6 +126,16 @@ pub enum AddLinkError<B: std::error::Error, L: std::error::Error> {
     Source(B),
     #[error("DevAtlas could not save the link: {0}")]
     Store(L),
+    #[error("DevAtlas could not update its library memory: {0}")]
+    Memory(M),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RemoveLinkError<L: std::error::Error, M: std::error::Error> {
+    #[error("DevAtlas could not update your saved links: {0}")]
+    Store(L),
+    #[error("DevAtlas could not update its library memory: {0}")]
+    Memory(M),
 }
 
 /// Collects the bookmarks filed under the top-level browser `folder` (any depth, matched
@@ -154,6 +168,7 @@ where
     let known = remember(memory, &resources, now_ms).map_err(LibraryError::Memory)?;
     let resources = resources
         .into_iter()
+        .filter(|resource| !known.get(&resource.id).is_some_and(|entry| entry.hidden))
         .map(|resource| {
             let is_new = known
                 .get(&resource.id)
@@ -173,19 +188,22 @@ where
 
 /// Saves a link in DevAtlas after fetching its title (and warming the preview cache).
 /// An unreachable site is still saved, titled by its host, so links can be added offline.
+/// Adding a link the user removed earlier brings it back, marked new.
 #[allow(clippy::too_many_arguments)] // each argument is a distinct port or input
-pub async fn add_link<B, L, P, C>(
+pub async fn add_link<B, L, M, P, C>(
     source: &B,
     folder: &str,
     saved: &L,
+    memory: &M,
     previews: &P,
     cache: &C,
     raw_url: &str,
     now_ms: i64,
-) -> Result<Resource, AddLinkError<B::Error, L::Error>>
+) -> Result<Resource, AddLinkError<B::Error, L::Error, M::Error>>
 where
     B: BookmarkSource,
     L: SavedLinkStore,
+    M: LibraryMemoryStore,
     P: PreviewSource,
     C: PreviewCache,
 {
@@ -199,7 +217,11 @@ where
             .chain(saved_resources(&links))
             .find(|resource| resource.id == candidate.id);
         if let Some(existing) = duplicate {
-            return Err(AddLinkError::AlreadySaved(existing.title));
+            return if unhide(memory, &existing.id).map_err(AddLinkError::Memory)? {
+                Ok(existing)
+            } else {
+                Err(AddLinkError::AlreadySaved(existing.title))
+            };
         }
     }
 
@@ -215,13 +237,35 @@ where
         added_at: now_ms,
     });
     saved.save(&links).map_err(AddLinkError::Store)?;
+    unhide(memory, &resource.id).map_err(AddLinkError::Memory)?;
     Ok(resource)
 }
 
-/// Removes a link saved in DevAtlas. Returns whether anything was removed; browser
-/// bookmarks are never touched.
-pub fn remove_link<L: SavedLinkStore>(saved: &L, id: &str) -> Result<bool, L::Error> {
-    let links = saved.load()?;
+/// Forgets a hidden resource so the next load finds it again as new. Returns whether it
+/// was hidden.
+fn unhide<M: LibraryMemoryStore>(memory: &M, id: &str) -> Result<bool, M::Error> {
+    let mut known = memory.load()?.unwrap_or_default();
+    if !known.get(id).is_some_and(|entry| entry.hidden) {
+        return Ok(false);
+    }
+    known.remove(id);
+    memory.save(&known)?;
+    Ok(true)
+}
+
+/// Removes a resource from the library: a link saved in DevAtlas is deleted, and a browser
+/// bookmark is hidden (the browser profile is never written to). Returns whether anything
+/// changed.
+pub fn remove_link<L, M>(
+    saved: &L,
+    memory: &M,
+    id: &str,
+) -> Result<bool, RemoveLinkError<L::Error, M::Error>>
+where
+    L: SavedLinkStore,
+    M: LibraryMemoryStore,
+{
+    let links = saved.load().map_err(RemoveLinkError::Store)?;
     let kept: Vec<SavedLink> = links
         .iter()
         .filter(|link| {
@@ -230,11 +274,21 @@ pub fn remove_link<L: SavedLinkStore>(saved: &L, id: &str) -> Result<bool, L::Er
         })
         .cloned()
         .collect();
-    let removed = kept.len() != links.len();
-    if removed {
-        saved.save(&kept)?;
+    if kept.len() != links.len() {
+        saved.save(&kept).map_err(RemoveLinkError::Store)?;
+        return Ok(true);
     }
-    Ok(removed)
+
+    let mut known = memory
+        .load()
+        .map_err(RemoveLinkError::Memory)?
+        .unwrap_or_default();
+    let Some(entry) = known.get_mut(id).filter(|entry| !entry.hidden) else {
+        return Ok(false);
+    };
+    entry.hidden = true;
+    memory.save(&known).map_err(RemoveLinkError::Memory)?;
+    Ok(true)
 }
 
 /// Records that the user opened a resource, which clears its "new" mark.
@@ -276,6 +330,7 @@ fn remember<M: LibraryMemoryStore>(
             ResourceMemory {
                 first_seen: now_ms,
                 opened: first_run,
+                hidden: false,
             }
         });
     }
@@ -483,11 +538,22 @@ mod tests {
         saved: &FakeSaved,
         title: Option<&'static str>,
         url: &str,
-    ) -> Result<Resource, AddLinkError<Infallible, Infallible>> {
+    ) -> Result<Resource, AddLinkError<Infallible, Infallible, Infallible>> {
+        add_remembering(source, saved, &FakeMemory::default(), title, url)
+    }
+
+    fn add_remembering(
+        source: &FakeSource,
+        saved: &FakeSaved,
+        memory: &FakeMemory,
+        title: Option<&'static str>,
+        url: &str,
+    ) -> Result<Resource, AddLinkError<Infallible, Infallible, Infallible>> {
         block_on(add_link(
             source,
             "develop",
             saved,
+            memory,
             &FakePreviews { title },
             &FakeCache::default(),
             url,
@@ -721,20 +787,71 @@ mod tests {
     }
 
     #[test]
-    fn removing_only_affects_links_saved_in_devatlas() {
+    fn removing_deletes_a_saved_link_and_re_adding_shows_it_as_new() {
         let source = FakeSource::new(vec![bookmark(
             "Motion",
             "https://motion.dev/",
             &["develop"],
         )]);
-        let saved = FakeSaved::default();
-        add(&source, &saved, Some("Awwwards"), "https://awwwards.com/").unwrap();
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+        load_with(&source, &saved, &memory, 0);
+        add_remembering(
+            &source,
+            &saved,
+            &memory,
+            Some("Awwwards"),
+            "https://awwwards.com/",
+        )
+        .unwrap();
+        load_with(&source, &saved, &memory, 1);
 
-        assert!(!remove_link(&saved, "motion.dev").unwrap());
-        assert!(remove_link(&saved, "awwwards.com").unwrap());
+        assert!(remove_link(&saved, &memory, "awwwards.com").unwrap());
         assert!(saved.0.borrow().is_empty());
-        let library = load_with(&source, &saved, &FakeMemory::default(), 0);
-        assert_eq!(titles(&library), ["Motion"]);
+        assert_eq!(titles(&load_with(&source, &saved, &memory, 2)), ["Motion"]);
+
+        add_remembering(
+            &source,
+            &saved,
+            &memory,
+            Some("Awwwards"),
+            "https://awwwards.com/",
+        )
+        .unwrap();
+        assert_eq!(
+            new_titles(&load_with(&source, &saved, &memory, 3)),
+            ["Awwwards"]
+        );
+    }
+
+    #[test]
+    fn removing_a_browser_bookmark_hides_it_until_it_is_added_again() {
+        let source = FakeSource::new(vec![
+            bookmark("Motion", "https://motion.dev/", &["develop"]),
+            bookmark("Uiverse", "https://uiverse.io/", &["develop"]),
+        ]);
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+        load_with(&source, &saved, &memory, 0);
+
+        assert!(remove_link(&saved, &memory, "motion.dev").unwrap());
+        assert!(!remove_link(&saved, &memory, "motion.dev").unwrap());
+        assert_eq!(titles(&load_with(&source, &saved, &memory, 1)), ["Uiverse"]);
+        assert_eq!(source.0.borrow().len(), 2, "the browser is never modified");
+
+        let restored =
+            add_remembering(&source, &saved, &memory, None, "https://motion.dev").unwrap();
+        assert_eq!(restored.title, "Motion");
+        assert!(
+            saved.0.borrow().is_empty(),
+            "nothing is copied into saved links"
+        );
+        assert_eq!(
+            new_titles(&load_with(&source, &saved, &memory, 2)),
+            ["Motion"]
+        );
+        assert!(matches!(
+            add_remembering(&source, &saved, &memory, None, "https://motion.dev"),
+            Err(AddLinkError::AlreadySaved(_))
+        ));
     }
 
     #[test]

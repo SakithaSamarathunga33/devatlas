@@ -19,8 +19,8 @@
   --card-foreground: #ececf1;
   --popover: #15151f;
   --popover-foreground: #ececf1;
-  --primary: #8b6cff;
-  --primary-foreground: #0c0c11;
+  --primary: #f4b25b;
+  --primary-foreground: #1c1206;
   --secondary: #1a1a24;
   --secondary-foreground: #ececf1;
   --muted: #16161e;
@@ -30,7 +30,7 @@
   --destructive: #f2555a;
   --border: #1f1f2c;
   --input: #2a2a38;
-  --ring: #8b6cff;
+  --ring: #f4b25b;
 
   --info: #3aa0ff;
   --success: #3fcf8e;
@@ -38,12 +38,12 @@
 
   --sidebar: #0b0b12;
   --sidebar-foreground: #ececf1;
-  --sidebar-primary: #8b6cff;
-  --sidebar-primary-foreground: #0c0c11;
+  --sidebar-primary: #f4b25b;
+  --sidebar-primary-foreground: #1c1206;
   --sidebar-accent: #191922;
   --sidebar-accent-foreground: #ececf1;
   --sidebar-border: #1d1d27;
-  --sidebar-ring: #8b6cff;
+  --sidebar-ring: #f4b25b;
 }
 
 @theme inline {
@@ -136,7 +136,7 @@
   border: 1px solid transparent;
   background:
     linear-gradient(var(--color-card), var(--color-card)) padding-box,
-    linear-gradient(135deg, var(--color-primary), var(--color-info)) border-box;
+    linear-gradient(135deg, var(--color-primary), #e8692e) border-box;
 }
 
 @media (prefers-reduced-motion: reduce) {

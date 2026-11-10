@@ -11,7 +11,7 @@ export function IconTile({ icon: Icon, className }: { icon: LucideIcon; classNam
         className,
       )}
     >
-      <Icon className="size-[18px] text-violet-200" aria-hidden />
+      <Icon className="size-[18px] text-primary" aria-hidden />
     </div>
   );
 }
