@@ -2,3 +2,5 @@
 
 pub mod app_info;
 pub mod library;
+pub mod preview;
+pub mod viewer;

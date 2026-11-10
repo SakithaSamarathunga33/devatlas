@@ -15,7 +15,7 @@ import {
 
 import { ResourceCard } from "./resource-card";
 
-type CategoryFilter = ResourceCategory | "all";
+type CategoryFilter = ResourceCategory | "all" | "new";
 
 export function LibraryPage() {
   const query = useLibrary();
@@ -67,16 +67,21 @@ function LibraryBrowser({ snapshot }: { snapshot: LibrarySnapshot }) {
     );
   }
 
+  const newCount = snapshot.resources.filter((resource) => resource.isNew).length;
   const term = search.trim().toLowerCase();
   const visible = snapshot.resources.filter(
     (resource) =>
-      (category === "all" || resource.category === category) &&
+      (category === "all" ||
+        (category === "new" ? resource.isNew : resource.category === category)) &&
       (term === "" || resource.title.toLowerCase().includes(term) || resource.host.includes(term)),
   );
   const groups = resourceCategories
     .map((group) => ({
       category: group,
-      items: visible.filter((resource) => resource.category === group),
+      // New resources first; the stable sort keeps the title order otherwise.
+      items: visible
+        .filter((resource) => resource.category === group)
+        .sort((a, b) => Number(b.isNew) - Number(a.isNew)),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -93,6 +98,16 @@ function LibraryBrowser({ snapshot }: { snapshot: LibrarySnapshot }) {
                 setCategory("all");
               }}
             />
+            {newCount > 0 && (
+              <FilterChip
+                label="New"
+                count={newCount}
+                active={category === "new"}
+                onSelect={() => {
+                  setCategory("new");
+                }}
+              />
+            )}
             {countByCategory(snapshot.resources).map(({ category: value, count }) => (
               <FilterChip
                 key={value}

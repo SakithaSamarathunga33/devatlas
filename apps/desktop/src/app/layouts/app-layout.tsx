@@ -3,10 +3,12 @@ import { Outlet } from "react-router";
 import { AmbientBackground } from "@/components/layout/ambient-background";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { LibraryWatcher } from "@/components/shared/library-watcher";
 
 export function AppLayout() {
   return (
     <div className="flex h-dvh overflow-hidden">
+      <LibraryWatcher />
       <AppSidebar />
       <div className="relative isolate flex min-w-0 flex-1 flex-col">
         <AmbientBackground />

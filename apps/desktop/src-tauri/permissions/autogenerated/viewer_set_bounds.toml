@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-viewer-set-bounds"
+description = "Enables the viewer_set_bounds command without any pre-configured scope."
+commands.allow = ["viewer_set_bounds"]
+
+[[permission]]
+identifier = "deny-viewer-set-bounds"
+description = "Denies the viewer_set_bounds command without any pre-configured scope."
+commands.deny = ["viewer_set_bounds"]

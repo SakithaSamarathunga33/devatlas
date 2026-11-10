@@ -1,11 +1,19 @@
 use tauri_build::{AppManifest, Attributes};
 
+/// Every app command. Declaring them makes tauri-build generate `allow-*` permissions, so each
+/// command must be granted explicitly in `capabilities/` (least privilege).
+const COMMANDS: &[&str] = &[
+    "get_app_info",
+    "list_library",
+    "mark_resource_opened",
+    "get_resource_preview",
+    "viewer_open",
+    "viewer_set_bounds",
+    "viewer_close",
+    "viewer_go",
+];
+
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Declaring the app's commands makes tauri-build generate `allow-*` permissions for them,
-    // so each command must be granted explicitly in `capabilities/` (least privilege).
-    tauri_build::try_build(
-        Attributes::new()
-            .app_manifest(AppManifest::new().commands(&["get_app_info", "list_library"])),
-    )?;
+    tauri_build::try_build(Attributes::new().app_manifest(AppManifest::new().commands(COMMANDS)))?;
     Ok(())
 }

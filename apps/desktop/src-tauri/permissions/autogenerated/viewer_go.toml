@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-viewer-go"
+description = "Enables the viewer_go command without any pre-configured scope."
+commands.allow = ["viewer_go"]
+
+[[permission]]
+identifier = "deny-viewer-go"
+description = "Denies the viewer_go command without any pre-configured scope."
+commands.deny = ["viewer_go"]

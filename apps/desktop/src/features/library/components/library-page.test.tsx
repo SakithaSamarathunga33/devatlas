@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "@/app/providers/app-providers";
@@ -22,6 +23,7 @@ const SNAPSHOT: LibrarySnapshot = {
       category: "animation",
       folder: "develop/components",
       addedAt: 1_755_526_400_000,
+      isNew: false,
     },
     {
       id: "reactbits.dev/get-started/index",
@@ -31,6 +33,7 @@ const SNAPSHOT: LibrarySnapshot = {
       category: "ui-components",
       folder: "develop/components",
       addedAt: null,
+      isNew: true,
     },
     {
       id: "uiverse.io/elements",
@@ -40,18 +43,26 @@ const SNAPSHOT: LibrarySnapshot = {
       category: "ui-components",
       folder: "develop/components",
       addedAt: null,
+      isNew: false,
     },
   ],
 };
 
 async function renderLibrary() {
-  vi.mocked(invoke).mockResolvedValue(SNAPSHOT);
-  render(
+  vi.mocked(invoke).mockImplementation((command, args) => {
+    if (command === "list_library") return Promise.resolve(SNAPSHOT);
+    const { url } = args as { url: string };
+    return Promise.resolve({ image: `${url}/og.png`, icon: null });
+  });
+  const view = render(
     <AppProviders>
-      <LibraryPage />
+      <MemoryRouter>
+        <LibraryPage />
+      </MemoryRouter>
     </AppProviders>,
   );
   await screen.findByRole("region", { name: "UI components" });
+  return view;
 }
 
 describe("LibraryPage", () => {
@@ -63,6 +74,34 @@ describe("LibraryPage", () => {
     expect(within(components).getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByRole("region", { name: "Animation" })).toHaveTextContent("Docs | Motion");
     expect(invoke).toHaveBeenCalledWith("list_library");
+  });
+
+  it("shows each site's preview image fetched by the backend", async () => {
+    const { container } = await renderLibrary();
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('img[src="https://motion.dev/docs/og.png"]')).not.toBeNull();
+    });
+    expect(invoke).toHaveBeenCalledWith("get_resource_preview", {
+      url: "https://motion.dev/docs",
+    });
+  });
+
+  it("tags newly added resources, lists them first, and filters to them", async () => {
+    await renderLibrary();
+
+    expect(
+      within(screen.getByRole("link", { name: /React Bits - Index/ })).getByText("New"),
+    ).toBeInTheDocument();
+    const components = screen.getByRole("region", { name: "UI components" });
+    expect(
+      within(components)
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["React Bits - Index", "4508 UI elements: CSS & Tailwind"]);
+
+    fireEvent.click(screen.getByRole("button", { name: /^New/ }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 
   it("filters by category and by search text", async () => {
@@ -83,11 +122,15 @@ describe("LibraryPage", () => {
     expect(screen.getByText("uiverse.io")).toBeInTheDocument();
   });
 
-  it("opens a resource in the system browser", async () => {
+  it("opens resources inside DevAtlas, with the browser as an explicit option", async () => {
     await renderLibrary();
 
-    fireEvent.click(screen.getByRole("button", { name: /React Bits - Index/ }));
+    expect(screen.getByRole("link", { name: /React Bits - Index/ })).toHaveAttribute(
+      "href",
+      "/library/reactbits.dev%2Fget-started%2Findex",
+    );
 
+    fireEvent.click(screen.getByRole("button", { name: "Open reactbits.dev in your browser" }));
     expect(openUrl).toHaveBeenCalledWith("https://reactbits.dev/get-started/index");
   });
 });

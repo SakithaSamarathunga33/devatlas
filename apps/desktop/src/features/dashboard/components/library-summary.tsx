@@ -64,11 +64,17 @@ export function LibrarySummary() {
 
 function CategoryBreakdown({ resources }: { resources: readonly Resource[] }) {
   const total = resources.length;
+  const newCount = resources.filter((resource) => resource.isNew).length;
   return (
     <>
-      <p className="mt-5 text-3xl font-semibold tracking-tight tabular-nums">
+      <p className="mt-5 flex items-baseline text-3xl font-semibold tracking-tight tabular-nums">
         {total}
         <span className="ml-2 text-sm font-normal text-muted-foreground">resources</span>
+        {newCount > 0 && (
+          <span className="ml-3 self-center rounded-full bg-linear-to-r from-primary to-info px-2.5 py-0.5 text-xs font-semibold text-white">
+            {newCount} new
+          </span>
+        )}
       </p>
       <ul className="mt-4 space-y-2.5">
         {countByCategory(resources).map(({ category, count }) => (

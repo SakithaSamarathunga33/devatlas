@@ -15,8 +15,9 @@ foundation only (milestone DEVATLAS-001):
 - One end-to-end Rust ↔ frontend integration: the `get_app_info` command, shown on the dashboard.
 - A **Library** read live (read-only) from your Brave bookmarks: everything in the bookmarks-bar
   folder `develop` (including subfolders) is cleaned, de-duplicated, and sorted into UI
-  components, design inspiration, animation, icons, tools, and cloud consoles. Links open in your
-  default browser.
+  components, design inspiration, animation, icons, tools, and cloud consoles. Cards show each
+  site's preview image, sites open inside DevAtlas, and links you save in Brave appear within a
+  few seconds with a **New** tag (until you open them, or for 7 days).
 - Linting, formatting, tests, and CI.
 
 Resource management, search, discovery, the browser extension, AI features, and sync are **not

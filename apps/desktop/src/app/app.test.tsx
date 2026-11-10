@@ -25,6 +25,7 @@ const LIBRARY: LibrarySnapshot = {
       category: "ui-components",
       folder: "develop/components",
       addedAt: null,
+      isNew: false,
     },
   ],
 };

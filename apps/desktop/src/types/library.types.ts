@@ -23,6 +23,8 @@ export const resourceSchema = z.object({
   category: resourceCategorySchema,
   folder: z.string(),
   addedAt: z.number().int().nullable(),
+  /** Found since an earlier run and not opened yet (cleared after a week). */
+  isNew: z.boolean(),
 });
 export type Resource = z.infer<typeof resourceSchema>;
 
