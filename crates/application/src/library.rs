@@ -1,10 +1,13 @@
-//! Use cases: build the developer library from a bookmark source, and remember which
-//! resources the user has already seen so new ones can be highlighted.
+//! Use cases: build the developer library from browser bookmarks plus links saved in
+//! DevAtlas, add and remove saved links, and remember which resources the user has seen so
+//! new ones can be highlighted.
 
 use std::collections::{BTreeMap, HashSet};
 
-use devatlas_domain::resource::Resource;
+use devatlas_domain::resource::{Resource, normalize_url};
 use serde::{Deserialize, Serialize};
+
+use crate::preview::{self, PreviewCache, PreviewSource};
 
 /// How long a newly found resource keeps its "new" mark if it is never opened.
 pub const NEW_FOR_MS: i64 = 7 * 24 * 60 * 60 * 1000;
@@ -25,6 +28,24 @@ pub trait BookmarkSource {
     type Error: std::error::Error;
 
     fn bookmarks(&self) -> Result<Vec<RawBookmark>, Self::Error>;
+}
+
+/// A link the user saved directly in DevAtlas.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedLink {
+    pub url: String,
+    pub title: String,
+    /// Unix milliseconds.
+    pub added_at: i64,
+}
+
+/// Port: persists the links saved in DevAtlas.
+pub trait SavedLinkStore {
+    type Error: std::error::Error;
+
+    fn load(&self) -> Result<Vec<SavedLink>, Self::Error>;
+    fn save(&self, links: &[SavedLink]) -> Result<(), Self::Error>;
 }
 
 /// What DevAtlas remembers about one resource between runs.
@@ -64,7 +85,7 @@ pub struct LibraryItem {
     pub is_new: bool,
 }
 
-/// The developer library as currently found in the source.
+/// The developer library as currently found.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LibrarySnapshot {
     pub source: LibrarySource,
@@ -72,53 +93,65 @@ pub struct LibrarySnapshot {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum LibraryError<S: std::error::Error, M: std::error::Error> {
+pub enum LibraryError<B: std::error::Error, L: std::error::Error, M: std::error::Error> {
     #[error(transparent)]
-    Source(S),
+    Source(B),
+    #[error("DevAtlas could not read your saved links: {0}")]
+    Saved(L),
     #[error("DevAtlas could not update its library memory: {0}")]
     Memory(M),
 }
 
-/// Collects the bookmarks filed under the top-level `folder` (any depth, matched
-/// case-insensitively), cleans and classifies them, drops duplicates and unusable links,
-/// sorts them by title, and marks the ones found since earlier runs as new.
+/// Result of [`load_library`], with each port's error type.
+pub type LoadResult<B, L, M> = Result<
+    LibrarySnapshot,
+    LibraryError<
+        <B as BookmarkSource>::Error,
+        <L as SavedLinkStore>::Error,
+        <M as LibraryMemoryStore>::Error,
+    >,
+>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum AddLinkError<B: std::error::Error, L: std::error::Error> {
+    #[error("Enter a web address, such as https://www.awwwards.com/websites/portfolio/.")]
+    InvalidUrl,
+    #[error("\u{201c}{0}\u{201d} is already in your library.")]
+    AlreadySaved(String),
+    #[error(transparent)]
+    Source(B),
+    #[error("DevAtlas could not save the link: {0}")]
+    Store(L),
+}
+
+/// Collects the bookmarks filed under the top-level browser `folder` (any depth, matched
+/// case-insensitively) plus the links saved in DevAtlas, cleans and classifies them, drops
+/// duplicates (the browser copy wins) and unusable links, sorts them by title, and marks
+/// the ones found since earlier runs as new.
 ///
 /// On the very first run every resource is treated as already seen, so only links added
 /// afterwards are highlighted.
-pub fn load_library<S: BookmarkSource, M: LibraryMemoryStore>(
-    source: &S,
+pub fn load_library<B, L, M>(
+    source: &B,
+    saved: &L,
     memory: &M,
     browser: &str,
     folder: &str,
     now_ms: i64,
-) -> Result<LibrarySnapshot, LibraryError<S::Error, M::Error>> {
-    let resources = collect_resources(source, folder).map_err(LibraryError::Source)?;
-    let stored = memory.load().map_err(LibraryError::Memory)?;
-    let first_run = stored.is_none();
-    let mut known = stored.unwrap_or_default();
+) -> LoadResult<B, L, M>
+where
+    B: BookmarkSource,
+    L: SavedLinkStore,
+    M: LibraryMemoryStore,
+{
+    let mut resources = browser_resources(source, folder).map_err(LibraryError::Source)?;
+    let saved_links = saved.load().map_err(LibraryError::Saved)?;
+    let mut seen: HashSet<String> = resources.iter().map(|r| r.id.clone()).collect();
+    resources
+        .extend(saved_resources(&saved_links).filter(|resource| seen.insert(resource.id.clone())));
+    resources.sort_by_key(|resource| resource.title.to_lowercase());
 
-    let mut changed = first_run;
-    for resource in &resources {
-        known.entry(resource.id.clone()).or_insert_with(|| {
-            changed = true;
-            ResourceMemory {
-                first_seen: now_ms,
-                opened: first_run,
-            }
-        });
-    }
-    // Forget removed links so re-adding one marks it new again. An empty folder is more
-    // likely a renamed or unreadable folder, so it never wipes the memory.
-    if !resources.is_empty() {
-        let current: HashSet<&str> = resources.iter().map(|r| r.id.as_str()).collect();
-        let before = known.len();
-        known.retain(|id, _| current.contains(id.as_str()));
-        changed |= known.len() != before;
-    }
-    if changed {
-        memory.save(&known).map_err(LibraryError::Memory)?;
-    }
-
+    let known = remember(memory, &resources, now_ms).map_err(LibraryError::Memory)?;
     let resources = resources
         .into_iter()
         .map(|resource| {
@@ -138,6 +171,72 @@ pub fn load_library<S: BookmarkSource, M: LibraryMemoryStore>(
     })
 }
 
+/// Saves a link in DevAtlas after fetching its title (and warming the preview cache).
+/// An unreachable site is still saved, titled by its host, so links can be added offline.
+#[allow(clippy::too_many_arguments)] // each argument is a distinct port or input
+pub async fn add_link<B, L, P, C>(
+    source: &B,
+    folder: &str,
+    saved: &L,
+    previews: &P,
+    cache: &C,
+    raw_url: &str,
+    now_ms: i64,
+) -> Result<Resource, AddLinkError<B::Error, L::Error>>
+where
+    B: BookmarkSource,
+    L: SavedLinkStore,
+    P: PreviewSource,
+    C: PreviewCache,
+{
+    let url = normalize_url(&with_scheme(raw_url)).ok_or(AddLinkError::InvalidUrl)?;
+    let candidate = Resource::saved("", url.as_str(), now_ms).ok_or(AddLinkError::InvalidUrl)?;
+    let mut links = saved.load().map_err(AddLinkError::Store)?;
+    {
+        let browser = browser_resources(source, folder).map_err(AddLinkError::Source)?;
+        let duplicate = browser
+            .into_iter()
+            .chain(saved_resources(&links))
+            .find(|resource| resource.id == candidate.id);
+        if let Some(existing) = duplicate {
+            return Err(AddLinkError::AlreadySaved(existing.title));
+        }
+    }
+
+    let title = preview::get_preview(previews, cache, url.as_str())
+        .await
+        .ok()
+        .and_then(|preview| preview.title)
+        .unwrap_or_default();
+    let resource = Resource::saved(&title, url.as_str(), now_ms).ok_or(AddLinkError::InvalidUrl)?;
+    links.push(SavedLink {
+        url: resource.url.clone(),
+        title: resource.title.clone(),
+        added_at: now_ms,
+    });
+    saved.save(&links).map_err(AddLinkError::Store)?;
+    Ok(resource)
+}
+
+/// Removes a link saved in DevAtlas. Returns whether anything was removed; browser
+/// bookmarks are never touched.
+pub fn remove_link<L: SavedLinkStore>(saved: &L, id: &str) -> Result<bool, L::Error> {
+    let links = saved.load()?;
+    let kept: Vec<SavedLink> = links
+        .iter()
+        .filter(|link| {
+            Resource::saved(&link.title, &link.url, link.added_at)
+                .is_none_or(|resource| resource.id != id)
+        })
+        .cloned()
+        .collect();
+    let removed = kept.len() != links.len();
+    if removed {
+        saved.save(&kept)?;
+    }
+    Ok(removed)
+}
+
 /// Records that the user opened a resource, which clears its "new" mark.
 pub fn mark_opened<M: LibraryMemoryStore>(memory: &M, id: &str) -> Result<(), M::Error> {
     let mut known = memory.load()?.unwrap_or_default();
@@ -150,12 +249,56 @@ pub fn mark_opened<M: LibraryMemoryStore>(memory: &M, id: &str) -> Result<(), M:
     Ok(())
 }
 
-fn collect_resources<S: BookmarkSource>(
-    source: &S,
+/// Accepts addresses typed without a scheme, such as `www.awwwards.com/websites`.
+fn with_scheme(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.contains("://") {
+        trimmed.to_owned()
+    } else {
+        format!("https://{trimmed}")
+    }
+}
+
+/// Updates the memory with the current resources and returns it.
+fn remember<M: LibraryMemoryStore>(
+    memory: &M,
+    resources: &[Resource],
+    now_ms: i64,
+) -> Result<LibraryMemory, M::Error> {
+    let stored = memory.load()?;
+    let first_run = stored.is_none();
+    let mut known = stored.unwrap_or_default();
+
+    let mut changed = first_run;
+    for resource in resources {
+        known.entry(resource.id.clone()).or_insert_with(|| {
+            changed = true;
+            ResourceMemory {
+                first_seen: now_ms,
+                opened: first_run,
+            }
+        });
+    }
+    // Forget removed links so re-adding one marks it new again. An empty library is more
+    // likely a renamed or unreadable folder, so it never wipes the memory.
+    if !resources.is_empty() {
+        let current: HashSet<&str> = resources.iter().map(|r| r.id.as_str()).collect();
+        let before = known.len();
+        known.retain(|id, _| current.contains(id.as_str()));
+        changed |= known.len() != before;
+    }
+    if changed {
+        memory.save(&known)?;
+    }
+    Ok(known)
+}
+
+fn browser_resources<B: BookmarkSource>(
+    source: &B,
     folder: &str,
-) -> Result<Vec<Resource>, S::Error> {
+) -> Result<Vec<Resource>, B::Error> {
     let mut seen = HashSet::new();
-    let mut resources: Vec<Resource> = source
+    Ok(source
         .bookmarks()?
         .into_iter()
         .filter(|bookmark| {
@@ -173,19 +316,28 @@ fn collect_resources<S: BookmarkSource>(
             )
         })
         .filter(|resource| seen.insert(resource.id.clone()))
-        .collect();
-    resources.sort_by_key(|resource| resource.title.to_lowercase());
-    Ok(resources)
+        .collect())
+}
+
+fn saved_resources(links: &[SavedLink]) -> impl Iterator<Item = Resource> + '_ {
+    links
+        .iter()
+        .filter_map(|link| Resource::saved(&link.title, &link.url, link.added_at))
 }
 
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
     use std::convert::Infallible;
+    use std::pin::pin;
+    use std::sync::Mutex;
+    use std::task::{Context, Poll, Waker};
 
-    use devatlas_domain::resource::ResourceCategory;
+    use devatlas_domain::resource::{ResourceCategory, ResourceOrigin};
+    use url::Url;
 
     use super::*;
+    use crate::preview::ResourcePreview;
 
     const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 
@@ -225,6 +377,68 @@ mod tests {
         }
     }
 
+    #[derive(Default)]
+    struct FakeSaved(RefCell<Vec<SavedLink>>);
+
+    impl SavedLinkStore for FakeSaved {
+        type Error = Infallible;
+
+        fn load(&self) -> Result<Vec<SavedLink>, Infallible> {
+            Ok(self.0.borrow().clone())
+        }
+
+        fn save(&self, links: &[SavedLink]) -> Result<(), Infallible> {
+            *self.0.borrow_mut() = links.to_vec();
+            Ok(())
+        }
+    }
+
+    struct FakePreviews {
+        title: Option<&'static str>,
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("offline")]
+    struct Offline;
+
+    impl PreviewSource for FakePreviews {
+        type Error = Offline;
+
+        async fn fetch(&self, _url: &Url) -> Result<ResourcePreview, Offline> {
+            match self.title {
+                Some(title) => Ok(ResourcePreview {
+                    title: Some(title.to_owned()),
+                    ..ResourcePreview::default()
+                }),
+                None => Err(Offline),
+            }
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeCache(Mutex<BTreeMap<String, ResourcePreview>>);
+
+    impl PreviewCache for FakeCache {
+        fn get(&self, url: &str) -> Option<ResourcePreview> {
+            self.0.lock().unwrap().get(url).cloned()
+        }
+
+        fn put(&self, url: &str, preview: ResourcePreview) {
+            self.0.lock().unwrap().insert(url.to_owned(), preview);
+        }
+    }
+
+    /// The fakes resolve immediately, so a single poll completes the future.
+    fn block_on<F: std::future::Future>(future: F) -> F::Output {
+        let mut future = pin!(future);
+        let mut cx = Context::from_waker(Waker::noop());
+        loop {
+            if let Poll::Ready(output) = future.as_mut().poll(&mut cx) {
+                return output;
+            }
+        }
+    }
+
     fn bookmark(title: &str, url: &str, path: &[&str]) -> RawBookmark {
         RawBookmark {
             title: title.to_owned(),
@@ -235,7 +449,24 @@ mod tests {
     }
 
     fn load(source: &FakeSource, memory: &FakeMemory, now_ms: i64) -> LibrarySnapshot {
-        load_library(source, memory, "Brave", "develop", now_ms).unwrap()
+        load_with(source, &FakeSaved::default(), memory, now_ms)
+    }
+
+    fn load_with(
+        source: &FakeSource,
+        saved: &FakeSaved,
+        memory: &FakeMemory,
+        now_ms: i64,
+    ) -> LibrarySnapshot {
+        load_library(source, saved, memory, "Brave", "develop", now_ms).unwrap()
+    }
+
+    fn titles(snapshot: &LibrarySnapshot) -> Vec<&str> {
+        snapshot
+            .resources
+            .iter()
+            .map(|item| item.resource.title.as_str())
+            .collect()
     }
 
     fn new_titles(snapshot: &LibrarySnapshot) -> Vec<&str> {
@@ -245,6 +476,23 @@ mod tests {
             .filter(|item| item.is_new)
             .map(|item| item.resource.title.as_str())
             .collect()
+    }
+
+    fn add(
+        source: &FakeSource,
+        saved: &FakeSaved,
+        title: Option<&'static str>,
+        url: &str,
+    ) -> Result<Resource, AddLinkError<Infallible, Infallible>> {
+        block_on(add_link(
+            source,
+            "develop",
+            saved,
+            &FakePreviews { title },
+            &FakeCache::default(),
+            url,
+            100,
+        ))
     }
 
     #[test]
@@ -262,12 +510,7 @@ mod tests {
 
         let library = load(&source, &FakeMemory::default(), 0);
 
-        let titles: Vec<&str> = library
-            .resources
-            .iter()
-            .map(|item| item.resource.title.as_str())
-            .collect();
-        assert_eq!(titles, ["Motion", "Uiverse"]);
+        assert_eq!(titles(&library), ["Motion", "Uiverse"]);
         assert_eq!(
             library.resources[1].resource.category,
             ResourceCategory::UiComponents
@@ -301,12 +544,7 @@ mod tests {
 
         let library = load(&source, &FakeMemory::default(), 0);
 
-        let titles: Vec<&str> = library
-            .resources
-            .iter()
-            .map(|item| item.resource.title.as_str())
-            .collect();
-        assert_eq!(titles, ["Anime.js", "free-for.dev"]);
+        assert_eq!(titles(&library), ["Anime.js", "free-for.dev"]);
     }
 
     #[test]
@@ -391,7 +629,7 @@ mod tests {
     }
 
     #[test]
-    fn serializes_items_flat_with_an_is_new_flag() {
+    fn serializes_items_flat_with_origin_and_is_new() {
         let source = FakeSource::new(vec![bookmark(
             "Motion",
             "https://motion.dev/",
@@ -402,6 +640,122 @@ mod tests {
         let json = serde_json::to_value(&library.resources[0]).unwrap();
 
         assert_eq!(json["title"], "Motion");
+        assert_eq!(json["origin"], "browser");
         assert_eq!(json["isNew"], false);
+    }
+
+    #[test]
+    fn adding_a_link_fetches_its_title_and_shows_it_as_new() {
+        let source = FakeSource::new(vec![bookmark(
+            "Motion",
+            "https://motion.dev/",
+            &["develop"],
+        )]);
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+        load_with(&source, &saved, &memory, 0);
+
+        let added = add(
+            &source,
+            &saved,
+            Some("Best Portfolio Websites | Web Design Inspiration"),
+            "www.awwwards.com/websites/portfolio/",
+        )
+        .unwrap();
+
+        assert_eq!(
+            added.title,
+            "Best Portfolio Websites | Web Design Inspiration"
+        );
+        assert_eq!(added.url, "https://www.awwwards.com/websites/portfolio/");
+        assert_eq!(added.category, ResourceCategory::Inspiration);
+        assert_eq!(added.origin, ResourceOrigin::DevAtlas);
+        let library = load_with(&source, &saved, &memory, 200);
+        assert_eq!(
+            new_titles(&library),
+            ["Best Portfolio Websites | Web Design Inspiration"]
+        );
+    }
+
+    #[test]
+    fn adding_works_offline_using_the_host_as_title() {
+        let saved = FakeSaved::default();
+
+        let added = add(
+            &FakeSource::new(vec![]),
+            &saved,
+            None,
+            "https://reactdrops.dev",
+        )
+        .unwrap();
+
+        assert_eq!(added.title, "reactdrops.dev");
+        assert_eq!(saved.0.borrow().len(), 1);
+    }
+
+    #[test]
+    fn adding_rejects_duplicates_and_invalid_urls() {
+        let source = FakeSource::new(vec![bookmark(
+            "Motion",
+            "https://motion.dev/docs",
+            &["develop"],
+        )]);
+        let saved = FakeSaved::default();
+
+        assert!(matches!(
+            add(&source, &saved, Some("x"), "https://motion.dev/docs/"),
+            Err(AddLinkError::AlreadySaved(title)) if title == "Motion"
+        ));
+        add(&source, &saved, Some("Awwwards"), "https://awwwards.com/").unwrap();
+        assert!(matches!(
+            add(&source, &saved, Some("x"), "https://awwwards.com"),
+            Err(AddLinkError::AlreadySaved(_))
+        ));
+        assert!(matches!(
+            add(&source, &saved, Some("x"), "javascript:alert(1)"),
+            Err(AddLinkError::InvalidUrl)
+        ));
+        assert!(matches!(
+            add(&source, &saved, Some("x"), "   "),
+            Err(AddLinkError::InvalidUrl)
+        ));
+    }
+
+    #[test]
+    fn removing_only_affects_links_saved_in_devatlas() {
+        let source = FakeSource::new(vec![bookmark(
+            "Motion",
+            "https://motion.dev/",
+            &["develop"],
+        )]);
+        let saved = FakeSaved::default();
+        add(&source, &saved, Some("Awwwards"), "https://awwwards.com/").unwrap();
+
+        assert!(!remove_link(&saved, "motion.dev").unwrap());
+        assert!(remove_link(&saved, "awwwards.com").unwrap());
+        assert!(saved.0.borrow().is_empty());
+        let library = load_with(&source, &saved, &FakeMemory::default(), 0);
+        assert_eq!(titles(&library), ["Motion"]);
+    }
+
+    #[test]
+    fn browser_bookmarks_win_over_duplicate_saved_links() {
+        let source = FakeSource::new(vec![bookmark(
+            "Motion",
+            "https://motion.dev/",
+            &["develop"],
+        )]);
+        let saved = FakeSaved(RefCell::new(vec![SavedLink {
+            url: "https://motion.dev".to_owned(),
+            title: "Saved Motion".to_owned(),
+            added_at: 0,
+        }]));
+
+        let library = load_with(&source, &saved, &FakeMemory::default(), 0);
+
+        assert_eq!(titles(&library), ["Motion"]);
+        assert_eq!(
+            library.resources[0].resource.origin,
+            ResourceOrigin::Browser
+        );
     }
 }

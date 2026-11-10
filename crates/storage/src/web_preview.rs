@@ -96,6 +96,7 @@ impl PreviewSource for WebPreviewFetcher {
         if !response.status().is_success() || !is_html {
             // Login walls and bot checks still usually serve the site's favicon.
             return Ok(ResourcePreview {
+                title: None,
                 image: None,
                 icon: default_icon(&page_url),
             });
@@ -177,9 +178,30 @@ fn is_public_ip(ip: IpAddr) -> bool {
     }
 }
 
-/// Picks the social preview image and best icon from a page, resolved against its URL.
+const MAX_TITLE_CHARS: usize = 200;
+
+/// Picks the page title, social preview image and best icon, resolved against the page URL.
 fn extract_preview(html: &str, page_url: &Url) -> ResourcePreview {
     let document = Html::parse_document(html);
+    let title = first_attribute(
+        &document,
+        &["meta[property='og:title']", "meta[name='twitter:title']"],
+        "content",
+    )
+    .or_else(|| {
+        let selector = Selector::parse("title").ok()?;
+        let element = document.select(&selector).next()?;
+        Some(element.text().collect::<String>())
+    })
+    .map(|raw| {
+        raw.split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .chars()
+            .take(MAX_TITLE_CHARS)
+            .collect::<String>()
+    })
+    .filter(|title| !title.is_empty());
     let image = first_attribute(
         &document,
         &[
@@ -196,6 +218,7 @@ fn extract_preview(html: &str, page_url: &Url) -> ResourcePreview {
         "href",
     );
     ResourcePreview {
+        title,
         image: image.and_then(|value| resolve_web_url(page_url, &value)),
         icon: icon
             .and_then(|value| resolve_web_url(page_url, &value))
@@ -252,6 +275,23 @@ mod tests {
             preview.icon.as_deref(),
             Some("https://cdn.reactbits.dev/touch.png")
         );
+    }
+
+    #[test]
+    fn extracts_the_title_preferring_og_title_and_tidying_whitespace() {
+        let og = r#"<title>Ignored</title><meta property="og:title" content="Best  Portfolio
+            Websites">"#;
+        let plain = "<html><head><title>\n  Awwwards — Portfolio  </title></head></html>";
+
+        assert_eq!(
+            extract_preview(og, &page()).title.as_deref(),
+            Some("Best Portfolio Websites")
+        );
+        assert_eq!(
+            extract_preview(plain, &page()).title.as_deref(),
+            Some("Awwwards — Portfolio")
+        );
+        assert_eq!(extract_preview("<p>no head</p>", &page()).title, None);
     }
 
     #[test]

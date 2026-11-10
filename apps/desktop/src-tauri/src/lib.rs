@@ -17,14 +17,16 @@ pub fn run() -> tauri::Result<()> {
         .setup(|app| {
             let cache_file = app.path().app_cache_dir()?.join("previews.json");
             app.manage(commands::preview::Previews::new(cache_file)?);
-            let memory_file = app.path().app_data_dir()?.join("library-memory.json");
-            app.manage(commands::library::LibraryStore::new(memory_file));
+            let data_dir = app.path().app_data_dir()?;
+            app.manage(commands::library::LibraryStore::new(&data_dir));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info::get_app_info,
             commands::library::list_library,
             commands::library::mark_resource_opened,
+            commands::library::add_link,
+            commands::library::remove_link,
             commands::preview::get_resource_preview,
             commands::viewer::viewer_open,
             commands::viewer::viewer_set_bounds,

@@ -25,6 +25,7 @@ const SNAPSHOT: LibrarySnapshot = {
       folder: "develop",
       addedAt: null,
       isNew: false,
+      origin: "browser",
     },
   ],
 };

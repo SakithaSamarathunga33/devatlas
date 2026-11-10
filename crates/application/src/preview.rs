@@ -10,6 +10,9 @@ use url::Url;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourcePreview {
+    /// Page title (`og:title`, `twitter:title`, or `<title>`). Older cache entries lack it.
+    #[serde(default)]
+    pub title: Option<String>,
     /// Social preview image (`og:image` / `twitter:image`), if the page declares one.
     pub image: Option<String>,
     /// Best available site icon.
@@ -82,6 +85,7 @@ mod tests {
                 return Err(Offline);
             }
             Ok(ResourcePreview {
+                title: None,
                 image: Some(format!("{url}og.png")),
                 icon: None,
             })

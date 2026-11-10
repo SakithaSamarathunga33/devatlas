@@ -7,6 +7,8 @@
     "allow-get-app-info",
     "allow-list-library",
     "allow-mark-resource-opened",
+    "allow-add-link",
+    "allow-remove-link",
     "allow-get-resource-preview",
     "allow-viewer-open",
     "allow-viewer-set-bounds",
@@ -14,6 +16,10 @@
     "allow-viewer-go",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
     {
       "identifier": "opener:allow-open-url",
       "allow": [{ "url": "https://*" }, { "url": "http://*" }]

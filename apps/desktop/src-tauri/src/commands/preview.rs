@@ -7,8 +7,8 @@ use tauri::State;
 
 /// Preview fetching and caching, created once at startup and shared by all commands.
 pub struct Previews {
-    fetcher: WebPreviewFetcher,
-    cache: JsonPreviewCache,
+    pub(crate) fetcher: WebPreviewFetcher,
+    pub(crate) cache: JsonPreviewCache,
 }
 
 impl Previews {

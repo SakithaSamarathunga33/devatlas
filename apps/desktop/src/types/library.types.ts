@@ -23,10 +23,15 @@ export const resourceSchema = z.object({
   category: resourceCategorySchema,
   folder: z.string(),
   addedAt: z.number().int().nullable(),
+  /** `browser`: a Brave bookmark (managed in Brave). `devatlas`: saved in DevAtlas. */
+  origin: z.enum(["browser", "devatlas"]),
   /** Found since an earlier run and not opened yet (cleared after a week). */
   isNew: z.boolean(),
 });
 export type Resource = z.infer<typeof resourceSchema>;
+
+/** IPC contract for `add_link`: the saved resource (it is new by definition). */
+export const savedResourceSchema = resourceSchema.omit({ isNew: true });
 
 /** IPC contract for the Rust `list_library` command. */
 export const librarySnapshotSchema = z.object({

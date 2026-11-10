@@ -24,6 +24,7 @@ const SNAPSHOT: LibrarySnapshot = {
       folder: "develop/components",
       addedAt: 1_755_526_400_000,
       isNew: false,
+      origin: "browser",
     },
     {
       id: "reactbits.dev/get-started/index",
@@ -34,6 +35,7 @@ const SNAPSHOT: LibrarySnapshot = {
       folder: "develop/components",
       addedAt: null,
       isNew: true,
+      origin: "browser",
     },
     {
       id: "uiverse.io/elements",
@@ -44,15 +46,31 @@ const SNAPSHOT: LibrarySnapshot = {
       folder: "develop/components",
       addedAt: null,
       isNew: false,
+      origin: "browser",
     },
   ],
 };
 
-async function renderLibrary() {
+const AWWWARDS = {
+  id: "awwwards.com/websites/portfolio",
+  title: "Best Portfolio Websites",
+  url: "https://www.awwwards.com/websites/portfolio/",
+  host: "awwwards.com",
+  category: "inspiration",
+  folder: "",
+  addedAt: 1_762_000_000_000,
+  origin: "devatlas",
+} as const;
+
+async function renderLibrary(
+  snapshot: LibrarySnapshot = SNAPSHOT,
+  addLink: () => Promise<unknown> = () => Promise.resolve(AWWWARDS),
+) {
   vi.mocked(invoke).mockImplementation((command, args) => {
-    if (command === "list_library") return Promise.resolve(SNAPSHOT);
+    if (command === "list_library") return Promise.resolve(snapshot);
+    if (command === "add_link") return addLink();
     const { url } = args as { url: string };
-    return Promise.resolve({ image: `${url}/og.png`, icon: null });
+    return Promise.resolve({ title: null, image: `${url}/og.png`, icon: null });
   });
   const view = render(
     <AppProviders>
@@ -65,11 +83,67 @@ async function renderLibrary() {
   return view;
 }
 
+function submitLink(url: string) {
+  fireEvent.change(screen.getByRole("textbox", { name: "Link to save" }), {
+    target: { value: url },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+}
+
 describe("LibraryPage", () => {
+  it("saves a pasted link and refreshes the library", async () => {
+    await renderLibrary();
+    vi.mocked(invoke).mockClear();
+
+    submitLink("https://www.awwwards.com/websites/portfolio/");
+
+    await vi.waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("add_link", {
+        url: "https://www.awwwards.com/websites/portfolio/",
+      });
+      expect(invoke).toHaveBeenCalledWith("list_library");
+    });
+    expect(screen.getByRole("textbox", { name: "Link to save" })).toHaveValue("");
+  });
+
+  it("explains why a link could not be added", async () => {
+    await renderLibrary(SNAPSHOT, () =>
+      Promise.reject(new Error("“Docs | Motion” is already in your library.")),
+    );
+
+    submitLink("motion.dev/docs");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "“Docs | Motion” is already in your library.",
+    );
+  });
+
+  it("asks for a link before submitting", async () => {
+    await renderLibrary();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Paste a link to save it.");
+    expect(invoke).not.toHaveBeenCalledWith("add_link", expect.anything());
+  });
+
+  it("lets you remove only links added in DevAtlas", async () => {
+    await renderLibrary({
+      ...SNAPSHOT,
+      resources: [...SNAPSHOT.resources, { ...AWWWARDS, isNew: true }],
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Remove Best Portfolio Websites from your library" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(1);
+    expect(screen.getByText(/and 1 added in DevAtlas/)).toBeInTheDocument();
+  });
+
   it("groups resources from Brave under their categories", async () => {
     await renderLibrary();
 
-    expect(screen.getByText(/3 developer resources from Brave › develop/)).toBeInTheDocument();
+    expect(screen.getByText(/3 developer resources: 3 from Brave › develop/)).toBeInTheDocument();
     const components = screen.getByRole("region", { name: "UI components" });
     expect(within(components).getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByRole("region", { name: "Animation" })).toHaveTextContent("Docs | Motion");

@@ -6,6 +6,8 @@ const COMMANDS: &[&str] = &[
     "get_app_info",
     "list_library",
     "mark_resource_opened",
+    "add_link",
+    "remove_link",
     "get_resource_preview",
     "viewer_open",
     "viewer_set_bounds",

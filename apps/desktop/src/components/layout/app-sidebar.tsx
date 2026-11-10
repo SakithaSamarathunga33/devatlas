@@ -19,7 +19,7 @@ export function AppSidebar() {
         collapsed ? "w-[68px]" : "w-64",
       )}
     >
-      <div className="flex h-16 items-center gap-3 overflow-hidden px-4">
+      <div data-tauri-drag-region className="flex h-14 items-center gap-3 overflow-hidden px-4">
         <div className="relative size-9 shrink-0">
           <div className="absolute inset-0 rounded-xl bg-primary/40 blur-lg" />
           <img

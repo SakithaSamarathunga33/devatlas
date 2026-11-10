@@ -1,16 +1,22 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { MagicCard } from "@/components/ui/magic-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { libraryQueryKey } from "@/hooks/use-library";
 import { useResourcePreview } from "@/hooks/use-resource-preview";
 import { CATEGORY_META } from "@/lib/resource-categories";
 import { cn } from "@/lib/utils";
-import { openInBrowser } from "@/services/library.service";
+import { describeError } from "@/services/ipc";
+import { addLink, openInBrowser, removeLink } from "@/services/library.service";
 import type { Resource } from "@/types/library.types";
+
+const cardAction =
+  "rounded-full bg-black/55 p-1.5 text-white/90 opacity-0 backdrop-blur transition-opacity outline-none group-hover/card:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring";
 
 /** Path of the in-app viewer for a resource. */
 function viewerPath(resource: Resource): string {
@@ -29,12 +35,35 @@ export function ResourceCard({ resource }: { resource: Resource }) {
   const preview = useResourcePreview(resource.url);
   const tint = CATEGORY_META[resource.category].tint;
 
+  const queryClient = useQueryClient();
+  const refreshLibrary = () => queryClient.invalidateQueries({ queryKey: libraryQueryKey });
+
   const openExternally = () => {
     openInBrowser(resource.url).catch((error: unknown) => {
-      toast.error(`Couldn't open ${resource.host}`, {
-        description: error instanceof Error ? error.message : "The link could not be opened.",
-      });
+      toast.error(`Couldn't open ${resource.host}`, { description: describeError(error) });
     });
+  };
+
+  const remove = () => {
+    removeLink(resource.id)
+      .then(async () => {
+        await refreshLibrary();
+        toast(`Removed “${resource.title}”`, {
+          action: {
+            label: "Undo",
+            onClick: () => {
+              addLink(resource.url)
+                .then(refreshLibrary)
+                .catch((error: unknown) => {
+                  toast.error("Couldn't restore the link", { description: describeError(error) });
+                });
+            },
+          },
+        });
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't remove the link", { description: describeError(error) });
+      });
   };
 
   return (
@@ -92,22 +121,36 @@ export function ResourceCard({ resource }: { resource: Resource }) {
               </p>
               {resource.addedAt !== null && (
                 <p className="mt-1.5 text-[11px] text-muted-foreground/70">
-                  Saved {format(resource.addedAt, "MMM yyyy")}
+                  {resource.origin === "devatlas" ? "Added in DevAtlas" : "Saved"}{" "}
+                  {format(resource.addedAt, "MMM yyyy")}
                 </p>
               )}
             </div>
           </div>
         </Link>
 
-        <button
-          type="button"
-          onClick={openExternally}
-          aria-label={`Open ${resource.host} in your browser`}
-          title="Open in your browser"
-          className="absolute top-2.5 right-2.5 rounded-full bg-black/55 p-1.5 text-white/90 opacity-0 backdrop-blur transition-opacity outline-none group-hover/card:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <ExternalLink className="size-3.5" aria-hidden />
-        </button>
+        <div className="absolute top-2.5 right-2.5 flex gap-1.5">
+          {resource.origin === "devatlas" && (
+            <button
+              type="button"
+              onClick={remove}
+              aria-label={`Remove ${resource.title} from your library`}
+              title="Remove from library"
+              className={cardAction}
+            >
+              <Trash2 className="size-3.5" aria-hidden />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={openExternally}
+            aria-label={`Open ${resource.host} in your browser`}
+            title="Open in your browser"
+            className={cardAction}
+          >
+            <ExternalLink className="size-3.5" aria-hidden />
+          </button>
+        </div>
       </article>
     </MagicCard>
   );

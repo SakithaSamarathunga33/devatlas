@@ -24,75 +24,59 @@ const LIBRARY: LibrarySnapshot = {
       host: "uiverse.io",
       category: "ui-components",
       folder: "develop/components",
-      addedAt: null,
-      isNew: false,
+      addedAt: Date.now() - 60_000,
+      isNew: true,
+      origin: "browser",
     },
   ],
 };
 
 function mockBackend(appInfo: () => Promise<unknown>) {
-  invokeMock.mockImplementation((command) =>
-    command === "get_app_info" ? appInfo() : Promise.resolve(LIBRARY),
-  );
+  invokeMock.mockImplementation((command) => {
+    if (command === "get_app_info") return appInfo();
+    if (command === "list_library") return Promise.resolve(LIBRARY);
+    return Promise.resolve({ title: null, image: null, icon: null });
+  });
 }
 
 // Dashboard sections fade in with Motion, which does not animate under jsdom, so these
 // tests assert presence rather than visibility.
 describe("App", () => {
-  it("renders the shell with app information from the Rust backend", async () => {
+  it("renders the shell, window controls and backend status", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Welcome to DevAtlas" }),
+      screen.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)$/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
-    expect(await screen.findByText("0.1.0")).toBeInTheDocument();
-    expect(screen.getByText("Windows")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Minimize" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(await screen.findByText("DevAtlas 0.1.0 · Windows")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Backend connected");
-    expect(invokeMock).toHaveBeenCalledWith("get_app_info");
   });
 
-  it("summarizes the Brave library on the dashboard", async () => {
+  it("shows real library numbers, collections and recent activity", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
     render(<App />);
 
-    const summary = await screen.findByRole("region", { name: "Your library" });
-    expect(await within(summary).findByText("UI components")).toBeInTheDocument();
-    expect(within(summary).getByText("Read live from Brave › develop")).toBeInTheDocument();
-    expect(within(summary).getByRole("link", { name: "Open library" })).toHaveAttribute(
+    expect(await screen.findByText("Total resources")).toBeInTheDocument();
+    const collections = await screen.findByRole("region", { name: "Your collections" });
+    expect(await within(collections).findByRole("link", { name: /UI components/ })).toHaveAttribute(
       "href",
-      "/library",
+      "/library?filter=ui-components",
     );
+    const activity = screen.getByRole("region", { name: "Recent activity" });
+    expect(within(activity).getByRole("link", { name: "Uiverse" })).toBeInTheDocument();
   });
 
-  it("shows an actionable error when the backend command fails", async () => {
+  it("reports an unreachable backend in the status bar", async () => {
     mockBackend(() => Promise.reject(new Error("Command get_app_info not allowed by ACL")));
 
     render(<App />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Command get_app_info not allowed by ACL",
-    );
-    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Backend unavailable");
-  });
-
-  it("lists planned modules as a roadmap, not as working features", () => {
-    mockBackend(() => Promise.resolve(APP_INFO));
-
-    render(<App />);
-
-    const roadmap = screen.getByRole("region", { name: "What's on the way" });
-    const items = within(roadmap).getAllByRole("listitem");
-    expect(items.map((item) => within(item).getByRole("heading").textContent)).toEqual([
-      "Collections",
-      "Explorer",
-      "Discovery",
-      "Projects",
-    ]);
-    expect(within(roadmap).getAllByText("Planned")).toHaveLength(4);
+    expect(await screen.findByText("Backend unavailable")).toBeInTheDocument();
   });
 });

@@ -104,6 +104,15 @@ pub struct Resource {
     pub folder: String,
     /// When the link was saved, as Unix milliseconds, if known.
     pub added_at: Option<i64>,
+    pub origin: ResourceOrigin,
+}
+
+/// Where a resource lives: a browser bookmark, or a link saved directly in DevAtlas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ResourceOrigin {
+    Browser,
+    DevAtlas,
 }
 
 impl Resource {
@@ -128,6 +137,16 @@ impl Resource {
             host,
             folder: folder_path.join("/"),
             added_at,
+            origin: ResourceOrigin::Browser,
+        })
+    }
+
+    /// Builds a resource for a link saved in DevAtlas, or `None` when its URL is unusable.
+    pub fn saved(title: &str, raw_url: &str, added_at: i64) -> Option<Self> {
+        let resource = Self::from_bookmark(title, raw_url, &[], Some(added_at))?;
+        Some(Self {
+            origin: ResourceOrigin::DevAtlas,
+            ..resource
         })
     }
 }
@@ -239,6 +258,22 @@ mod tests {
         assert_eq!(resource.category, ResourceCategory::UiComponents);
         assert_eq!(resource.folder, "develop/components");
         assert!(!resource.url.contains("newtab@"));
+    }
+
+    #[test]
+    fn saved_links_are_classified_and_marked_as_devatlas() {
+        let resource = Resource::saved(
+            "Best Portfolio Websites",
+            "https://www.awwwards.com/websites/portfolio/",
+            7,
+        )
+        .unwrap();
+
+        assert_eq!(resource.id, "awwwards.com/websites/portfolio");
+        assert_eq!(resource.category, ResourceCategory::Inspiration);
+        assert_eq!(resource.origin, ResourceOrigin::DevAtlas);
+        assert_eq!(resource.added_at, Some(7));
+        assert_eq!(resource.folder, "");
     }
 
     #[test]

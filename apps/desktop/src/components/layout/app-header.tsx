@@ -1,17 +1,23 @@
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { Minus, PanelLeftClose, PanelLeftOpen, Search, Square, X } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 
-import { BackendStatus } from "@/components/shared/backend-status";
 import { Button } from "@/components/ui/button";
-import { usePageTitle } from "@/hooks/use-page-title";
+import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-store";
 
+/** Top bar: also the window's drag area, with the window controls on the right. */
 export function AppHeader() {
-  const title = usePageTitle();
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
 
   return (
-    <header className="relative z-10 flex h-16 shrink-0 items-center gap-2 border-b border-white/[0.06] bg-background/30 px-4 backdrop-blur-xl">
+    <header
+      data-tauri-drag-region
+      className="relative z-10 flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-background/30 pl-4 backdrop-blur-xl"
+    >
       <Button
         variant="ghost"
         size="icon-sm"
@@ -22,8 +28,103 @@ export function AppHeader() {
       >
         {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
       </Button>
-      <span className="text-sm font-medium">{title}</span>
-      <BackendStatus className="ml-auto" />
+      <HeaderSearch />
+      <div data-tauri-drag-region className="h-full flex-1" />
+      <WindowControls />
     </header>
+  );
+}
+
+function HeaderSearch() {
+  const navigate = useNavigate();
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        input.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", focusSearch);
+    return () => {
+      window.removeEventListener("keydown", focusSearch);
+    };
+  }, []);
+
+  return (
+    <form
+      role="search"
+      className="relative w-full max-w-md"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const query = input.current?.value.trim() ?? "";
+        void navigate(query === "" ? "/library" : `/library?q=${encodeURIComponent(query)}`);
+      }}
+    >
+      <Search
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+      />
+      <input
+        ref={input}
+        type="search"
+        aria-label="Search resources"
+        placeholder="Search resources, tools, or topics…"
+        className="h-9 w-full rounded-xl border border-white/10 bg-white/[0.04] pr-16 pl-10 text-sm outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <kbd className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground">
+        Ctrl K
+      </kbd>
+    </form>
+  );
+}
+
+const windowButton =
+  "flex h-full w-12 items-center justify-center text-muted-foreground transition-colors outline-none hover:bg-white/[0.08] hover:text-foreground focus-visible:bg-white/[0.08] [&_svg]:size-4";
+
+/** Minimize / maximize / close, replacing the native title bar (the window is undecorated). */
+function WindowControls() {
+  if (!isTauri()) return null;
+  const run = (action: "minimize" | "toggleMaximize" | "close") => {
+    getCurrentWindow()
+      [action]()
+      .catch((error: unknown) => {
+        console.warn(`Window ${action} failed.`, error);
+      });
+  };
+  return (
+    <div className="flex h-full self-stretch">
+      <button
+        type="button"
+        aria-label="Minimize"
+        className={windowButton}
+        onClick={() => {
+          run("minimize");
+        }}
+      >
+        <Minus />
+      </button>
+      <button
+        type="button"
+        aria-label="Maximize or restore"
+        className={cn(windowButton, "[&_svg]:size-3.5")}
+        onClick={() => {
+          run("toggleMaximize");
+        }}
+      >
+        <Square />
+      </button>
+      <button
+        type="button"
+        aria-label="Close"
+        className={cn(windowButton, "hover:bg-red-600 hover:text-white")}
+        onClick={() => {
+          run("close");
+        }}
+      >
+        <X />
+      </button>
+    </div>
   );
 }

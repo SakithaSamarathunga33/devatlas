@@ -1,5 +1,6 @@
 import { CircleAlert, RotateCw, Search } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 
 import Loader from "@/components/kokonutui/loader";
 import { ShineButton } from "@/components/shared/shine-button";
@@ -13,22 +14,42 @@ import {
   type ResourceCategory,
 } from "@/types/library.types";
 
+import { AddLinkForm } from "./add-link-form";
 import { ResourceCard } from "./resource-card";
 
 type CategoryFilter = ResourceCategory | "all" | "new";
 
+function parseFilter(value: string | null): CategoryFilter {
+  if (value === "new") return "new";
+  return resourceCategories.find((category) => category === value) ?? "all";
+}
+
+function librarySummary({ source, resources }: LibrarySnapshot): string {
+  const fromBrowser = resources.filter((resource) => resource.origin === "browser").length;
+  const added = resources.length - fromBrowser;
+  const browserPart = `${String(fromBrowser)} from ${source.browser} › ${source.folder}`;
+  return added === 0
+    ? `${String(resources.length)} developer resources: ${browserPart}, read live from your bookmarks.`
+    : `${String(resources.length)} developer resources: ${browserPart}, and ${String(added)} added in DevAtlas.`;
+}
+
 export function LibraryPage() {
+  const [params] = useSearchParams();
   const query = useLibrary();
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 pt-8 pb-16 lg:px-10">
+    <div className="w-full px-5 pt-6 pb-16 lg:px-8">
       <BlurFade>
         <h1 className="text-3xl font-semibold tracking-[-0.03em]">Library</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {query.isSuccess
-            ? `${String(query.data.resources.length)} developer resources from ${query.data.source.browser} › ${query.data.source.folder}, read live from your bookmarks.`
+            ? librarySummary(query.data)
             : "Your developer bookmarks, read live from Brave."}
         </p>
+      </BlurFade>
+
+      <BlurFade delay={0.04}>
+        <AddLinkForm autoFocus={params.get("add") === "1"} />
       </BlurFade>
 
       {query.isPending && (
@@ -49,14 +70,15 @@ export function LibraryPage() {
         </div>
       )}
 
-      {query.isSuccess && <LibraryBrowser snapshot={query.data} />}
+      {query.isSuccess && <LibraryBrowser key={params.toString()} snapshot={query.data} />}
     </div>
   );
 }
 
 function LibraryBrowser({ snapshot }: { snapshot: LibrarySnapshot }) {
-  const [category, setCategory] = useState<CategoryFilter>("all");
-  const [search, setSearch] = useState("");
+  const [params] = useSearchParams();
+  const [category, setCategory] = useState<CategoryFilter>(() => parseFilter(params.get("filter")));
+  const [search, setSearch] = useState(params.get("q") ?? "");
 
   if (snapshot.resources.length === 0) {
     return (
@@ -155,7 +177,7 @@ function LibraryBrowser({ snapshot }: { snapshot: LibrarySnapshot }) {
                 </h2>
                 <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>
               </div>
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
                 {items.map((resource) => (
                   <li key={resource.id}>
                     <ResourceCard resource={resource} />

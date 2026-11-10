@@ -67,6 +67,7 @@ mod tests {
     fn persists_entries_across_instances() {
         let path = temp_file("previews.json");
         let preview = ResourcePreview {
+            title: None,
             image: Some("https://motion.dev/og.png".to_owned()),
             icon: None,
         };

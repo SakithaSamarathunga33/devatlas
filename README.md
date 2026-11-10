@@ -17,7 +17,9 @@ foundation only (milestone DEVATLAS-001):
   folder `develop` (including subfolders) is cleaned, de-duplicated, and sorted into UI
   components, design inspiration, animation, icons, tools, and cloud consoles. Cards show each
   site's preview image, sites open inside DevAtlas, and links you save in Brave appear within a
-  few seconds with a **New** tag (until you open them, or for 7 days).
+  few seconds with a **New** tag (until you open them, or for 7 days). You can also paste a link
+  into **Add link** on the Library page: DevAtlas fetches its title and preview, files it under
+  the right category, and keeps it in its own data folder (Brave is never written to).
 - Linting, formatting, tests, and CI.
 
 Resource management, search, discovery, the browser extension, AI features, and sync are **not

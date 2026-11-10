@@ -13,6 +13,7 @@ function resource(id: string, isNew: boolean): Resource {
     category: "other",
     folder: "develop",
     addedAt: null,
+    origin: "browser",
     isNew,
   };
 }

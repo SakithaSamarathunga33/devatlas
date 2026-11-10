@@ -18,6 +18,7 @@ devatlas-application.workspace = true
 devatlas-domain.workspace = true
 devatlas-storage.workspace = true
 serde.workspace = true
+tokio.workspace = true
 # `unstable` enables multiple webviews per window, used by the in-app site viewer.
 tauri = { workspace = true, features = ["unstable"] }
 tauri-plugin-opener.workspace = true
