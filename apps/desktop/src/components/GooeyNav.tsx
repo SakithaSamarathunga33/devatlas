@@ -166,7 +166,10 @@ const LIST = `relative ${LIST_BASE}`;
 const OVERLAY = `${LIST_BASE} pointer-events-none invisible absolute inset-0 text-[var(--gn-active-ink)] [clip-path:inset(100%)]`;
 const LINK_BASE =
   "inline-flex items-center gap-2 whitespace-nowrap rounded-full border-none bg-transparent px-[var(--gn-x)] py-[var(--gn-y)] [font-family:inherit] [font-size:inherit] [line-height:inherit] font-medium no-underline";
-const LINK = `${LINK_BASE} cursor-pointer text-[var(--gn-muted)] transition-colors duration-200 [-webkit-tap-highlight-color:transparent] group-data-[active]:text-[var(--gn-ink)] hover:text-[var(--gn-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gn-ink)]`;
+// DevAtlas: the active label underneath uses the pill's ink (not the page ink), so it can't
+// show as a light halo around the dark label drawn on the pill; the keyboard focus ring sits
+// just inside the item instead of a bright outline around it.
+const LINK = `${LINK_BASE} cursor-pointer text-[var(--gn-muted)] transition-colors duration-200 [-webkit-tap-highlight-color:transparent] group-data-[active]:text-[var(--gn-active-ink)] hover:text-[var(--gn-ink)] group-data-[active]:hover:text-[var(--gn-active-ink)] outline-none focus-visible:outline-[1.5px] focus-visible:-outline-offset-[3px] focus-visible:outline-[var(--gn-muted)] group-data-[active]:focus-visible:outline-[var(--gn-active-ink)]`;
 const GHOST = `${LINK_BASE} text-inherit`;
 // DevAtlas: with hoverEffect off, hover is a plain CSS fill (instant, no canvas frames); the
 // active item keeps its gooey pill underneath, so it gets no fill.

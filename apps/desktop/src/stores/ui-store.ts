@@ -23,7 +23,7 @@ interface UiState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   theme: Theme;
-  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -33,11 +33,8 @@ export const useUiStore = create<UiState>()((set) => ({
   },
   // Whatever theme-init.js already applied.
   theme: document.documentElement.dataset.theme === "light" ? "light" : "dark",
-  toggleTheme: () => {
-    set((state) => {
-      const theme: Theme = state.theme === "dark" ? "light" : "dark";
-      applyTheme(theme);
-      return { theme };
-    });
+  setTheme: (theme) => {
+    applyTheme(theme);
+    set({ theme });
   },
 }));

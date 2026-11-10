@@ -57,7 +57,7 @@ export function StoryCard({ story }: { story: TopStory }) {
       </WebLink>
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pt-2 pb-4 text-xs text-muted-foreground tabular-nums">
         <span className="inline-flex items-center gap-1">
-          <Triangle className="size-2.5 fill-current" aria-hidden />
+          <Triangle className="size-2.5 fill-current text-primary" aria-hidden />
           {story.points}
           <span className="sr-only">{" points"}</span>
         </span>

@@ -1,11 +1,12 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Minus, Moon, PanelLeftClose, PanelLeftOpen, Search, Square, Sun, X } from "lucide-react";
+import { Minus, PanelLeftClose, PanelLeftOpen, Search, Square, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { primaryNavigation, secondaryNavigation } from "@/components/layout/navigation";
-import { Button } from "@/components/ui/button";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-store";
@@ -57,21 +58,24 @@ export function AppHeader() {
   );
 }
 
+/** Magic UI's animated theme toggler: the new theme sweeps out from the button in a circle
+ * (View Transitions API), driving the app's own theme state. */
 function ThemeToggle() {
   const theme = useUiStore((state) => state.theme);
-  const toggleTheme = useUiStore((state) => state.toggleTheme);
+  const setTheme = useUiStore((state) => state.setTheme);
   const next = theme === "dark" ? "light" : "dark";
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={toggleTheme}
+    <AnimatedThemeToggler
+      theme={theme}
+      onThemeChange={setTheme}
+      duration={500}
       aria-label={`Switch to ${next} theme`}
       title={`Switch to ${next} theme`}
-      className="text-muted-foreground hover:bg-accent"
-    >
-      {theme === "dark" ? <Sun /> : <Moon />}
-    </Button>
+      className={cn(
+        buttonVariants({ variant: "ghost", size: "icon-sm" }),
+        "text-muted-foreground hover:bg-accent",
+      )}
+    />
   );
 }
 

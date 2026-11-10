@@ -69,7 +69,7 @@
   --chart-5: #0f172a;
   --chart-positive: oklch(0.696 0.17 162.48);
   --chart-negative: oklch(0.637 0.237 25.331);
-  --chart-background: #ffffff;
+  --chart-background: #f8fafc;
   --chart-foreground: #64748b;
   --chart-foreground-muted: #94a3b8;
   --chart-line-primary: var(--chart-1);
@@ -103,31 +103,32 @@
  * Light theme of "Slate & Mint", chosen in the header and remembered (public/theme-init.js
  * applies it before the first paint). Mint #14b8a6 on white is ~2.5:1, too faint for links and
  * button text, so actions use the palette's primary-active #0f766e (~5.5:1); mint stays for
- * focus rings, "new" dots and charts. Cyan text uses #0e7490 for the same reason.
+ * focus rings, "new" dots and charts. Cyan text uses #0e7490 for the same reason. Surfaces are
+ * a soft slate (#eef2f6 page, #f8fafc cards) rather than pure white, which glares.
  */
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --background: #f8fafc;
+  --background: #eef2f6;
   --foreground: #0f172a;
-  --card: #ffffff;
+  --card: #f8fafc;
   --card-foreground: #0f172a;
-  --popover: #ffffff;
+  --popover: #f8fafc;
   --popover-foreground: #0f172a;
   --primary: #0f766e;
   --primary-foreground: #ffffff;
   --primary-hover: #0d9488;
-  --secondary: #f1f5f9;
+  --secondary: #e6ebf1;
   --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --faint-foreground: #64748b;
+  --muted: #e6ebf1;
+  --muted-foreground: #556378;
+  --faint-foreground: #556378;
   --disabled-foreground: #94a3b8;
-  --accent: #e2e8f0;
+  --accent: #dde4ec;
   --accent-foreground: #0f172a;
   --destructive: #d23a40;
-  --border: #e2e8f0;
-  --input: #cbd5e1;
+  --border: #d9e0e8;
+  --input: #c4cfdb;
   --ring: #14b8a6;
 
   --info: #0e7490;
@@ -136,13 +137,13 @@
   --highlight: #14b8a6;
   --highlight-foreground: #0f172a;
 
-  --sidebar: #ffffff;
+  --sidebar: #f4f7fa;
   --sidebar-foreground: #334155;
   --sidebar-primary: #0f766e;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f1f5f9;
+  --sidebar-accent: #e6ebf1;
   --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #e2e8f0;
+  --sidebar-border: #d9e0e8;
   --sidebar-ring: #14b8a6;
 
   --gradient-from: #0d9488;
@@ -315,4 +316,15 @@
   --chart-marker-badge-foreground: oklch(0.15 0 0);
   --chart-segment-background: oklch(0.41 0.0127 248.14 / 0.25);
   --chart-segment-line: oklch(1 0 0 / 0.25);
+}
+/* Magic UI's animated theme toggler: the new theme is revealed by a clip-path animation. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Scoped to the toggler, which sets this attribute only while a theme change is animating. */
+html[data-magicui-theme-vt="active"]::view-transition-group(root) {
+  animation-duration: var(--magicui-theme-toggle-vt-duration);
 }
