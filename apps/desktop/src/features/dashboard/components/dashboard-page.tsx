@@ -3,9 +3,7 @@ import {
   Activity,
   ArrowRight,
   Bookmark,
-  CalendarPlus,
   FolderOpen,
-  Layers,
   Link2,
   Plus,
   Search,
@@ -56,7 +54,7 @@ export function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1600px] px-5 pt-5 pb-8 lg:px-8">
       <WelcomeHero />
-      <StatCards resources={resources} />
+      <LibraryBreakdown resources={resources} />
 
       <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Panel title="Featured resources" icon={Star} viewAll="/library">
@@ -110,114 +108,80 @@ function Panel({ title, icon: Icon, viewAll, children }: PanelProps) {
   );
 }
 
-function StatCards({ resources }: { resources: readonly Resource[] }) {
+function plural(count: number, noun: string): string {
+  return `${String(count)} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/** What the library holds: totals, one bar split by category, and a way into new links. */
+function LibraryBreakdown({ resources }: { resources: readonly Resource[] }) {
+  if (resources.length === 0) return null;
   const monthly = monthlyAdditions(resources, new Date());
   const thisMonth = monthly.at(-1) ?? 0;
   const lastMonth = monthly.at(-2) ?? 0;
-  const olderThanWindow = resources.length - monthly.reduce((sum, count) => sum + count, 0);
-  const cumulative = monthly.reduce<number[]>(
-    (totals, count) => [...totals, (totals.at(-1) ?? olderThanWindow) + count],
-    [],
-  );
-  const categories = countByCategory(resources);
-
-  const stats: StatProps[] = [
-    {
-      label: "Total resources",
-      value: resources.length,
-      note: `+${String(thisMonth)} this month`,
-      icon: Layers,
-      tone: "text-primary",
-      series: cumulative,
-    },
-    {
-      label: "Saved this month",
-      value: thisMonth,
-      note: `${String(lastMonth)} last month`,
-      icon: CalendarPlus,
-      tone: "text-emerald-300",
-      series: monthly,
-    },
-    {
-      label: "New for you",
-      value: resources.filter((resource) => resource.isNew).length,
-      note: "Not opened yet",
-      icon: Sparkles,
-      tone: "text-highlight",
-      series: [],
-    },
-    {
-      label: "Categories",
-      value: categories.length,
-      note: `${String(resources.filter((r) => r.origin === "devatlas").length)} added in DevAtlas`,
-      icon: Shapes,
-      tone: "text-rose-300",
-      series: categories.map(({ count }) => count),
-    },
-  ];
+  const newCount = resources.filter((resource) => resource.isNew).length;
+  const categories = countByCategory(resources).sort((a, b) => b.count - a.count);
 
   return (
-    <ul className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {stats.map((stat) => (
-        <li key={stat.label} className="min-w-0">
-          <StatCard {...stat} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-interface StatProps {
-  label: string;
-  value: number;
-  note: string;
-  icon: LucideIcon;
-  tone: string;
-  series: number[];
-}
-
-function StatCard({ label, value, note, icon: Icon, tone, series }: StatProps) {
-  return (
-    <div className="flex h-full flex-col rounded-xl border border-border bg-card p-5">
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Icon className={cn("size-4 shrink-0", tone)} aria-hidden />
-        <span className="truncate">{label}</span>
-      </p>
-      <div className="mt-3 flex min-h-10 items-end justify-between gap-3">
-        <p className="text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
-        <Sparkline values={series} className={tone} />
-      </div>
-      <p className={cn("mt-1.5 truncate text-xs", tone)}>{note}</p>
-    </div>
-  );
-}
-
-function Sparkline({ values, className }: { values: number[]; className?: string }) {
-  if (values.length < 2) return null;
-  const max = Math.max(...values, 1);
-  const line = values
-    .map((value, index) => {
-      const x = (index / (values.length - 1)) * 100;
-      const y = 30 - (value / max) * 26;
-      return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  return (
-    <svg
-      viewBox="0 0 100 32"
-      preserveAspectRatio="none"
-      aria-hidden
-      className={cn("h-10 w-24 shrink-0", className)}
+    <section
+      aria-labelledby="library-breakdown"
+      className="mt-5 rounded-xl border border-border bg-card p-5"
     >
-      <path d={`${line} L100,32 L0,32 Z`} fill="currentColor" opacity={0.12} />
-      <path
-        d={line}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <h2 id="library-breakdown" className="text-base font-semibold">
+          <span className="text-2xl tracking-tight tabular-nums">{resources.length}</span>{" "}
+          {resources.length === 1 ? "resource" : "resources"}
+        </h2>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-muted-foreground tabular-nums">
+            {thisMonth} saved this month · {lastMonth} last month
+          </p>
+          {newCount > 0 && (
+            <Link
+              to="/library?filter=new"
+              className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-border bg-secondary px-3 text-sm font-medium outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span aria-hidden className="size-2 rounded-full bg-highlight" />
+              Review {plural(newCount, "new link")}
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Segments repeat the legend's links for the mouse; keyboard users get the legend. */}
+      <div aria-hidden className="mt-4 flex h-3 gap-0.5 overflow-hidden rounded-full">
+        {categories.map(({ category, count }) => (
+          <Link
+            key={category}
+            to={`/library?filter=${category}`}
+            tabIndex={-1}
+            title={`${CATEGORY_META[category].label}: ${String(count)}`}
+            style={{ flexGrow: count }}
+            className={cn(
+              "h-full min-w-1.5 transition-opacity hover:opacity-75",
+              CATEGORY_META[category].swatch,
+            )}
+          />
+        ))}
+      </div>
+
+      <ul aria-label="Resources by category" className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+        {categories.map(({ category, count }) => (
+          <li key={category}>
+            <Link
+              to={`/library?filter=${category}`}
+              className="inline-flex items-center gap-2 rounded text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span
+                aria-hidden
+                className={cn("size-2.5 rounded-sm", CATEGORY_META[category].swatch)}
+              />
+              {CATEGORY_META[category].label}
+              <span className="font-medium text-foreground tabular-nums">{count}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

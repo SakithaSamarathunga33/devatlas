@@ -62,7 +62,15 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Total resources")).toBeInTheDocument();
+    const breakdown = await screen.findByRole("region", { name: "1 resource" });
+    expect(within(breakdown).getByRole("link", { name: /UI components\s*1/ })).toHaveAttribute(
+      "href",
+      "/library?filter=ui-components",
+    );
+    expect(within(breakdown).getByRole("link", { name: "Review 1 new link" })).toHaveAttribute(
+      "href",
+      "/library?filter=new",
+    );
     const collections = await screen.findByRole("region", { name: "Your collections" });
     expect(await within(collections).findByRole("link", { name: /UI components/ })).toHaveAttribute(
       "href",
