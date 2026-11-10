@@ -11,7 +11,7 @@ import { useResourceActions, viewerPath } from "../hooks/use-resource-actions";
 import { SiteIcon } from "./resource-card";
 
 const rowAction =
-  "rounded-md p-2 text-muted-foreground opacity-0 transition-opacity outline-none group-hover/row:opacity-100 hover:bg-white/[0.08] hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4";
+  "rounded-md p-2 text-muted-foreground opacity-0 transition-opacity outline-none group-hover/row:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4";
 
 /** Compact list-view entry for a resource; opens the site inside DevAtlas. */
 export function ResourceRow({ resource }: { resource: Resource }) {
@@ -20,7 +20,7 @@ export function ResourceRow({ resource }: { resource: Resource }) {
   const { openExternally, remove } = useResourceActions(resource);
 
   return (
-    <article className="group/row flex items-center gap-2 rounded-xl pr-2 transition-colors hover:bg-white/[0.04]">
+    <article className="group/row flex items-center gap-2 rounded-xl pr-2 transition-colors hover:bg-accent/60">
       <Link
         to={viewerPath(resource)}
         title={resource.url}

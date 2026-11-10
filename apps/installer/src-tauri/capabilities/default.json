@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Least privilege for the setup wizard: its own commands, a folder picker, and window controls.",
+  "windows": ["main"],
+  "permissions": [
+    "allow-get-install-defaults",
+    "allow-get-available-space",
+    "allow-install",
+    "allow-launch-app",
+    "core:window:allow-minimize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "dialog:allow-open"
+  ]
+}

@@ -311,7 +311,7 @@ export function RepoRow({ fullName, url, details, note, rank, action }: RepoRowP
     <article
       className={cn(
         "rounded-xl border bg-card transition-[border-color,background-color] duration-150",
-        expanded ? "border-primary/45" : "border-border hover:border-white/15",
+        expanded ? "border-primary/45" : "border-border hover:border-foreground/15",
       )}
     >
       <div onClick={onRowClick} className="flex cursor-pointer items-center gap-4 p-3 pr-3.5">
@@ -403,7 +403,7 @@ export function RepoCard({
 }: Omit<RepoRowProps, "rank"> & { savedAt: number | null }) {
   const description = details?.description ?? note;
   return (
-    <article className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-[border-color] duration-150 hover:border-white/15">
+    <article className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-[border-color] duration-150 hover:border-foreground/15">
       <div className="flex items-start gap-3">
         <RepoAvatar fullName={fullName} details={details} className="size-11 rounded-lg" />
         <div className="min-w-0 flex-1">

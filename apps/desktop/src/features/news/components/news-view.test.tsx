@@ -7,9 +7,11 @@ import { AppProviders } from "@/app/providers/app-providers";
 import type { LanguageRanking, NewsFeed, TopStory } from "@/types/news.types";
 
 import { NewsPage } from "./news-page";
+import { NewsViewerPage } from "./news-viewer-page";
 import { RankingsPage } from "./rankings-page";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(() => Promise.resolve(vi.fn())) }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resolve()) }));
 
 const HOUR_MS = 3_600_000;
@@ -78,6 +80,10 @@ const RANKINGS: LanguageRanking[] = [
   },
 ];
 
+function viewer(url: string): string {
+  return `/news/view?url=${encodeURIComponent(url)}`;
+}
+
 function mockBackend() {
   vi.mocked(invoke).mockImplementation((command) => {
     if (command === "list_news") return Promise.resolve(NEWS);
@@ -104,12 +110,13 @@ describe("NewsPage", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "News" })).toBeInTheDocument();
     const stories = await screen.findByRole("list", { name: "Top stories" });
+    // Links open inside DevAtlas, in the news viewer.
     expect(
-      within(stories).getByRole("link", { name: "Show HN: A tiny database in Zig" }),
-    ).toHaveAttribute("href", "https://example.com/tiny-db");
+      within(stories).getByRole("link", { name: /^Show HN: A tiny database in Zig/ }),
+    ).toHaveAttribute("href", viewer("https://example.com/tiny-db"));
     expect(within(stories).getByRole("link", { name: /45 comments/ })).toHaveAttribute(
       "href",
-      "https://news.ycombinator.com/item?id=50424581",
+      viewer("https://news.ycombinator.com/item?id=50424581"),
     );
     expect(stories).toHaveTextContent("321 points");
   });
@@ -121,7 +128,7 @@ describe("NewsPage", () => {
     expect(within(languages).getByRole("heading", { name: "Rust" })).toBeInTheDocument();
     expect(within(languages).getByRole("link", { name: "Announcing Rust 1.95" })).toHaveAttribute(
       "href",
-      "https://blog.rust-lang.org/2026/11/06/Rust-1.95.0/",
+      viewer("https://blog.rust-lang.org/2026/11/06/Rust-1.95.0/"),
     );
     const databases = screen.getByRole("region", { name: /^Databases/ });
     expect(within(databases).getByRole("heading", { name: "PostgreSQL" })).toBeInTheDocument();
@@ -179,7 +186,57 @@ describe("RankingsPage", () => {
     expect(screen.getByRole("list", { name: "PYPL ranking" })).toHaveTextContent("52.04%");
     expect(screen.getByRole("link", { name: "About PYPL" })).toHaveAttribute(
       "href",
-      "https://pypl.github.io/PYPL.html",
+      viewer("https://pypl.github.io/PYPL.html"),
     );
+  });
+});
+
+describe("NewsViewerPage", () => {
+  function renderViewer(entry: { pathname: string; search: string; state?: unknown }) {
+    mockBackend();
+    render(
+      <AppProviders>
+        <MemoryRouter initialEntries={[entry]}>
+          <NewsViewerPage />
+        </MemoryRouter>
+      </AppProviders>,
+    );
+  }
+
+  it("refuses links that are not web pages", () => {
+    renderViewer({
+      pathname: "/news/view",
+      search: `?url=${encodeURIComponent("javascript:alert(1)")}`,
+    });
+
+    expect(screen.getByText(/Only web pages \(http and https\)/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to news" })).toHaveAttribute("href", "/news");
+  });
+
+  it("opens the page in the in-app viewer and returns to where the link was", async () => {
+    renderViewer({
+      pathname: "/news/view",
+      search: `?url=${encodeURIComponent("https://example.com/tiny-db")}`,
+      state: { from: "/" },
+    });
+
+    expect(screen.getByRole("link", { name: "Back to dashboard" })).toHaveAttribute("href", "/");
+    expect(screen.getByText("https://example.com/tiny-db")).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "viewer_open",
+        expect.objectContaining({ url: "https://example.com/tiny-db" }),
+      );
+    });
+  });
+
+  it("never returns to an outside address", () => {
+    renderViewer({
+      pathname: "/news/view",
+      search: `?url=${encodeURIComponent("https://example.com/")}`,
+      state: { from: "//evil.example" },
+    });
+
+    expect(screen.getByRole("link", { name: "Back to news" })).toHaveAttribute("href", "/news");
   });
 });

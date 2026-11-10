@@ -1,53 +1,23 @@
-import { formatDistanceToNowStrict } from "date-fns";
-import { ArrowDown, ArrowUp, Flame, MessageSquare, Minus, Trophy, Triangle } from "lucide-react";
+import { ArrowDown, ArrowUp, Flame, Minus, Trophy } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { SimpleIcon } from "simple-icons";
-import { toast } from "sonner";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { describeError } from "@/services/ipc";
-import { openInBrowser } from "@/services/library.service";
 import type { LanguageRanking } from "@/types/news.types";
 
 import { useLanguageRankings, useTopStories } from "../hooks/use-news";
 import { iconColor, languageIcon } from "../news-icons";
+import { StoryCard } from "./story-card";
+import { WebLink } from "./web-link";
 
-const STORIES_SHOWN = 10;
+const STORIES_SHOWN = 8;
+const STORY_GRID = "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
 const INDEX_LABELS: Record<LanguageRanking["index"], { name: string; basis: string }> = {
   tiobe: { name: "TIOBE", basis: "search-engine results" },
   pypl: { name: "PYPL", basis: "tutorial searches on Google" },
 };
-
-/** A link that opens in the system browser; the app window never navigates away. */
-export function WebLink({
-  href,
-  className,
-  children,
-}: {
-  href: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      onClick={(event) => {
-        event.preventDefault();
-        openInBrowser(href).catch((error: unknown) => {
-          toast.error("Couldn't open the link", { description: describeError(error) });
-        });
-      }}
-      className={cn(
-        "rounded outline-none hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring",
-        className,
-      )}
-    >
-      {children}
-    </a>
-  );
-}
 
 /** A brand logo in a tile; falls back to the name's first letters when there is no logo. */
 export function BrandIcon({
@@ -78,14 +48,6 @@ export function BrandIcon({
   );
 }
 
-function host(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
 function SectionHeading({
   id,
   icon,
@@ -113,7 +75,7 @@ function ShowMore({ expanded, onToggle }: { expanded: boolean; onToggle: () => v
     <button
       type="button"
       onClick={onToggle}
-      className="w-full rounded-b-xl border-t border-border px-4 py-2.5 text-xs font-medium text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
     >
       {expanded ? "Show fewer" : "Show more"}
     </button>
@@ -138,10 +100,10 @@ export function TopStories() {
         }
       />
       {stories.isPending ? (
-        <div role="status" aria-busy="true" className="space-y-2">
+        <div role="status" aria-busy="true" className={STORY_GRID}>
           <span className="sr-only">Loading top stories</span>
-          {Array.from({ length: 5 }, (_, index) => (
-            <Skeleton key={index} className="h-14 rounded-xl" />
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-64 rounded-xl" />
           ))}
         </div>
       ) : stories.isError ? (
@@ -149,33 +111,11 @@ export function TopStories() {
           {stories.error.message.replace(/^.*?failed: /, "")}
         </p>
       ) : (
-        <div className="rounded-xl border border-border bg-card">
-          <ol aria-label="Top stories" className="divide-y divide-border">
-            {stories.data.slice(0, expanded ? undefined : STORIES_SHOWN).map((story, index) => (
-              <li key={story.discussionUrl} className="flex items-start gap-3 px-4 py-3">
-                <span className="w-5 shrink-0 pt-px text-right text-sm text-muted-foreground tabular-nums">
-                  {index + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <WebLink href={story.url} className="text-sm font-medium text-foreground">
-                    {story.title}
-                  </WebLink>
-                  <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span className="truncate">{host(story.url)}</span>
-                    <span className="inline-flex items-center gap-1 tabular-nums">
-                      <Triangle className="size-2.5 fill-current" aria-hidden />
-                      {story.points} points
-                    </span>
-                    <WebLink
-                      href={story.discussionUrl}
-                      className="inline-flex items-center gap-1 tabular-nums"
-                    >
-                      <MessageSquare className="size-3" aria-hidden />
-                      {story.comments} comments
-                    </WebLink>
-                    <span>{formatDistanceToNowStrict(story.publishedAt, { addSuffix: true })}</span>
-                  </p>
-                </div>
+        <>
+          <ol aria-label="Top stories" className={STORY_GRID}>
+            {stories.data.slice(0, expanded ? undefined : STORIES_SHOWN).map((story) => (
+              <li key={story.discussionUrl}>
+                <StoryCard story={story} />
               </li>
             ))}
           </ol>
@@ -187,7 +127,7 @@ export function TopStories() {
               }}
             />
           )}
-        </div>
+        </>
       )}
     </section>
   );

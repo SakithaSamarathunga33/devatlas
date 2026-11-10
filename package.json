@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "pnpm --filter @devatlas/desktop tauri dev",
     "build": "pnpm --filter @devatlas/desktop tauri build",
+    "build:installer": "pnpm --filter @devatlas/desktop tauri build --no-bundle && pnpm --filter @devatlas/installer tauri build --no-bundle",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "format": "prettier --write .",

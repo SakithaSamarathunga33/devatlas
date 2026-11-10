@@ -1,8 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import { App } from "@/app/app";
+import { AppProviders } from "@/app/providers/app-providers";
+import { routes } from "@/app/router/router";
 import { useUiStore } from "@/stores/ui-store";
 import type { LibrarySnapshot } from "@/types/library.types";
 
@@ -11,6 +14,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => true,
 }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(() => Promise.resolve(vi.fn())) }));
 
 const invokeMock = vi.mocked(invoke);
 
@@ -43,11 +47,21 @@ const TRENDING = {
   createdAt: new Date(Date.now() - 86_400_000).toISOString(),
 };
 
+const STORY = {
+  title: "Rust 1.92 released",
+  url: "https://blog.rust-lang.org/",
+  discussionUrl: "https://news.ycombinator.com/item?id=1",
+  points: 812,
+  comments: 300,
+  publishedAt: Date.now() - 3_600_000,
+};
+
 function mockBackend(appInfo: () => Promise<unknown>) {
   invokeMock.mockImplementation((command) => {
     if (command === "get_app_info") return appInfo();
     if (command === "list_library") return Promise.resolve(LIBRARY);
     if (command === "list_trending_repos") return Promise.resolve([TRENDING]);
+    if (command === "list_top_stories") return Promise.resolve([STORY]);
     return Promise.resolve({ title: null, image: null, icon: null });
   });
 }
@@ -63,34 +77,59 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)$/ }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+    const primary = screen.getByRole("navigation", { name: "Primary" });
+    expect(within(primary).getByRole("button", { name: "Dashboard" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("region", { name: "Coming soon" })).toHaveTextContent("Collections");
     expect(screen.getByRole("button", { name: "Minimize" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
     expect(await screen.findByText("DevAtlas 0.1.0 · Windows")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Backend connected");
   });
 
-  it("keeps the navigation links styled when the sidebar is collapsed", () => {
+  it("names the icon-only pages when the sidebar is collapsed", () => {
     mockBackend(() => Promise.resolve(APP_INFO));
     useUiStore.setState({ sidebarCollapsed: true });
 
     try {
       render(<App />);
 
-      // Collapsed links sit inside a Radix tooltip trigger, which merges class names as
-      // strings; a function className used to arrive as its source text.
-      for (const name of ["Dashboard", "Library"]) {
-        const link = screen.getByRole("link", { name });
-        expect(link).toHaveClass("h-10");
-        expect(link.className).not.toContain("=>");
-      }
-      expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
+      const primary = screen.getByRole("navigation", { name: "Primary" });
+      expect(within(primary).getByRole("button", { name: "Dashboard" })).toHaveAttribute(
         "aria-current",
         "page",
+      );
+      expect(within(primary).getByRole("button", { name: "Library" })).not.toHaveAttribute(
+        "aria-current",
       );
     } finally {
       useUiStore.setState({ sidebarCollapsed: false });
     }
+  });
+
+  it("opens a page from the sidebar without reloading the window", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+    render(<App />);
+
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Primary" })).getByRole("button", {
+        name: "News",
+      }),
+    );
+
+    expect(await screen.findByRole("heading", { level: 1, name: "News" })).toBeInTheDocument();
+
+    // The app's router is a module singleton; return to the dashboard for the next tests.
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Primary" })).getByRole("button", {
+        name: "Dashboard",
+      }),
+    );
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)$/ }),
+    ).toBeInTheDocument();
   });
 
   it("shows real library numbers, collections and recent activity", async () => {
@@ -113,6 +152,21 @@ describe("App", () => {
       "https://github.com/tauri-apps/tauri",
     );
     expect(screen.getByRole("region", { name: "Trending on GitHub" })).toBeInTheDocument();
+    const news = await screen.findByRole("list", { name: "Top stories" });
+    expect(within(news).getByRole("link", { name: /Rust 1.92 released/ })).toHaveAttribute(
+      "href",
+      `/news/view?url=${encodeURIComponent("https://blog.rust-lang.org/")}`,
+    );
+    const order = ["Top stories", "Trending on GitHub", "Featured resources"].map((name) =>
+      screen.getByRole("region", { name }),
+    );
+    // News first, then trending repos, then the user's resources.
+    expect(order[0]?.compareDocumentPosition(order[1] as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(order[1]?.compareDocumentPosition(order[2] as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     const collections = await screen.findByRole("region", { name: "Your collections" });
     expect(await within(collections).findByRole("link", { name: /UI components/ })).toHaveAttribute(
       "href",
@@ -128,5 +182,43 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Backend unavailable")).toBeInTheDocument();
+  });
+
+  it("opens a news link in the in-app viewer instead of falling back to the dashboard", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+    const url = "https://blog.rust-lang.org/";
+    const router = createMemoryRouter(routes, {
+      initialEntries: [
+        { pathname: "/news/view", search: `?url=${encodeURIComponent(url)}`, state: { from: "/" } },
+      ],
+    });
+
+    render(
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>,
+    );
+
+    expect(await screen.findByRole("link", { name: "Back to dashboard" })).toBeInTheDocument();
+    expect(screen.getByText(url)).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/news/view");
+    expect(screen.queryByRole("heading", { level: 1, name: /^Good / })).not.toBeInTheDocument();
+  });
+
+  it("switches between the dark and light themes and remembers the choice", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Switch to light theme" }));
+
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement).not.toHaveClass("dark");
+    expect(localStorage.getItem("devatlas-theme")).toBe("light");
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(document.documentElement).toHaveClass("dark");
+    expect(localStorage.getItem("devatlas-theme")).toBe("dark");
   });
 });

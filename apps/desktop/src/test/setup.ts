@@ -12,6 +12,20 @@ class ObserverStub {
 }
 vi.stubGlobal("IntersectionObserver", ObserverStub);
 vi.stubGlobal("ResizeObserver", ObserverStub);
+// Gooey Nav checks prefers-reduced-motion; jsdom has no matchMedia.
+vi.stubGlobal(
+  "matchMedia",
+  vi.fn((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(() => false),
+  })),
+);
 
 afterEach(() => {
   // Sonner keeps toasts in a module-level store, so they would leak into the next test.

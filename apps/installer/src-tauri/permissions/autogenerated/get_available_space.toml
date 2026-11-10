@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-available-space"
+description = "Enables the get_available_space command without any pre-configured scope."
+commands.allow = ["get_available_space"]
+
+[[permission]]
+identifier = "deny-get-available-space"
+description = "Denies the get_available_space command without any pre-configured scope."
+commands.deny = ["get_available_space"]

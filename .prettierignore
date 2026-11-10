@@ -3,4 +3,6 @@ pnpm-lock.yaml
 **/target
 **/coverage
 apps/desktop/src-tauri/gen
+apps/installer/src-tauri/gen
 apps/desktop/src-tauri/icons
+**/.impeccable

@@ -1,5 +1,6 @@
-import { NavLink } from "react-router";
+import { NavLink, useLocation, useNavigate } from "react-router";
 
+import GooeyNav from "@/components/GooeyNav";
 import {
   primaryNavigation,
   secondaryNavigation,
@@ -8,6 +9,20 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-store";
+
+/** The theme's primary, as a literal: the gooey canvas parses it and can't read CSS variables. */
+const PILL = { dark: "#14b8a6", light: "#0f766e" } as const;
+
+type Page = NavigationItem & { to: string };
+
+function isPage(item: NavigationItem): item is Page {
+  return item.to !== undefined;
+}
+
+function isActive(page: Page, pathname: string): boolean {
+  // The dashboard matches exactly; /news/view and /library/:id keep their section active.
+  return page.to === "/" ? pathname === "/" : pathname.startsWith(page.to);
+}
 
 export function AppSidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
@@ -37,11 +52,66 @@ export function AppSidebar() {
         )}
       </div>
 
-      <nav aria-label="Primary" className="flex flex-1 flex-col px-3 pt-4 pb-3">
-        <NavigationList items={primaryNavigation} collapsed={collapsed} />
+      <div className="flex flex-1 flex-col px-3 pt-4 pb-3">
+        <PageNavigation collapsed={collapsed} />
+        <ComingSoon collapsed={collapsed} />
         <NavigationList items={secondaryNavigation} collapsed={collapsed} className="mt-auto" />
-      </nav>
+      </div>
     </aside>
+  );
+}
+
+/** The pages that exist, as React Bits' Gooey Nav: the active pill flows to the page you
+ * open. Items are buttons that route in-app, so the window never reloads. */
+function PageNavigation({ collapsed }: { collapsed: boolean }) {
+  const theme = useUiStore((state) => state.theme);
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const pages = primaryNavigation.filter(isPage);
+  const active = pages.findIndex((page) => isActive(page, pathname));
+
+  return (
+    <GooeyNav
+      label="Primary"
+      orientation="vertical"
+      frame={false}
+      theme={theme}
+      color={PILL[theme]}
+      particleCount={12}
+      // Canvas hover follows the pointer frame by frame and lags; a CSS fill is instant.
+      hoverEffect={false}
+      animationTime={350}
+      className="w-full"
+      items={pages.map((page) => {
+        const Icon = page.icon;
+        return {
+          label: collapsed ? undefined : page.label,
+          ariaLabel: collapsed ? page.label : undefined,
+          icon: <Icon aria-hidden />,
+        };
+      })}
+      activeIndex={Math.max(0, active)}
+      onChange={(index) => {
+        const page = pages[index];
+        if (page !== undefined && !isActive(page, pathname)) void navigate(page.to);
+      }}
+    />
+  );
+}
+
+/** Planned modules, honestly labelled; they can't be opened yet. */
+function ComingSoon({ collapsed }: { collapsed: boolean }) {
+  const planned = primaryNavigation.filter((item) => !isPage(item));
+  if (planned.length === 0) return null;
+  return (
+    <section aria-label="Coming soon" className="mt-5">
+      {!collapsed && (
+        <p className="mb-1.5 px-3 text-[11px] font-medium tracking-wide text-sidebar-foreground/55 uppercase">
+          Coming soon
+        </p>
+      )}
+      <NavigationList items={planned} collapsed={collapsed} />
+    </section>
   );
 }
 
@@ -96,14 +166,16 @@ function SidebarItem({ item, collapsed }: { item: NavigationItem; collapsed: boo
     ) : (
       <NavLink
         to={item.to}
-        end
+        // Only the dashboard needs an exact match; /news/view and /library/:id keep their
+        // section highlighted.
+        end={item.to === "/"}
         // A plain string, not NavLink's className function: when collapsed, the link sits in a
         // Radix tooltip trigger (Slot), which can only merge string class names. NavLink marks
         // the active link with aria-current="page", so the active style keys off that.
         className={cn(
           itemBase,
-          "text-sidebar-foreground/75 transition-[background-color,color] duration-200 hover:text-sidebar-accent-foreground not-aria-[current=page]:hover:bg-white/[0.06]",
-          "aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground aria-[current=page]:[&>svg]:text-sidebar-primary",
+          "text-sidebar-foreground/75 transition-[background-color,color] duration-200 hover:text-sidebar-accent-foreground not-aria-[current=page]:hover:bg-accent",
+          "aria-[current=page]:bg-sidebar-primary/10 aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-sidebar-primary/35 aria-[current=page]:ring-inset aria-[current=page]:[&>svg]:text-sidebar-primary",
         )}
       >
         {content}

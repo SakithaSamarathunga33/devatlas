@@ -2,6 +2,7 @@ import { Bookmark, CalendarDays, CircleAlert, Flame, RotateCw } from "lucide-rea
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
+import { GooeyFilter } from "@/components/shared/gooey-filter";
 import { SearchField } from "@/components/shared/search-field";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -129,27 +130,18 @@ export function DiscoveryPage() {
       {section === "trending" ? (
         <>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div role="group" aria-label="Period" className="flex flex-wrap gap-2">
-              {trendingPeriods.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={period === value}
-                  onClick={() => {
-                    setParam("period", value === "week" ? null : value);
-                  }}
-                  className={cn(
-                    "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm transition-[background-color,color] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    period === value
-                      ? "border-transparent bg-primary font-medium text-primary-foreground"
-                      : "border-border bg-card text-foreground/80 hover:bg-secondary hover:text-foreground",
-                  )}
-                >
-                  <CalendarDays className="size-4" aria-hidden />
-                  {PERIOD_LABELS[value].button}
-                </button>
-              ))}
-            </div>
+            <GooeyFilter
+              label="Period"
+              value={period}
+              onChange={(value) => {
+                setParam("period", value === "week" ? null : value);
+              }}
+              options={trendingPeriods.map((value) => ({
+                value,
+                label: PERIOD_LABELS[value].button,
+                icon: <CalendarDays aria-hidden />,
+              }))}
+            />
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               Language
               <select

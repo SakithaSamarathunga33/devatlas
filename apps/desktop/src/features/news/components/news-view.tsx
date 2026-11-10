@@ -2,6 +2,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { Code, Database, Layers, SquareCode, Wrench, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 
+import { GooeyFilter } from "@/components/shared/gooey-filter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { selectClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,9 @@ import {
 
 import { useNews } from "../hooks/use-news";
 import { sourceIcon } from "../news-icons";
-import { BrandIcon, TopStories, WebLink } from "./news-top";
+import { BrandIcon, TopStories } from "./news-top";
+import { PreviewImage } from "./story-card";
+import { WebLink } from "./web-link";
 
 const CATEGORIES: Record<NewsCategory, { label: string; icon: LucideIcon }> = {
   language: { label: "Languages", icon: Code },
@@ -35,7 +38,7 @@ function SourceLogo({ source, className }: { source: NewsSource; className?: str
       <span
         aria-hidden
         className={cn(
-          "flex shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-sky-300",
+          "flex shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-info",
           className,
         )}
       >
@@ -108,36 +111,27 @@ function LatestPosts({ search }: { search: string }) {
         Latest from official blogs
       </h2>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div role="group" aria-label="Category" className="flex flex-wrap gap-2">
-          {(["all", ...newsCategories] as const).map((value) => {
-            const count =
-              value === "all"
-                ? items.length
-                : items.filter((item) => sourceById.get(item.sourceId)?.category === value).length;
+        <GooeyFilter
+          label="Category"
+          value={category}
+          onChange={(value) => {
+            setCategory(value);
+            setSourceId("");
+          }}
+          options={(["all", ...newsCategories] as const).map((value) => {
             const Icon = value === "all" ? null : CATEGORIES[value].icon;
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={category === value}
-                onClick={() => {
-                  setCategory(value);
-                  setSourceId("");
-                }}
-                className={cn(
-                  "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  category === value
-                    ? "border-transparent bg-primary font-medium text-primary-foreground"
-                    : "border-border bg-card text-foreground/80 hover:bg-secondary hover:text-foreground",
-                )}
-              >
-                {Icon !== null && <Icon className="size-4" aria-hidden />}
-                {value === "all" ? "All" : CATEGORIES[value].label}
-                <span className="text-xs tabular-nums opacity-70">{count}</span>
-              </button>
-            );
+            return {
+              value,
+              label: value === "all" ? "All" : CATEGORIES[value].label,
+              count:
+                value === "all"
+                  ? items.length
+                  : items.filter((item) => sourceById.get(item.sourceId)?.category === value)
+                      .length,
+              icon: Icon === null ? undefined : <Icon aria-hidden />,
+            };
           })}
-        </div>
+        />
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           Source
           <select
@@ -235,7 +229,16 @@ function CategorySection({
       <ul className="mt-3 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
         {withPosts.map(({ source, posts }) => (
           <li key={source.id}>
-            <article className="flex h-full flex-col rounded-xl border border-border bg-card">
+            <article className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card">
+              {posts[0] !== undefined && (
+                // The latest post's preview, like library cards; decorative, the title links.
+                <div
+                  aria-hidden
+                  className="aspect-[1200/500] overflow-hidden border-b border-border bg-linear-to-br from-primary/20 to-secondary"
+                >
+                  <PreviewImage url={posts[0].url} />
+                </div>
+              )}
               <div className="flex items-center gap-3 border-b border-border px-4 py-3">
                 <SourceLogo source={source} className="size-9" />
                 <h4 className="min-w-0 flex-1 truncate text-sm font-semibold">{source.name}</h4>

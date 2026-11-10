@@ -7,7 +7,16 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig([
-  globalIgnores(["dist", "coverage", "src-tauri"]),
+  // Vendored registry code (Bklit charts, React Bits, Magic UI), updated with the shadcn CLI:
+  // type-checked with the app, but not held to the app's lint rules.
+  globalIgnores([
+    "dist",
+    "coverage",
+    "src-tauri",
+    "src/components/charts",
+    "src/components/GooeyNav.tsx",
+    "src/components/shimmering-text.tsx",
+  ]),
   {
     files: ["**/*.{ts,tsx}"],
     extends: [

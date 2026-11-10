@@ -1,10 +1,12 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Minus, PanelLeftClose, PanelLeftOpen, Search, Square, X } from "lucide-react";
+import { Minus, Moon, PanelLeftClose, PanelLeftOpen, Search, Square, Sun, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 
+import { primaryNavigation, secondaryNavigation } from "@/components/layout/navigation";
 import { Button } from "@/components/ui/button";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-store";
 
@@ -41,14 +43,54 @@ export function AppHeader() {
         onClick={toggleSidebar}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         aria-expanded={!collapsed}
-        className="text-muted-foreground hover:bg-white/[0.06]"
+        className="text-muted-foreground hover:bg-accent"
       >
         {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
       </Button>
-      {!pageHasSearch && <HeaderSearch />}
-      <div data-tauri-drag-region className="h-full flex-1" />
+      <PageTitle pathname={pathname} />
+      <div data-tauri-drag-region className="flex h-full flex-1 items-center justify-center px-4">
+        {!pageHasSearch && <HeaderSearch />}
+      </div>
+      <ThemeToggle />
       <WindowControls />
     </header>
+  );
+}
+
+function ThemeToggle() {
+  const theme = useUiStore((state) => state.theme);
+  const toggleTheme = useUiStore((state) => state.toggleTheme);
+  const next = theme === "dark" ? "light" : "dark";
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onClick={toggleTheme}
+      aria-label={`Switch to ${next} theme`}
+      title={`Switch to ${next} theme`}
+      className="text-muted-foreground hover:bg-accent"
+    >
+      {theme === "dark" ? <Sun /> : <Moon />}
+    </Button>
+  );
+}
+
+/** The current page's name and icon, so the header says where you are. */
+function PageTitle({ pathname }: { pathname: string }) {
+  const title = usePageTitle();
+  const section = [...primaryNavigation, ...secondaryNavigation].find(
+    (item) =>
+      item.to !== undefined && (item.to === "/" ? pathname === "/" : pathname.startsWith(item.to)),
+  );
+  const Icon = section?.icon;
+  return (
+    <p
+      data-tauri-drag-region
+      className="flex shrink-0 items-center gap-2 text-sm font-medium text-foreground"
+    >
+      {Icon !== undefined && <Icon className="size-4 text-muted-foreground" aria-hidden />}
+      {title}
+    </p>
   );
 }
 
@@ -86,7 +128,7 @@ function HeaderSearch() {
 }
 
 const windowButton =
-  "flex h-full w-12 items-center justify-center text-muted-foreground transition-colors outline-none hover:bg-white/[0.08] hover:text-foreground focus-visible:bg-white/[0.08] [&_svg]:size-4";
+  "flex h-full w-12 items-center justify-center text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:bg-accent [&_svg]:size-4";
 
 /** Minimize / maximize / close, replacing the native title bar (the window is undecorated). */
 function WindowControls() {

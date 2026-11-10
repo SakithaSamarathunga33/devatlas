@@ -28,7 +28,7 @@ export function ResourceCard({ resource }: { resource: Resource }) {
   const { openExternally, remove } = useResourceActions(resource);
 
   return (
-    <article className="group/card relative h-full rounded-xl border border-border bg-card transition-[border-color,box-shadow] duration-150 hover:border-white/15 hover:shadow-[0_10px_24px_-14px_rgb(0_0_0/0.7)]">
+    <article className="group/card relative h-full rounded-xl border border-border bg-card transition-[border-color,box-shadow] duration-150 hover:border-foreground/15 hover:shadow-[0_10px_24px_-14px_rgb(0_0_0/0.7)]">
       <Link
         to={viewerPath(resource)}
         title={resource.url}
@@ -41,7 +41,7 @@ export function ResourceCard({ resource }: { resource: Resource }) {
           )}
         >
           {preview.isPending ? (
-            <Skeleton className="size-full rounded-none bg-white/[0.04]" />
+            <Skeleton className="size-full rounded-none bg-foreground/[0.04]" />
           ) : (
             <RemoteImage
               src={preview.data?.image ?? null}
@@ -114,7 +114,7 @@ interface RemoteImageProps {
 }
 
 /** An image from another site; falls back when missing or when it fails to load. */
-function RemoteImage({ src, className, fallback }: RemoteImageProps) {
+export function RemoteImage({ src, className, fallback }: RemoteImageProps) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   if (src === null || failedSrc === src) return <>{fallback}</>;
   return (
@@ -145,7 +145,7 @@ export function SiteIcon({
     <span
       aria-hidden
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden bg-white/[0.06] font-semibold text-white ring-1 ring-white/10 ring-inset",
+        "flex shrink-0 items-center justify-center overflow-hidden bg-foreground/[0.06] font-semibold text-tile-icon ring-1 ring-foreground/10 ring-inset",
         className,
       )}
     >

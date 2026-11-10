@@ -14,43 +14,142 @@
   --radius: 0.5rem;
 
   /*
-   * "Atlas": a map-blue sidebar rail is the one committed colour; the work area is neutral
-   * graphite so previews and data read true. Saffron marks actions and the current selection
-   * only; sky marks what is new. No glows: depth comes from offset shadows and borders.
+   * "Slate & Mint" (owner palette). Dark is the default; the light theme below overrides it.
+   * Mint does two jobs: actions/selection and "new". Cyan is the quiet accent for counts and
+   * secondary highlights. Category and language colours are data, not brand.
    */
-  --background: #121316;
-  --foreground: #ebedf0;
-  --card: #18191d;
-  --card-foreground: #ebedf0;
-  --popover: #1e2025;
-  --popover-foreground: #ebedf0;
-  --primary: #f0a63c;
-  --primary-foreground: #1d1204;
-  --secondary: #202227;
-  --secondary-foreground: #ebedf0;
-  --muted: #1a1c20;
-  --muted-foreground: #9aa0aa;
-  --accent: #22252b;
-  --accent-foreground: #ebedf0;
+  --background: #0f1115;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #14b8a6; /* mint */
+  --primary-foreground: #0f1115;
+  --primary-hover: #0d9488;
+  --secondary: #0b1f1e; /* surface-alt */
+  --secondary-foreground: #f1f5f9;
+  --muted: #0b1f1e;
+  --muted-foreground: #94a3b8;
+  --faint-foreground: #64748b;
+  --disabled-foreground: #475569;
+  --accent: #2d3748;
+  --accent-foreground: #f1f5f9;
   --destructive: #f2555a;
-  --border: #272a30;
-  --input: #30343b;
-  --ring: #f0a63c;
+  --border: #2d3748;
+  --input: #2d3748;
+  --ring: #14b8a6;
 
-  --info: #7cbcff;
-  --success: #4fc98a;
+  --info: #22d3ee; /* accent (cyan) */
+  --success: #34d399;
   --warning: #f5b544;
-  --highlight: #7cbcff;
-  --highlight-foreground: #06192e;
+  --highlight: #2dd4bf; /* secondary (teal) */
+  --highlight-foreground: #0f1115;
 
-  --sidebar: #142036;
-  --sidebar-foreground: #dde5f2;
-  --sidebar-primary: #f0a63c;
-  --sidebar-primary-foreground: #1d1204;
-  --sidebar-accent: #1f2f4d;
-  --sidebar-accent-foreground: #f4f7fb;
-  --sidebar-border: #1d2b44;
-  --sidebar-ring: #f0a63c;
+  --sidebar: #0f1115;
+  --sidebar-foreground: #94a3b8;
+  --sidebar-primary: #14b8a6;
+  --sidebar-primary-foreground: #0f1115;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #f1f5f9;
+  --sidebar-border: #1e293b; /* divider */
+  --sidebar-ring: #14b8a6;
+
+  /* Brand gradient: hero accents, progress rings and charts. */
+  --gradient-from: #14b8a6;
+  --gradient-to: #22d3ee;
+
+  --image-outline: rgb(255 255 255 / 0.08);
+  /* Icons and initials on the tinted category tiles. */
+  --tile-icon: #ffffff;
+  --chart-1: #0d9488;
+  --chart-2: #0891b2;
+  --chart-3: #2dd4bf;
+  --chart-4: #64748b;
+  --chart-5: #0f172a;
+  --chart-positive: oklch(0.696 0.17 162.48);
+  --chart-negative: oklch(0.637 0.237 25.331);
+  --chart-background: #ffffff;
+  --chart-foreground: #64748b;
+  --chart-foreground-muted: #94a3b8;
+  --chart-line-primary: var(--chart-1);
+  --chart-line-secondary: var(--chart-2);
+  --chart-crosshair: #0f766e;
+  --chart-grid: #e2e8f0;
+  --chart-brush-border: var(--chart-grid);
+  --chart-tooltip-background: var(--popover);
+  --chart-tooltip-foreground: var(--popover-foreground);
+  --chart-tooltip-muted: var(--muted-foreground);
+  --chart-marker-background: #f8fafc;
+  --chart-marker-border: #cbd5e1;
+  --chart-marker-foreground: #334155;
+  --chart-label: #475569;
+  --chart-scale-mix: oklch(1 0 0);
+  --chart-scale-01: oklch(0.922 0 0);
+  --chart-scale-02: color-mix(in oklab, var(--chart-1) 35%, var(--chart-scale-mix));
+  --chart-scale-03: color-mix(in oklab, var(--chart-1) 55%, var(--chart-scale-mix));
+  --chart-scale-04: color-mix(in oklab, var(--chart-1) 78%, var(--chart-scale-mix));
+  --chart-scale-05: var(--chart-1);
+  --chart-scale-pattern-color: oklch(1 0 0);
+  --chart-indicator-color: oklch(0.21 0.006 285);
+  --chart-indicator-secondary-color: oklch(0.913 0 0);
+  --chart-marker-badge-background: oklch(0 0 0);
+  --chart-marker-badge-foreground: oklch(0.84 0 0);
+  --chart-segment-background: oklch(0.756 0 0 / 0.06);
+  --chart-segment-line: oklch(0.5 0 0 / 0.25);
+}
+
+/*
+ * Light theme of "Slate & Mint", chosen in the header and remembered (public/theme-init.js
+ * applies it before the first paint). Mint #14b8a6 on white is ~2.5:1, too faint for links and
+ * button text, so actions use the palette's primary-active #0f766e (~5.5:1); mint stays for
+ * focus rings, "new" dots and charts. Cyan text uses #0e7490 for the same reason.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --primary-hover: #0d9488;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --faint-foreground: #64748b;
+  --disabled-foreground: #94a3b8;
+  --accent: #e2e8f0;
+  --accent-foreground: #0f172a;
+  --destructive: #d23a40;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #14b8a6;
+
+  --info: #0e7490;
+  --success: #15803d;
+  --warning: #a16207;
+  --highlight: #14b8a6;
+  --highlight-foreground: #0f172a;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #334155;
+  --sidebar-primary: #0f766e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #14b8a6;
+
+  --gradient-from: #0d9488;
+  --gradient-to: #06b6d4;
+
+  --image-outline: rgb(15 23 42 / 0.08);
+  --tile-icon: #1e293b;
 }
 
 @theme inline {
@@ -93,6 +192,57 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-tile-icon: var(--tile-icon);
+  --color-primary-hover: var(--primary-hover);
+  --color-faint-foreground: var(--faint-foreground);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-gradient-from: var(--gradient-from);
+  --color-gradient-to: var(--gradient-to);
+  --color-chart-line-primary: var(--chart-line-primary);
+  --color-chart-line-secondary: var(--chart-line-secondary);
+  --color-chart-brush-border: var(--chart-brush-border);
+  --color-chart-tooltip-background: var(--chart-tooltip-background);
+  --color-chart-tooltip-foreground: var(--chart-tooltip-foreground);
+  --color-chart-tooltip-muted: var(--chart-tooltip-muted);
+  --color-chart-scale-02: var(--chart-scale-02);
+  --color-chart-scale-03: var(--chart-scale-03);
+  --color-chart-scale-04: var(--chart-scale-04);
+  --color-chart-scale-05: var(--chart-scale-05);
+  --color-chart-segment-line: var(--chart-segment-line);
+  --color-chart-segment-background: var(--chart-segment-background);
+  --color-chart-marker-badge-foreground: var(--chart-marker-badge-foreground);
+  --color-chart-marker-badge-background: var(--chart-marker-badge-background);
+  --color-chart-indicator-secondary-color: var(--chart-indicator-secondary-color);
+  --color-chart-indicator-color: var(--chart-indicator-color);
+  --color-chart-scale-pattern-color: var(--chart-scale-pattern-color);
+  --chart-scale-05: var(--chart-scale-05);
+  --chart-scale-04: var(--chart-scale-04);
+  --chart-scale-03: var(--chart-scale-03);
+  --chart-scale-02: var(--chart-scale-02);
+  --color-chart-scale-01: var(--chart-scale-01);
+  --color-chart-scale-mix: var(--chart-scale-mix);
+  --color-chart-label: var(--chart-label);
+  --color-chart-marker-foreground: var(--chart-marker-foreground);
+  --color-chart-marker-border: var(--chart-marker-border);
+  --color-chart-marker-background: var(--chart-marker-background);
+  --chart-tooltip-muted: var(--chart-tooltip-muted);
+  --chart-tooltip-foreground: var(--chart-tooltip-foreground);
+  --chart-tooltip-background: var(--chart-tooltip-background);
+  --chart-brush-border: var(--chart-brush-border);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-crosshair: var(--chart-crosshair);
+  --chart-line-secondary: var(--chart-line-secondary);
+  --chart-line-primary: var(--chart-line-primary);
+  --color-chart-foreground-muted: var(--chart-foreground-muted);
+  --color-chart-foreground: var(--chart-foreground);
+  --color-chart-background: var(--chart-background);
+  --color-chart-negative: var(--chart-negative);
+  --color-chart-positive: var(--chart-positive);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
 }
 
 @layer base {
@@ -101,7 +251,7 @@
   }
 
   html {
-    scrollbar-color: #3a3e46 transparent;
+    scrollbar-color: var(--input) transparent;
   }
 
   body {
@@ -115,7 +265,7 @@
   }
 
   img {
-    outline: 1px solid rgb(255 255 255 / 0.08);
+    outline: 1px solid var(--image-outline);
     outline-offset: -1px;
   }
 
@@ -132,4 +282,37 @@
   ::selection {
     background-color: color-mix(in oklab, var(--primary) 35%, transparent);
   }
+}
+/* Chart tokens in the dark theme (the class is on <html> while dark is active). */
+.dark {
+  --chart-1: #14b8a6;
+  --chart-2: #22d3ee;
+  --chart-3: #2dd4bf;
+  --chart-4: #64748b;
+  --chart-5: #f1f5f9;
+  --chart-positive: oklch(0.765 0.177 163.223);
+  --chart-negative: oklch(0.704 0.191 22.216);
+  --chart-background: #1e293b;
+  --chart-foreground: #94a3b8;
+  --chart-foreground-muted: #64748b;
+  --chart-crosshair: #94a3b8;
+  --chart-grid: #2d3748;
+  --chart-brush-border: var(--chart-grid);
+  --chart-marker-background: #1e293b;
+  --chart-marker-border: #2d3748;
+  --chart-marker-foreground: #f1f5f9;
+  --chart-label: #94a3b8;
+  --chart-scale-mix: #1e293b;
+  --chart-scale-01: #2d3748;
+  --chart-scale-02: color-mix(in oklab, var(--chart-1) 35%, var(--chart-scale-mix));
+  --chart-scale-03: color-mix(in oklab, var(--chart-1) 55%, var(--chart-scale-mix));
+  --chart-scale-04: color-mix(in oklab, var(--chart-1) 78%, var(--chart-scale-mix));
+  --chart-scale-05: var(--chart-1);
+  --chart-scale-pattern-color: oklch(0.145 0 0);
+  --chart-indicator-color: oklch(1 0 0);
+  --chart-indicator-secondary-color: oklch(0.145 0 0);
+  --chart-marker-badge-background: oklch(1 0 0);
+  --chart-marker-badge-foreground: oklch(0.15 0 0);
+  --chart-segment-background: oklch(0.41 0.0127 248.14 / 0.25);
+  --chart-segment-line: oklch(1 0 0 / 0.25);
 }

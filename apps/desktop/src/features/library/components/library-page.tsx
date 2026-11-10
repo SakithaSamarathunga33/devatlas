@@ -2,6 +2,7 @@ import { CircleAlert, LayoutGrid, List, Plus, RotateCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
+import { GooeyFilter } from "@/components/shared/gooey-filter";
 import { SearchField } from "@/components/shared/search-field";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -181,37 +182,20 @@ function LibraryBrowser({
   return (
     <>
       <div className="mt-5 flex items-start justify-between gap-4">
-        <div role="group" aria-label="Filter by category" className="flex flex-wrap gap-2">
-          <FilterChip
-            label="All"
-            count={snapshot.resources.length}
-            active={category === "all"}
-            onSelect={() => {
-              onCategoryChange("all");
-            }}
-          />
-          {newCount > 0 && (
-            <FilterChip
-              label="New"
-              count={newCount}
-              active={category === "new"}
-              onSelect={() => {
-                onCategoryChange("new");
-              }}
-            />
-          )}
-          {countByCategory(snapshot.resources).map(({ category: value, count }) => (
-            <FilterChip
-              key={value}
-              label={CATEGORY_META[value].label}
-              count={count}
-              active={category === value}
-              onSelect={() => {
-                onCategoryChange(value);
-              }}
-            />
-          ))}
-        </div>
+        <GooeyFilter
+          label="Filter by category"
+          value={category}
+          onChange={onCategoryChange}
+          options={[
+            { value: "all", label: "All", count: snapshot.resources.length },
+            ...(newCount > 0 ? [{ value: "new" as const, label: "New", count: newCount }] : []),
+            ...countByCategory(snapshot.resources).map(({ category: value, count }) => ({
+              value,
+              label: CATEGORY_META[value].label,
+              count,
+            })),
+          ]}
+        />
         <div
           role="group"
           aria-label="Layout"
@@ -277,39 +261,6 @@ function LibraryBrowser({
   );
 }
 
-interface FilterChipProps {
-  label: string;
-  count: number;
-  active: boolean;
-  onSelect: () => void;
-}
-
-function FilterChip({ label, count, active, onSelect }: FilterChipProps) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onSelect}
-      className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-medium transition-[background-color,color,transform] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:active:scale-100",
-        active
-          ? "border-transparent bg-primary text-primary-foreground"
-          : "border-border bg-card text-foreground/80 hover:bg-secondary hover:text-foreground",
-      )}
-    >
-      {label}
-      <span
-        className={cn(
-          "tabular-nums",
-          active ? "text-primary-foreground/70" : "text-muted-foreground",
-        )}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
 interface ViewButtonProps {
   label: string;
   active: boolean;
@@ -329,7 +280,7 @@ function ViewButton({ label, active, onSelect, children }: ViewButtonProps) {
         "flex size-8 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4",
         active
           ? "bg-secondary text-primary"
-          : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
+          : "text-muted-foreground hover:bg-accent hover:text-foreground",
       )}
     >
       {children}
