@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
 import { GooeyFilter } from "@/components/shared/gooey-filter";
+import { PageHeader } from "@/components/shared/page-header";
 import { SearchField } from "@/components/shared/search-field";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,42 +58,70 @@ export function LibraryPage() {
   };
 
   return (
-    <div className="w-full px-5 pt-6 pb-16 lg:px-8">
-      <h1 className="text-3xl font-semibold tracking-[-0.025em]">Library</h1>
-      <p className="mt-1.5 text-sm text-muted-foreground">
-        {query.isSuccess
-          ? librarySummary(query.data)
-          : "Your developer bookmarks, read live from Brave."}
-      </p>
-
-      <div className="mt-5 flex items-center gap-3">
-        <SearchField
-          value={params.get("q") ?? ""}
-          onChange={(value) => {
-            setParam("q", value);
-          }}
-          label="Search library"
-          placeholder="Search resources, tools, or topics…"
-        />
-        <button
-          type="button"
-          aria-expanded={adding}
-          aria-controls="add-link-panel"
-          onClick={() => {
-            setParam("add", adding ? null : "1");
-          }}
-          className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/0.4)] transition-[background-color,transform] duration-150 outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97] motion-reduce:active:scale-100"
-        >
-          <Plus
-            aria-hidden
-            className={cn(
-              "size-4 transition-transform motion-reduce:transition-none",
-              adding && "rotate-45",
-            )}
+    <div className="w-full px-5 pt-5 pb-16 lg:px-8">
+      <PageHeader
+        title="Library"
+        description={
+          query.isSuccess
+            ? librarySummary(query.data)
+            : "Your developer bookmarks, read live from Brave."
+        }
+      >
+        <div className="flex max-w-xl min-w-0 flex-1 basis-80 items-center gap-2">
+          <SearchField
+            value={params.get("q") ?? ""}
+            onChange={(value) => {
+              setParam("q", value);
+            }}
+            label="Search library"
+            placeholder="Search…"
           />
-          Add link
-        </button>
-      </div>
+          {query.isSuccess && query.data.resources.length > 0 && (
+            <div
+              role="group"
+              aria-label="Layout"
+              className="flex shrink-0 rounded-lg border border-border bg-card p-px"
+            >
+              <ViewButton
+                label="Grid view"
+                active={view === "grid"}
+                onSelect={() => {
+                  setView("grid");
+                }}
+              >
+                <LayoutGrid aria-hidden />
+              </ViewButton>
+              <ViewButton
+                label="List view"
+                active={view === "list"}
+                onSelect={() => {
+                  setView("list");
+                }}
+              >
+                <List aria-hidden />
+              </ViewButton>
+            </div>
+          )}
+          <button
+            type="button"
+            aria-expanded={adding}
+            aria-controls="add-link-panel"
+            onClick={() => {
+              setParam("add", adding ? null : "1");
+            }}
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground transition-colors outline-none hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Plus
+              aria-hidden
+              className={cn(
+                "size-4 transition-transform motion-reduce:transition-none",
+                adding && "rotate-45",
+              )}
+            />
+            Add link
+          </button>
+        </div>
+      </PageHeader>
       {adding && (
         <div id="add-link-panel">
           <AddLinkForm autoFocus />
@@ -128,7 +157,6 @@ export function LibraryPage() {
           }}
           search={params.get("q") ?? ""}
           view={view}
-          onViewChange={setView}
         />
       )}
     </div>
@@ -141,7 +169,6 @@ interface LibraryBrowserProps {
   onCategoryChange: (category: CategoryFilter) => void;
   search: string;
   view: View;
-  onViewChange: (view: View) => void;
 }
 
 function LibraryBrowser({
@@ -150,7 +177,6 @@ function LibraryBrowser({
   onCategoryChange,
   search,
   view,
-  onViewChange,
 }: LibraryBrowserProps) {
   if (snapshot.resources.length === 0) {
     return (
@@ -181,7 +207,7 @@ function LibraryBrowser({
 
   return (
     <>
-      <div className="mt-5 flex items-start justify-between gap-4">
+      <div className="mt-4">
         <GooeyFilter
           label="Filter by category"
           value={category}
@@ -196,30 +222,6 @@ function LibraryBrowser({
             })),
           ]}
         />
-        <div
-          role="group"
-          aria-label="Layout"
-          className="flex shrink-0 rounded-lg border border-border bg-card p-0.5"
-        >
-          <ViewButton
-            label="Grid view"
-            active={view === "grid"}
-            onSelect={() => {
-              onViewChange("grid");
-            }}
-          >
-            <LayoutGrid aria-hidden />
-          </ViewButton>
-          <ViewButton
-            label="List view"
-            active={view === "list"}
-            onSelect={() => {
-              onViewChange("list");
-            }}
-          >
-            <List aria-hidden />
-          </ViewButton>
-        </div>
       </div>
 
       {groups.length === 0 && (
@@ -229,10 +231,10 @@ function LibraryBrowser({
       {groups.map(({ category: group, items }) => {
         const { label, icon: Icon } = CATEGORY_META[group];
         return (
-          <section key={group} aria-labelledby={`category-${group}`} className="mt-9">
-            <div className="flex items-center gap-2.5">
-              <Icon className="size-4 text-muted-foreground" aria-hidden />
-              <h2 id={`category-${group}`} className="text-sm font-semibold">
+          <section key={group} aria-labelledby={`category-${group}`} className="mt-7">
+            <div className="flex items-center gap-2">
+              <Icon className="size-4 text-primary" aria-hidden />
+              <h2 id={`category-${group}`} className="text-base font-semibold">
                 {label}
               </h2>
               <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>

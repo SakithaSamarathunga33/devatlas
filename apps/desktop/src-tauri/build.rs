@@ -14,6 +14,7 @@ const COMMANDS: &[&str] = &[
     "list_news",
     "list_top_stories",
     "list_language_rankings",
+    "get_star_boards",
     "viewer_open",
     "viewer_set_bounds",
     "viewer_close",

@@ -12,10 +12,10 @@ interface SearchFieldProps {
  * hide the header's search. */
 export function SearchField({ value, onChange, label, placeholder }: SearchFieldProps) {
   return (
-    <label className="relative block max-w-3xl flex-1">
+    <label className="relative block max-w-sm min-w-48 flex-1">
       <Search
         aria-hidden
-        className="pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2 text-muted-foreground"
+        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
       />
       <input
         data-search-shortcut
@@ -26,11 +26,10 @@ export function SearchField({ value, onChange, label, placeholder }: SearchField
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className="h-12 w-full rounded-xl border border-input bg-card pr-24 pl-11 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30"
+        className="h-9 w-full rounded-lg border border-input bg-card pr-16 pl-9 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30"
       />
-      <kbd className="pointer-events-none absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1 font-sans text-[11px] text-muted-foreground">
-        <span className="rounded border border-input bg-secondary px-1.5 py-0.5">Ctrl</span>+
-        <span className="rounded border border-input bg-secondary px-1.5 py-0.5">K</span>
+      <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-input bg-secondary px-1.5 py-px font-sans text-xs text-muted-foreground">
+        Ctrl K
       </kbd>
     </label>
   );

@@ -1,5 +1,6 @@
 use devatlas_application::news::{self, NewsFeed, TopStory};
 use devatlas_application::rankings::{self, LanguageRanking};
+use devatlas_application::star_history::{self, StarBoards};
 use devatlas_storage::news::{NewsError, NewsReader};
 use tauri::State;
 
@@ -35,4 +36,12 @@ pub async fn list_top_stories(news: State<'_, News>) -> Result<Vec<TopStory>, St
 #[tauri::command]
 pub async fn list_language_rankings(news: State<'_, News>) -> Result<Vec<LanguageRanking>, String> {
     Ok(rankings::language_rankings(&news.reader).await)
+}
+
+/// star-history.com's repository rankings: weekly gainers, all-time, random pool and pyramid.
+#[tauri::command]
+pub async fn get_star_boards(news: State<'_, News>) -> Result<StarBoards, String> {
+    star_history::star_boards(&news.reader)
+        .await
+        .map_err(|error| format!("Star History's rankings couldn't be loaded: {error}."))
 }

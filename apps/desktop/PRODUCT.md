@@ -51,7 +51,8 @@ allow-list (GitHub Search API, Hacker News, 35 official blogs, TIOBE/PYPL).
 - Name: DevAtlas.
 - Logo: the "D" compass mark (purple-to-blue gradient, `public/devatlas-mark.png`) stays as-is.
 - Colour palette (binding, set by the owner): "Slate & Mint", light and dark. Dark: background
-  `#0F1115`, surface `#1E293B`, surface-alt `#0B1F1E`, border `#2D3748`, text `#F1F5F9` /
+  `#0F1115`, surface `#17191E` (neutral charcoal, changed from blue-slate `#1E293B` on
+  2026-11-11), surface-alt `#1F2228`, border `#262930`, text `#F1F5F9` /
   `#94A3B8` / `#64748B`, mint `#14B8A6` (hover `#0D9488`, active `#0F766E`), teal `#2DD4BF`,
   cyan `#22D3EE`. Light: background `#F8FAFC`, surface `#FFFFFF`, surface-alt `#F1F5F9`, border
   `#E2E8F0`, text `#0F172A` / `#334155` / `#64748B`; actions use `#0F766E` and cyan text

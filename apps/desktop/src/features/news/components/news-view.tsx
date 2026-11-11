@@ -1,5 +1,5 @@
 import { formatDistanceToNowStrict } from "date-fns";
-import { Code, Database, Layers, SquareCode, Wrench, type LucideIcon } from "lucide-react";
+import { Code, Database, Layers, Rss, SquareCode, Wrench, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 
 import { GooeyFilter } from "@/components/shared/gooey-filter";
@@ -16,7 +16,6 @@ import {
 import { useNews } from "../hooks/use-news";
 import { sourceIcon } from "../news-icons";
 import { BrandIcon, TopStories } from "./news-top";
-import { PreviewImage } from "./story-card";
 import { WebLink } from "./web-link";
 
 const CATEGORIES: Record<NewsCategory, { label: string; icon: LucideIcon }> = {
@@ -38,7 +37,7 @@ function SourceLogo({ source, className }: { source: NewsSource; className?: str
       <span
         aria-hidden
         className={cn(
-          "flex shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-info",
+          "flex shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-foreground/80",
           className,
         )}
       >
@@ -107,7 +106,8 @@ function LatestPosts({ search }: { search: string }) {
 
   return (
     <section aria-labelledby="latest-posts-heading" className="mt-10">
-      <h2 id="latest-posts-heading" className="text-base font-semibold">
+      <h2 id="latest-posts-heading" className="flex items-center gap-2 text-base font-semibold">
+        <Rss className="size-4 text-primary" aria-hidden />
         Latest from official blogs
       </h2>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -230,17 +230,8 @@ function CategorySection({
         {withPosts.map(({ source, posts }) => (
           <li key={source.id}>
             <article className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card">
-              {posts[0] !== undefined && (
-                // The latest post's preview, like library cards; decorative, the title links.
-                <div
-                  aria-hidden
-                  className="aspect-[1200/500] overflow-hidden border-b border-border bg-linear-to-br from-primary/20 to-secondary"
-                >
-                  <PreviewImage url={posts[0].url} />
-                </div>
-              )}
-              <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-                <SourceLogo source={source} className="size-9" />
+              <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+                <SourceLogo source={source} className="size-8" />
                 <h4 className="min-w-0 flex-1 truncate text-sm font-semibold">{source.name}</h4>
                 <button
                   type="button"

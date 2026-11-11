@@ -121,6 +121,16 @@ describe("NewsPage", () => {
     expect(stories).toHaveTextContent("321 points");
   });
 
+  it("keeps source cards to text, requesting no preview image for blog posts", async () => {
+    renderNews();
+
+    await screen.findByRole("region", { name: /^Languages/ });
+
+    expect(invoke).not.toHaveBeenCalledWith("get_resource_preview", {
+      url: "https://blog.rust-lang.org/2026/11/06/Rust-1.95.0/",
+    });
+  });
+
   it("groups the latest posts by category, one card per source", async () => {
     renderNews();
 

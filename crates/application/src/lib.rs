@@ -10,3 +10,4 @@ pub mod library;
 pub mod news;
 pub mod preview;
 pub mod rankings;
+pub mod star_history;

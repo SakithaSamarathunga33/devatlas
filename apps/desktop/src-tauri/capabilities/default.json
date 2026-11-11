@@ -15,6 +15,7 @@
     "allow-list-news",
     "allow-list-top-stories",
     "allow-list-language-rankings",
+    "allow-get-star-boards",
     "allow-viewer-open",
     "allow-viewer-set-bounds",
     "allow-viewer-close",

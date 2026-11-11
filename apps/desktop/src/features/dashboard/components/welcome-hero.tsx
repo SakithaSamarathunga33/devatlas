@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { CalendarDays, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Link } from "react-router";
 
 import { BlurFade } from "@/components/ui/blur-fade";
@@ -14,59 +14,56 @@ function greeting(hour: number): string {
 const ACTION =
   "inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-/** Dashboard banner. Photo: Unsplash (free to use under the Unsplash License), bundled locally. */
-export function WelcomeHero() {
+/** Dashboard banner: a slate field with a mint glow and a faint map grid, drawn from the tokens.
+ * `summary` is null until the library has loaded. */
+export function WelcomeHero({ summary }: { summary: string | null }) {
   const now = new Date();
 
   return (
     <section
       aria-labelledby="welcome-heading"
-      className="relative isolate overflow-hidden rounded-2xl border border-border"
+      className="relative isolate overflow-hidden rounded-2xl border border-border bg-card"
     >
-      <img
-        src="/hero-mountains.jpg"
-        alt=""
-        className="absolute inset-0 -z-10 size-full object-cover object-[center_40%]"
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-10 bg-[radial-gradient(60%_140%_at_100%_0%,var(--gradient-glow),transparent_70%)]"
       />
       <div
         aria-hidden
-        className="absolute inset-0 -z-10 bg-linear-to-r from-background via-background/80 to-background/10"
+        className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,var(--grid-line)_1px,transparent_1px),linear-gradient(to_bottom,var(--grid-line)_1px,transparent_1px)] [mask-image:radial-gradient(70%_120%_at_100%_0%,black,transparent)] bg-[size:28px_28px]"
       />
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-5 px-7 py-5">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-4">
         <BlurFade>
           <h1
             id="welcome-heading"
-            className="text-3xl font-semibold tracking-[-0.03em] text-balance"
+            className="text-2xl font-semibold tracking-[-0.03em] text-balance"
           >
-            {greeting(now.getHours())} <span aria-hidden>👋</span>
+            {greeting(now.getHours())}
           </h1>
-          <p className="mt-1.5 text-[15px] text-foreground/75">
-            Explore, organize and find the best developer resources.
+          <p className="mt-1 text-sm text-muted-foreground">
+            {format(now, "EEE, MMM d")}
+            {summary !== null && ` · ${summary}`}
           </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Link
-              to="/library?add=1"
-              className={cn(ACTION, "bg-primary text-primary-foreground hover:bg-primary/90")}
-            >
-              <Plus className="size-4" aria-hidden />
-              Add a link
-            </Link>
-            <Link
-              to="/library"
-              className={cn(
-                ACTION,
-                "border border-border bg-background/70 text-foreground backdrop-blur hover:bg-background/90",
-              )}
-            >
-              <Search className="size-4" aria-hidden />
-              Search library
-            </Link>
-          </div>
         </BlurFade>
-        <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-background/70 px-3 py-1.5 text-sm text-foreground/90 backdrop-blur">
-          <CalendarDays className="size-4" aria-hidden />
-          {format(now, "EEE, MMM d, yyyy")}
-        </span>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/library?add=1"
+            className={cn(ACTION, "bg-primary text-primary-foreground hover:bg-primary-hover")}
+          >
+            <Plus className="size-4" aria-hidden />
+            Add a link
+          </Link>
+          <Link
+            to="/library"
+            className={cn(
+              ACTION,
+              "border border-border bg-background/60 text-foreground hover:bg-background",
+            )}
+          >
+            <Search className="size-4" aria-hidden />
+            Search library
+          </Link>
+        </div>
       </div>
     </section>
   );

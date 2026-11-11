@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use devatlas_application::news::{FeedEntry, FeedReader, TopStory, TopStorySource};
 use devatlas_application::rankings::{LanguageRanking, RankingIndex};
+use devatlas_application::star_history::StarBoards;
 use futures_util::future::join_all;
 use reqwest::header::ACCEPT;
 use reqwest::redirect;
@@ -64,6 +65,8 @@ pub struct NewsReader {
     stories: Mutex<Option<(Instant, Vec<TopStory>)>>,
     /// Language-popularity indexes; see `rankings.rs`.
     pub(crate) rankings: Mutex<HashMap<RankingIndex, (Instant, LanguageRanking)>>,
+    /// star-history.com's repository rankings; see `star_history.rs`.
+    pub(crate) star_boards: Mutex<Option<(Instant, StarBoards)>>,
 }
 
 impl NewsReader {
@@ -88,6 +91,7 @@ impl NewsReader {
             feeds: Mutex::default(),
             stories: Mutex::default(),
             rankings: Mutex::default(),
+            star_boards: Mutex::default(),
         })
     }
 

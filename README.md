@@ -23,7 +23,9 @@ foundation only (milestone DEVATLAS-001):
 - **Discovery**: new GitHub repositories collecting the most stars today, this week, or this
   month, optionally by language, with one-click **Save** to the Library. Rows expand (click
   again to collapse) to show each repository's **Star history** chart from
-  [star-history.com](https://www.star-history.com). **Saved repos** lists the GitHub
+  [star-history.com](https://www.star-history.com). **Star History** shows that site's
+  rankings of repositories of any age: Weekly (biggest star gainers), All-time, Random and
+  Pyramid (how stars are distributed). **Saved repos** lists the GitHub
   repositories in your library as cards or rows, with search, language and sort filters (their
   details come from GitHub's API and are cached for an hour). The dashboard shows this week's
   top five. GitHub has no API for its Trending page, so this uses the official Search API

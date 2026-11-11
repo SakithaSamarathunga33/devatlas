@@ -34,12 +34,7 @@ export function ResourceCard({ resource }: { resource: Resource }) {
         title={resource.url}
         className="flex h-full flex-col rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div
-          className={cn(
-            "relative aspect-[1200/630] overflow-hidden rounded-t-[inherit] border-b border-border bg-linear-to-br",
-            tint,
-          )}
-        >
+        <div className="relative aspect-[1200/630] overflow-hidden rounded-t-[inherit] border-b border-border bg-secondary">
           {preview.isPending ? (
             <Skeleton className="size-full rounded-none bg-foreground/[0.04]" />
           ) : (
@@ -64,7 +59,7 @@ export function ResourceCard({ resource }: { resource: Resource }) {
           )}
         </div>
 
-        <div className="flex items-start gap-3 p-4">
+        <div className="flex items-start gap-3 p-3">
           <SiteIcon
             icon={preview.data?.icon ?? null}
             host={resource.host}
@@ -72,13 +67,15 @@ export function ResourceCard({ resource }: { resource: Resource }) {
           />
           <div className="min-w-0 flex-1">
             <h3 className="line-clamp-2 text-sm leading-snug font-medium">{resource.title}</h3>
-            <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{resource.host}</p>
-            {resource.addedAt !== null && (
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                {resource.origin === "devatlas" ? "Added in DevAtlas" : "Saved"}{" "}
-                {format(resource.addedAt, "MMM yyyy")}
-              </p>
-            )}
+            <p className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="min-w-0 truncate font-mono">{resource.host}</span>
+              {resource.addedAt !== null && (
+                <span className="ml-auto shrink-0">
+                  {resource.origin === "devatlas" ? "Added" : "Saved"}{" "}
+                  {format(resource.addedAt, "MMM yyyy")}
+                </span>
+              )}
+            </p>
           </div>
         </div>
       </Link>

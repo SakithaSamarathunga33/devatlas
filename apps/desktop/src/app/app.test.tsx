@@ -157,7 +157,8 @@ describe("App", () => {
       "href",
       `/news/view?url=${encodeURIComponent("https://blog.rust-lang.org/")}`,
     );
-    const order = ["Top stories", "Trending on GitHub", "Featured resources"].map((name) =>
+    expect(screen.getByText(/1 new to review/)).toBeInTheDocument();
+    const order = ["Top stories", "Trending on GitHub", "Latest saves"].map((name) =>
       screen.getByRole("region", { name }),
     );
     // News first, then trending repos, then the user's resources.
@@ -172,8 +173,16 @@ describe("App", () => {
       "href",
       "/library?filter=ui-components",
     );
-    const activity = screen.getByRole("region", { name: "Recent activity" });
-    expect(within(activity).getByRole("link", { name: "Uiverse" })).toBeInTheDocument();
+    expect(within(collections).queryByRole("img")).not.toBeInTheDocument();
+    const latest = screen.getByRole("region", { name: "Latest saves" });
+    expect(within(latest).getByRole("link", { name: /Uiverse/ })).toHaveAttribute(
+      "href",
+      `/library/${encodeURIComponent("uiverse.io/elements")}`,
+    );
+    expect(screen.queryByRole("region", { name: "Featured resources" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Recent activity" })).not.toBeInTheDocument();
+    // The ring only appears while there is something left to review, and says what it measures.
+    expect(within(breakdown).getByRole("img", { name: /reviewed/ })).toBeInTheDocument();
   });
 
   it("reports an unreachable backend in the status bar", async () => {

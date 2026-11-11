@@ -1,20 +1,26 @@
-import { Bookmark, CalendarDays, CircleAlert, Flame, RotateCw } from "lucide-react";
+import { Bookmark, Flame, Trophy } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
 import { GooeyFilter } from "@/components/shared/gooey-filter";
+import { PageHeader } from "@/components/shared/page-header";
 import { SearchField } from "@/components/shared/search-field";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useLibrary } from "@/hooks/use-library";
 import { selectClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
-import { trendingPeriods, type GithubRepo, type TrendingPeriod } from "@/types/discovery.types";
+import {
+  starBoardViews,
+  trendingPeriods,
+  type GithubRepo,
+  type StarBoardView,
+  type TrendingPeriod,
+} from "@/types/discovery.types";
 
 import { useTrendingRepos } from "../hooks/use-trending-repos";
 import { githubFullName, LANGUAGES, libraryId, type Language } from "../repo-utils";
-import { GithubMark, RepoRow, SaveRepoButton } from "./repo-ui";
+import { REPO_LIST, RepoListError, RepoListSkeleton, RepoRow, SaveRepoButton } from "./repo-ui";
 import { SavedRepos } from "./saved-repos";
+import { StarBoardsView } from "./star-boards";
 
 const PERIOD_LABELS: Record<TrendingPeriod, { button: string; phrase: string }> = {
   day: { button: "Today", phrase: "today" },
@@ -22,7 +28,24 @@ const PERIOD_LABELS: Record<TrendingPeriod, { button: string; phrase: string }> 
   month: { button: "This month", phrase: "this month" },
 };
 
-type Section = "trending" | "saved";
+const BOARD_LABELS: Record<StarBoardView, string> = {
+  weekly: "Weekly",
+  alltime: "All-time",
+  random: "Random",
+  pyramid: "Pyramid",
+};
+
+type Section = "trending" | "stars" | "saved";
+
+const SEARCH_LABELS: Record<Section, string> = {
+  trending: "Search trending repositories",
+  stars: "Search Star History repositories",
+  saved: "Search saved repositories",
+};
+
+function parseSection(value: string | null): Section {
+  return value === "saved" || value === "stars" ? value : "trending";
+}
 
 function parsePeriod(value: string | null): TrendingPeriod {
   return trendingPeriods.find((period) => period === value) ?? "week";
@@ -39,11 +62,13 @@ function matches(repo: GithubRepo, term: string): boolean {
   );
 }
 
-/** Discovery: trending GitHub repositories and the ones saved in the library. Section,
- * period, language and search live in the URL (`?view=saved&period=month&q=agent`). */
+/** Discovery: trending GitHub repositories, star-history.com's rankings and the repositories
+ * saved in the library. Section, period, ranking, language and search live in the URL
+ * (`?view=stars&board=alltime&q=agent`). */
 export function DiscoveryPage() {
   const [params, setParams] = useSearchParams();
-  const section: Section = params.get("view") === "saved" ? "saved" : "trending";
+  const section = parseSection(params.get("view"));
+  const board = starBoardViews.find((view) => view === params.get("board")) ?? "weekly";
   const period = parsePeriod(params.get("period"));
   const language = parseLanguage(params.get("language"));
   const search = params.get("q") ?? "";
@@ -65,25 +90,22 @@ export function DiscoveryPage() {
   };
 
   return (
-    <div className="w-full px-5 pt-6 pb-16 lg:px-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border bg-card">
-            <GithubMark className="size-6" />
-          </span>
-          <div>
-            <h1 className="text-3xl font-semibold tracking-[-0.025em]">Discovery</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {section === "trending"
-                ? `New GitHub repositories collecting the most stars ${PERIOD_LABELS[period].phrase}. Save the ones worth keeping to your library.`
-                : "GitHub repositories in your library, with their language and stars from GitHub."}
-            </p>
-          </div>
-        </div>
+    <div className="w-full px-5 pt-5 pb-16 lg:px-8">
+      <PageHeader
+        title="Discovery"
+        description={
+          {
+            trending: `New GitHub repositories collecting the most stars ${PERIOD_LABELS[period].phrase}.`,
+            stars: "GitHub's biggest star gainers and most-starred repositories of any age.",
+            saved:
+              "GitHub repositories in your library, with their language and stars from GitHub.",
+          }[section]
+        }
+      >
         <div
           role="group"
           aria-label="Show"
-          className="flex shrink-0 self-start rounded-xl border border-border bg-card p-1 lg:self-auto"
+          className="flex shrink-0 rounded-xl border border-border bg-card p-1"
         >
           <SectionButton
             active={section === "trending"}
@@ -93,6 +115,15 @@ export function DiscoveryPage() {
           >
             <Flame aria-hidden />
             Trending
+          </SectionButton>
+          <SectionButton
+            active={section === "stars"}
+            onSelect={() => {
+              setParam("view", "stars");
+            }}
+          >
+            <Trophy aria-hidden />
+            Star History
           </SectionButton>
           <SectionButton
             active={section === "saved"}
@@ -112,24 +143,31 @@ export function DiscoveryPage() {
             </span>
           </SectionButton>
         </div>
-      </div>
+      </PageHeader>
 
-      <div className="mt-5 flex">
-        <SearchField
-          value={search}
-          onChange={(value) => {
-            setParam("q", value);
-          }}
-          label={
-            section === "trending" ? "Search trending repositories" : "Search saved repositories"
-          }
-          placeholder="Search repositories, descriptions, or languages…"
-        />
-      </div>
-
-      {section === "trending" ? (
-        <>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {!(section === "stars" && board === "pyramid") && (
+          <SearchField
+            value={search}
+            onChange={(value) => {
+              setParam("q", value);
+            }}
+            label={SEARCH_LABELS[section]}
+            placeholder="Search repositories…"
+          />
+        )}
+        {section === "stars" && (
+          <GooeyFilter
+            label="Ranking"
+            value={board}
+            onChange={(value) => {
+              setParam("board", value === "weekly" ? null : value);
+            }}
+            options={starBoardViews.map((value) => ({ value, label: BOARD_LABELS[value] }))}
+          />
+        )}
+        {section === "trending" && (
+          <>
             <GooeyFilter
               label="Period"
               value={period}
@@ -139,10 +177,9 @@ export function DiscoveryPage() {
               options={trendingPeriods.map((value) => ({
                 value,
                 label: PERIOD_LABELS[value].button,
-                icon: <CalendarDays aria-hidden />,
               }))}
             />
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <label className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
               Language
               <select
                 value={language ?? ""}
@@ -159,17 +196,26 @@ export function DiscoveryPage() {
                 ))}
               </select>
             </label>
-          </div>
-          <TrendingList
-            period={period}
-            language={language}
-            search={search}
-            isSaved={(repo) => savedIds.has(libraryId(repo.fullName))}
-          />
-        </>
-      ) : (
-        <SavedRepos search={search} />
+          </>
+        )}
+      </div>
+
+      {section === "trending" && (
+        <TrendingList
+          period={period}
+          language={language}
+          search={search}
+          isSaved={(repo) => savedIds.has(libraryId(repo.fullName))}
+        />
       )}
+      {section === "stars" && (
+        <StarBoardsView
+          view={board}
+          search={search}
+          isSaved={(fullName) => savedIds.has(libraryId(fullName))}
+        />
+      )}
+      {section === "saved" && <SavedRepos search={search} />}
     </div>
   );
 }
@@ -210,23 +256,9 @@ interface TrendingListProps {
 function TrendingList({ period, language, search, isSaved }: TrendingListProps) {
   const repos = useTrendingRepos(period, language);
 
-  if (repos.isPending) return <RepoListSkeleton />;
+  if (repos.isPending) return <RepoListSkeleton label="Loading trending repositories" />;
   if (repos.isError) {
-    return (
-      <div role="alert" className="mt-8 flex flex-col items-start gap-3">
-        <p className="flex items-center gap-2 text-sm font-medium text-destructive">
-          <CircleAlert className="size-4" aria-hidden />
-          Trending repositories unavailable
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {repos.error.message.replace(/^.*?failed: /, "")}
-        </p>
-        <Button variant="outline" onClick={() => void repos.refetch()} disabled={repos.isFetching}>
-          <RotateCw aria-hidden />
-          Try again
-        </Button>
-      </div>
-    );
+    return <RepoListError title="Trending repositories unavailable" query={repos} />;
   }
   if (repos.data.length === 0) {
     return (
@@ -251,7 +283,7 @@ function TrendingList({ period, language, search, isSaved }: TrendingListProps) 
     );
   }
   return (
-    <ol aria-label="Trending repositories" className="mt-4 space-y-2">
+    <ol aria-label="Trending repositories" className={cn("mt-4", REPO_LIST)}>
       {ranked.map(({ repo, rank }) => (
         <li key={repo.fullName}>
           <RepoRow
@@ -264,26 +296,5 @@ function TrendingList({ period, language, search, isSaved }: TrendingListProps) 
         </li>
       ))}
     </ol>
-  );
-}
-
-function RepoListSkeleton() {
-  return (
-    <div role="status" aria-busy="true" className="mt-4 space-y-2">
-      <span className="sr-only">Loading trending repositories</span>
-      {Array.from({ length: 6 }, (_, index) => (
-        <div
-          key={index}
-          className="flex items-center gap-4 rounded-xl border border-border bg-card p-3"
-        >
-          <Skeleton className="size-9 rounded-lg" />
-          <Skeleton className="size-12 rounded-xl" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-56" />
-            <Skeleton className="h-3.5 w-2/3" />
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }

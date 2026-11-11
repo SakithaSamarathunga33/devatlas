@@ -14,9 +14,9 @@ import { resourceCategories, type Resource, type ResourceCategory } from "@/type
 interface CategoryMeta {
   label: string;
   icon: LucideIcon;
-  /** Gradient used for monograms and accents in this category. */
+  /** Gradient used for monograms and accents in this category (`--category-*` tokens). */
   tint: string;
-  /** Solid colour for this category in charts and legends. */
+  /** Solid colour for this category in charts and legends (`--category-*` tokens). */
   swatch: string;
 }
 
@@ -24,44 +24,44 @@ export const CATEGORY_META: Record<ResourceCategory, CategoryMeta> = {
   "ui-components": {
     label: "UI components",
     icon: Component,
-    tint: "from-orange-500/40 to-amber-500/10",
-    swatch: "bg-orange-400",
+    tint: "from-category-ui/40 to-category-ui/10",
+    swatch: "bg-category-ui",
   },
   inspiration: {
     label: "Design inspiration",
     icon: Palette,
-    tint: "from-pink-500/40 to-orange-400/10",
-    swatch: "bg-pink-400",
+    tint: "from-category-inspiration/40 to-category-inspiration/10",
+    swatch: "bg-category-inspiration",
   },
   animation: {
     label: "Animation",
     icon: Sparkles,
-    tint: "from-sky-500/40 to-indigo-500/10",
-    swatch: "bg-sky-400",
+    tint: "from-category-animation/40 to-category-animation/10",
+    swatch: "bg-category-animation",
   },
   icons: {
     label: "Icons",
     icon: Shapes,
-    tint: "from-emerald-500/40 to-green-700/10",
-    swatch: "bg-emerald-400",
+    tint: "from-category-icons/40 to-category-icons/10",
+    swatch: "bg-category-icons",
   },
   tools: {
     label: "Tools & directories",
     icon: Wrench,
-    tint: "from-lime-500/35 to-green-600/10",
-    swatch: "bg-yellow-300",
+    tint: "from-category-tools/40 to-category-tools/10",
+    swatch: "bg-category-tools",
   },
   cloud: {
     label: "Cloud consoles",
     icon: Cloud,
-    tint: "from-blue-500/40 to-slate-500/10",
-    swatch: "bg-indigo-400",
+    tint: "from-category-cloud/40 to-category-cloud/10",
+    swatch: "bg-category-cloud",
   },
   other: {
     label: "Other",
     icon: Link2,
-    tint: "from-zinc-400/30 to-zinc-500/10",
-    swatch: "bg-zinc-500",
+    tint: "from-category-other/40 to-category-other/10",
+    swatch: "bg-category-other",
   },
 };
 

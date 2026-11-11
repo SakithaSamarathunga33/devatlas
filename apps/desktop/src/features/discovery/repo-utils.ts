@@ -1,3 +1,15 @@
+import { toast } from "sonner";
+
+import { describeError } from "@/services/ipc";
+import { openInBrowser } from "@/services/library.service";
+
+/** Opens a page in the system browser, reporting failure; the app webview never navigates. */
+export function openExternal(url: string, label: string) {
+  openInBrowser(url).catch((error: unknown) => {
+    toast.error(`Couldn't open ${label}`, { description: describeError(error) });
+  });
+}
+
 /** Languages offered in the Trending filter, with GitHub's own colours (data, not theme). */
 export const LANGUAGE_COLORS = {
   TypeScript: "#3178c6",

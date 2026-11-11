@@ -35,7 +35,7 @@ export function ResourceRow({ resource }: { resource: Resource }) {
           <span className="flex items-center gap-2">
             <span className="truncate text-sm font-medium">{resource.title}</span>
             {resource.isNew && (
-              <span className="shrink-0 rounded-full bg-highlight px-2 py-px text-[11px] font-semibold text-highlight-foreground">
+              <span className="shrink-0 rounded-full bg-highlight px-2 py-px text-xs font-semibold text-highlight-foreground">
                 New
               </span>
             )}

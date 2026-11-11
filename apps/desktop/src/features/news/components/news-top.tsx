@@ -7,19 +7,19 @@ import { cn } from "@/lib/utils";
 import type { LanguageRanking } from "@/types/news.types";
 
 import { useLanguageRankings, useTopStories } from "../hooks/use-news";
-import { iconColor, languageIcon } from "../news-icons";
-import { StoryCard } from "./story-card";
+import { languageIcon } from "../news-icons";
+import { StoryList, StoryListSkeleton } from "./story-card";
 import { WebLink } from "./web-link";
 
 const STORIES_SHOWN = 8;
-const STORY_GRID = "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
 const INDEX_LABELS: Record<LanguageRanking["index"], { name: string; basis: string }> = {
   tiobe: { name: "TIOBE", basis: "search-engine results" },
   pypl: { name: "PYPL", basis: "tutorial searches on Google" },
 };
 
-/** A brand logo in a tile; falls back to the name's first letters when there is no logo. */
+/** A brand logo in a tile, in the text colour so mint stays the only hue on the page; falls
+ * back to the name's first letters when there is no logo. */
 export function BrandIcon({
   icon,
   label,
@@ -33,14 +33,14 @@ export function BrandIcon({
     <span
       aria-hidden
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-[11px] font-semibold text-foreground/80",
+        "flex shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-xs font-semibold text-foreground/80",
         className,
       )}
     >
       {icon === undefined ? (
         label.replace(/[^A-Za-z0-9+#]/g, "").slice(0, 2)
       ) : (
-        <svg viewBox="0 0 24 24" className="size-[55%]" fill={iconColor(icon) ?? "currentColor"}>
+        <svg viewBox="0 0 24 24" className="size-[55%]" fill="currentColor">
           <path d={icon.path} />
         </svg>
       )}
@@ -88,7 +88,7 @@ export function TopStories() {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <section aria-labelledby="top-stories-heading" className="min-w-0">
+    <section aria-labelledby="top-stories-heading" className="@container min-w-0">
       <SectionHeading
         id="top-stories-heading"
         icon={<Flame className="text-primary" aria-hidden />}
@@ -100,25 +100,14 @@ export function TopStories() {
         }
       />
       {stories.isPending ? (
-        <div role="status" aria-busy="true" className={STORY_GRID}>
-          <span className="sr-only">Loading top stories</span>
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton key={index} className="h-64 rounded-xl" />
-          ))}
-        </div>
+        <StoryListSkeleton rows={STORIES_SHOWN} />
       ) : stories.isError ? (
         <p role="alert" className="text-sm text-muted-foreground">
           {stories.error.message.replace(/^.*?failed: /, "")}
         </p>
       ) : (
         <>
-          <ol aria-label="Top stories" className={STORY_GRID}>
-            {stories.data.slice(0, expanded ? undefined : STORIES_SHOWN).map((story) => (
-              <li key={story.discussionUrl}>
-                <StoryCard story={story} />
-              </li>
-            ))}
-          </ol>
+          <StoryList stories={stories.data.slice(0, expanded ? undefined : STORIES_SHOWN)} />
           {stories.data.length > STORIES_SHOWN && (
             <ShowMore
               expanded={expanded}
@@ -149,8 +138,8 @@ function Movement({ rank, previousRank }: { rank: number; previousRank: number |
   return (
     <span
       className={cn(
-        "inline-flex w-8 shrink-0 items-center justify-center gap-0.5 text-[11px] tabular-nums",
-        up ? "text-success" : "text-destructive",
+        "inline-flex w-8 shrink-0 items-center justify-center gap-0.5 text-xs tabular-nums",
+        up ? "text-primary" : "text-muted-foreground",
       )}
     >
       {up ? (
@@ -221,7 +210,7 @@ function RankingTable({ ranking }: { ranking: LanguageRanking }) {
     <div className="rounded-xl border border-border bg-card">
       <div
         aria-hidden
-        className="flex items-center gap-3 border-b border-border px-4 py-2 text-[11px] text-muted-foreground"
+        className="flex items-center gap-3 border-b border-border px-4 py-2 text-xs text-muted-foreground"
       >
         <span className="w-5 text-right">#</span>
         <span className="w-8" />
@@ -243,9 +232,9 @@ function RankingTable({ ranking }: { ranking: LanguageRanking }) {
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{entry.language}</p>
-              <div aria-hidden className="mt-1 h-1 rounded-full bg-secondary">
+              <div aria-hidden className="mt-1 h-0.5 rounded-full bg-accent">
                 <div
-                  className="h-full rounded-full bg-primary/70"
+                  className="h-full rounded-full bg-primary"
                   style={{ width: `${String(Math.max(2, (entry.share / top) * 100))}%` }}
                 />
               </div>
@@ -256,11 +245,9 @@ function RankingTable({ ranking }: { ranking: LanguageRanking }) {
             <span
               className={cn(
                 "w-14 shrink-0 text-right text-xs tabular-nums",
-                entry.change === null || entry.change === 0
-                  ? "text-muted-foreground"
-                  : entry.change > 0
-                    ? "text-success"
-                    : "text-destructive",
+                entry.change !== null && entry.change > 0
+                  ? "text-primary"
+                  : "text-muted-foreground",
               )}
             >
               {entry.change === null ? "–" : formatChange(entry.change)}

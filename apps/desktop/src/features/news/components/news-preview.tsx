@@ -1,27 +1,13 @@
-import { Skeleton } from "@/components/ui/skeleton";
-
 import { useTopStories } from "../hooks/use-news";
-import { StoryCard } from "./story-card";
+import { StoryList, StoryListSkeleton } from "./story-card";
 
-/** Four across once the column is wide enough, two by two otherwise. */
 const SHOWN = 4;
-const GRID = "grid grid-cols-2 gap-3 @2xl:grid-cols-4";
 
-/** The top Hacker News stories as preview cards, for the dashboard. Shares its cache with the
- * News page. */
+/** The top Hacker News stories, for the dashboard. Shares its cache with the News page. */
 export function NewsPreview() {
   const stories = useTopStories();
 
-  if (stories.isPending) {
-    return (
-      <div role="status" aria-busy="true" className={GRID}>
-        <span className="sr-only">Loading top stories</span>
-        {Array.from({ length: SHOWN }, (_, index) => (
-          <Skeleton key={index} className="h-60 rounded-xl" />
-        ))}
-      </div>
-    );
-  }
+  if (stories.isPending) return <StoryListSkeleton rows={SHOWN} />;
   if (stories.isError) {
     return <p>{stories.error.message.replace(/^.*?failed: /, "")}</p>;
   }
@@ -29,13 +15,5 @@ export function NewsPreview() {
     return <p>No stories right now.</p>;
   }
 
-  return (
-    <ol aria-label="Top stories" className={GRID}>
-      {stories.data.slice(0, SHOWN).map((story) => (
-        <li key={story.discussionUrl}>
-          <StoryCard story={story} />
-        </li>
-      ))}
-    </ol>
-  );
+  return <StoryList stories={stories.data.slice(0, SHOWN)} />;
 }

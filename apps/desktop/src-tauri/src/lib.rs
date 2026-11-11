@@ -30,6 +30,7 @@ pub fn run() -> tauri::Result<()> {
             commands::news::list_news,
             commands::news::list_top_stories,
             commands::news::list_language_rankings,
+            commands::news::get_star_boards,
             commands::library::list_library,
             commands::library::mark_resource_opened,
             commands::library::add_link,

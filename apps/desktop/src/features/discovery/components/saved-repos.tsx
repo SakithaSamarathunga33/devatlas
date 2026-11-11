@@ -6,7 +6,7 @@ import { selectClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 
 import { useSavedRepos, type SavedRepo } from "../hooks/use-saved-repos";
-import { RemoveRepoButton, RepoCard, RepoRow } from "./repo-ui";
+import { REPO_LIST, RemoveRepoButton, RepoCard, RepoRow } from "./repo-ui";
 
 const SORTS = {
   recent: {
@@ -179,7 +179,7 @@ export function SavedRepos({ search }: { search: string }) {
           ))}
         </ul>
       ) : (
-        <ul className="mt-4 space-y-2">
+        <ul className={cn("mt-4", REPO_LIST)}>
           {visible.map((repo) => (
             <li key={repo.resource.id}>
               <RepoRow

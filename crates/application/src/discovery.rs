@@ -120,7 +120,7 @@ pub async fn repo_details<S: RepoSource>(
 /// GitHub's naming rules: owners are 1–39 letters, digits or hyphens; repository names are
 /// 1–100 letters, digits, `.`, `_` or `-`, and never `.` or `..`. Anything else could reach
 /// another API path, so it is refused before a request is built.
-fn is_repo_name(full_name: &str) -> bool {
+pub(crate) fn is_repo_name(full_name: &str) -> bool {
     let Some((owner, name)) = full_name.split_once('/') else {
         return false;
     };

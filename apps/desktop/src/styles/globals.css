@@ -20,24 +20,25 @@
    */
   --background: #0f1115;
   --foreground: #f1f5f9;
-  --card: #1e293b;
+  /* Surfaces are neutral charcoal (owner decision 2026-11-11): no blue tint, mint is the only hue. */
+  --card: #17191e;
   --card-foreground: #f1f5f9;
-  --popover: #1e293b;
+  --popover: #17191e;
   --popover-foreground: #f1f5f9;
   --primary: #14b8a6; /* mint */
   --primary-foreground: #0f1115;
   --primary-hover: #0d9488;
-  --secondary: #0b1f1e; /* surface-alt */
+  --secondary: #1f2228; /* surface-alt */
   --secondary-foreground: #f1f5f9;
-  --muted: #0b1f1e;
+  --muted: #1f2228;
   --muted-foreground: #94a3b8;
   --faint-foreground: #64748b;
   --disabled-foreground: #475569;
-  --accent: #2d3748;
+  --accent: #262930;
   --accent-foreground: #f1f5f9;
   --destructive: #f2555a;
-  --border: #2d3748;
-  --input: #2d3748;
+  --border: #262930;
+  --input: #262930;
   --ring: #14b8a6;
 
   --info: #22d3ee; /* accent (cyan) */
@@ -50,18 +51,34 @@
   --sidebar-foreground: #94a3b8;
   --sidebar-primary: #14b8a6;
   --sidebar-primary-foreground: #0f1115;
-  --sidebar-accent: #1e293b;
+  --sidebar-accent: #17191e;
   --sidebar-accent-foreground: #f1f5f9;
-  --sidebar-border: #1e293b; /* divider */
+  --sidebar-border: #17191e; /* divider */
   --sidebar-ring: #14b8a6;
 
   /* Brand gradient: hero accents, progress rings and charts. */
   --gradient-from: #14b8a6;
   --gradient-to: #22d3ee;
+  /* Dashboard hero atmosphere: mint glow and map grid on the card surface. */
+  --gradient-glow: rgb(20 184 166 / 0.22);
+  --grid-line: rgb(241 245 249 / 0.05);
 
   --image-outline: rgb(255 255 255 / 0.08);
   /* Icons and initials on the tinted category tiles. */
   --tile-icon: #ffffff;
+
+  /*
+   * Library categories: one teal-to-cyan family stepped by lightness, so category colour stays
+   * inside the brand and never competes with mint for "action". Icons and labels carry the
+   * distinction; colour only groups.
+   */
+  --category-ui: #2dd4bf;
+  --category-inspiration: #22d3ee;
+  --category-animation: #14b8a6;
+  --category-icons: #7dd3fc;
+  --category-tools: #0d9488;
+  --category-cloud: #67e8f9;
+  --category-other: #64748b;
   --chart-1: #0d9488;
   --chart-2: #0891b2;
   --chart-3: #2dd4bf;
@@ -148,9 +165,19 @@
 
   --gradient-from: #0d9488;
   --gradient-to: #06b6d4;
+  --gradient-glow: rgb(13 148 136 / 0.16);
+  --grid-line: rgb(15 23 42 / 0.06);
 
   --image-outline: rgb(15 23 42 / 0.08);
   --tile-icon: #1e293b;
+
+  --category-ui: #0f766e;
+  --category-inspiration: #0e7490;
+  --category-animation: #0d9488;
+  --category-icons: #0284c7;
+  --category-tools: #115e59;
+  --category-cloud: #06b6d4;
+  --category-other: #64748b;
 }
 
 @theme inline {
@@ -194,6 +221,13 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-tile-icon: var(--tile-icon);
+  --color-category-ui: var(--category-ui);
+  --color-category-inspiration: var(--category-inspiration);
+  --color-category-animation: var(--category-animation);
+  --color-category-icons: var(--category-icons);
+  --color-category-tools: var(--category-tools);
+  --color-category-cloud: var(--category-cloud);
+  --color-category-other: var(--category-other);
   --color-primary-hover: var(--primary-hover);
   --color-faint-foreground: var(--faint-foreground);
   --color-disabled-foreground: var(--disabled-foreground);
@@ -293,18 +327,18 @@
   --chart-5: #f1f5f9;
   --chart-positive: oklch(0.765 0.177 163.223);
   --chart-negative: oklch(0.704 0.191 22.216);
-  --chart-background: #1e293b;
+  --chart-background: #17191e;
   --chart-foreground: #94a3b8;
   --chart-foreground-muted: #64748b;
   --chart-crosshair: #94a3b8;
-  --chart-grid: #2d3748;
+  --chart-grid: #262930;
   --chart-brush-border: var(--chart-grid);
-  --chart-marker-background: #1e293b;
-  --chart-marker-border: #2d3748;
+  --chart-marker-background: #17191e;
+  --chart-marker-border: #262930;
   --chart-marker-foreground: #f1f5f9;
   --chart-label: #94a3b8;
-  --chart-scale-mix: #1e293b;
-  --chart-scale-01: #2d3748;
+  --chart-scale-mix: #17191e;
+  --chart-scale-01: #262930;
   --chart-scale-02: color-mix(in oklab, var(--chart-1) 35%, var(--chart-scale-mix));
   --chart-scale-03: color-mix(in oklab, var(--chart-1) 55%, var(--chart-scale-mix));
   --chart-scale-04: color-mix(in oklab, var(--chart-1) 78%, var(--chart-scale-mix));

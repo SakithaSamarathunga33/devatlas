@@ -4,26 +4,20 @@ import { cn } from "@/lib/utils";
 interface ShareRingProps {
   /** 0–100. */
   percent: number;
-  /** What the ring measures, read by screen readers, e.g. "UI components: 33% of your library". */
+  /** What the ring measures, read by screen readers, e.g. "95% of your library reviewed". */
   label: string;
-  /** Show the number inside the ring (large rings only). */
-  showValue?: boolean;
   className?: string;
 }
 
-/** Magic UI's animated ring in the theme's mint, on the theme's track colour. */
-export function ShareRing({ percent, label, showValue = false, className }: ShareRingProps) {
+/** Magic UI's animated ring in the theme's mint, on the theme's track colour, without its number. */
+export function ShareRing({ percent, label, className }: ShareRingProps) {
   return (
     <span role="img" aria-label={label} title={label} className="shrink-0">
       <AnimatedCircularProgressBar
         value={Math.round(percent)}
         gaugePrimaryColor="var(--primary)"
         gaugeSecondaryColor="var(--accent)"
-        className={cn(
-          "font-semibold text-foreground tabular-nums",
-          !showValue && "[&>span]:hidden",
-          className,
-        )}
+        className={cn("[&>span]:hidden", className)}
       />
     </span>
   );

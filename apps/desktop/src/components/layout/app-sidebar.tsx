@@ -30,7 +30,7 @@ export function AppSidebar() {
   return (
     <aside
       className={cn(
-        "relative z-20 flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-out motion-reduce:transition-none",
+        "relative z-20 flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-out select-none motion-reduce:transition-none",
         collapsed ? "w-[68px]" : "w-64",
       )}
     >
@@ -44,10 +44,10 @@ export function AppSidebar() {
         />
         {!collapsed && (
           <div className="min-w-0 leading-tight">
-            <p className="text-[15px] font-semibold tracking-tight text-sidebar-accent-foreground">
+            <p className="text-base font-semibold tracking-tight text-sidebar-accent-foreground">
               DevAtlas
             </p>
-            <p className="truncate text-xs text-sidebar-foreground/65">Developer resource atlas</p>
+            <p className="truncate text-xs text-sidebar-foreground/80">Developer resource atlas</p>
           </div>
         )}
       </div>
@@ -106,7 +106,7 @@ function ComingSoon({ collapsed }: { collapsed: boolean }) {
   return (
     <section aria-label="Coming soon" className="mt-5">
       {!collapsed && (
-        <p className="mb-1.5 px-3 text-[11px] font-medium tracking-wide text-sidebar-foreground/55 uppercase">
+        <p className="mb-1.5 px-3 text-xs font-medium tracking-wide text-sidebar-foreground/80 uppercase">
           Coming soon
         </p>
       )}
@@ -148,9 +148,7 @@ function SidebarItem({ item, collapsed }: { item: NavigationItem; collapsed: boo
         (collapsed ? (
           <span className="sr-only">(coming soon)</span>
         ) : (
-          <span className="ml-auto rounded-full border border-sidebar-foreground/15 px-1.5 py-px text-[11px] text-sidebar-foreground/60">
-            Soon
-          </span>
+          <span className="ml-auto text-xs text-sidebar-foreground/80">Soon</span>
         ))}
     </>
   );

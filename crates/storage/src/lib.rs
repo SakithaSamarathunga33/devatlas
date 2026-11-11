@@ -13,4 +13,5 @@ pub mod news;
 pub mod preview_cache;
 pub mod rankings;
 pub mod saved_links;
+pub mod star_history;
 pub mod web_preview;

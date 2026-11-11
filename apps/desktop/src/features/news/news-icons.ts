@@ -146,14 +146,3 @@ export function sourceIcon(sourceId: string): SimpleIcon | undefined {
 export function languageIcon(language: string): SimpleIcon | undefined {
   return LANGUAGE_ICONS[language.trim().toLowerCase()];
 }
-
-/** The brand colour, unless it is too dark to read on the dark theme (Rust, Next.js,
- * GitHub…), in which case the icon takes the text colour. */
-export function iconColor(icon: SimpleIcon): string | undefined {
-  const value = Number.parseInt(icon.hex, 16);
-  const red = (value >> 16) & 0xff;
-  const green = (value >> 8) & 0xff;
-  const blue = value & 0xff;
-  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-  return luminance < 0.25 ? undefined : `#${icon.hex}`;
-}

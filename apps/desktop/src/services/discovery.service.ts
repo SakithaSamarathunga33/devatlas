@@ -2,7 +2,9 @@ import { invokeCommand } from "@/services/ipc";
 import {
   githubRepoSchema,
   githubReposSchema,
+  starBoardsSchema,
   type GithubRepo,
+  type StarBoards,
   type TrendingPeriod,
 } from "@/types/discovery.types";
 
@@ -17,4 +19,9 @@ export function listTrendingRepos(
   language: string | null,
 ): Promise<GithubRepo[]> {
   return invokeCommand("list_trending_repos", githubReposSchema, { period, language });
+}
+
+/** star-history.com's repository rankings (read in Rust). */
+export function getStarBoards(): Promise<StarBoards> {
+  return invokeCommand("get_star_boards", starBoardsSchema);
 }

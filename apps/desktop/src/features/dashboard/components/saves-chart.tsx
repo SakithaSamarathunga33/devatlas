@@ -27,7 +27,9 @@ export function SavesChart({ months }: { months: readonly MonthlySaves[] }) {
       <div aria-hidden>
         <AreaChart
           data={months.map((month) => ({ date: month.date, saved: month.saved }))}
-          aspectRatio="3 / 1"
+          // A fixed height, not a ratio: the chart's column is much wider on mid-size windows.
+          aspectRatio="auto"
+          style={{ height: 88 }}
           margin={{ top: 8, right: 8, bottom: 22, left: 8 }}
         >
           <Grid horizontal numTicksRows={3} />
