@@ -4,6 +4,12 @@ on:
   pull_request:
   push:
     branches: [main]
+    # A push that only changes docs builds nothing and so publishes no release (release.yml
+    # follows this workflow). A push that also changes code still runs everything.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
 
 permissions:
   contents: read

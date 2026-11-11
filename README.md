@@ -105,7 +105,8 @@ exist; no empty placeholder packages are committed.
 Every push to `main` that passes CI publishes a
 [GitHub release](https://github.com/SakithaSamarathunga33/devatlas/releases) named
 `v<version>-build.<CI run>`, with notes listing the changes since the previous release (grouped
-into New, Fixes and Other changes from the commit messages). Each release has:
+into New, Fixes and Other changes from the commit messages). Pushes that only change docs
+(Markdown files, `docs/`, `LICENSE`) skip CI and publish nothing. Each release has:
 
 - `DevAtlas-Setup-<tag>.exe`: the setup wizard (recommended).
 - `DevAtlas_<version>_x64-setup.exe` and `DevAtlas_<version>_x64_en-US.msi`: standard installers.
