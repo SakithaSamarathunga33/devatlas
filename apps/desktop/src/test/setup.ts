@@ -36,6 +36,9 @@ HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
   this.dispatchEvent(new Event("close"));
 };
 
+// jsdom doesn't lay anything out, so it has no scrolling.
+Element.prototype.scrollIntoView = vi.fn();
+
 afterEach(() => {
   // Sonner keeps toasts in a module-level store, so they would leak into the next test.
   toast.dismiss();

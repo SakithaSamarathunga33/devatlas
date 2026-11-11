@@ -56,6 +56,7 @@ mod tests {
                 first_seen: 42,
                 opened: false,
                 hidden: true,
+                opened_at: Some(7),
             },
         )]);
 

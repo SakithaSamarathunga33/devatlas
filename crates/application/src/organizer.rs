@@ -1,6 +1,4 @@
-//! Use cases for organizing the library: a link's category, tags and note, and named groups
-//! of links. Collections and projects are the same thing with a different purpose, so they
-//! share one model, told apart by [`GroupKind`].
+//! Use cases for organizing the library: a link's category, tags and note, and collections.
 
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
@@ -9,6 +7,7 @@ use devatlas_domain::resource::ResourceCategory;
 use serde::{Deserialize, Serialize};
 
 use crate::library::LibrarySnapshot;
+use crate::link_health::LinkHealthMap;
 
 const MAX_TAGS: usize = 20;
 /// Tags accepted before trimming and de-duplicating, so cleaning stays cheap.
@@ -20,12 +19,38 @@ const MAX_DESCRIPTION_LEN: usize = 500;
 const MAX_ID_LEN: usize = 2_048;
 const MAX_GROUP_SIZE: usize = 10_000;
 
+/// Where a link stands for the user.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReadingStatus {
+    ToRead,
+    Trying,
+    Using,
+}
+
+impl ReadingStatus {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ToRead => "to-read",
+            Self::Trying => "trying",
+            Self::Using => "using",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Self> {
+        [Self::ToRead, Self::Trying, Self::Using]
+            .into_iter()
+            .find(|status| status.as_str() == text)
+    }
+}
+
 /// What the user added to a link. Stored by resource id, so it survives the link being
 /// removed and restored.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceAnnotation {
     /// `None` keeps the automatic category.
     pub category: Option<ResourceCategory>,
+    pub status: Option<ReadingStatus>,
     pub tags: Vec<String>,
     pub note: Option<String>,
 }
@@ -37,33 +62,17 @@ pub type Annotations = HashMap<String, ResourceAnnotation>;
 #[serde(rename_all = "camelCase")]
 pub struct ResourceEdit {
     pub category: Option<ResourceCategory>,
+    pub status: Option<ReadingStatus>,
     pub tags: Vec<String>,
     pub note: Option<String>,
     /// Every group the link belongs to after this edit.
     pub group_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum GroupKind {
-    Collection,
-    Project,
-}
-
-impl GroupKind {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Collection => "collection",
-            Self::Project => "project",
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Group {
     pub id: String,
-    pub kind: GroupKind,
     pub name: String,
     pub description: Option<String>,
     pub resource_ids: Vec<String>,
@@ -86,7 +95,6 @@ pub trait OrganizerStore {
     fn groups(&self) -> impl Future<Output = Result<Vec<Group>, Self::Error>> + Send;
     fn create_group(
         &self,
-        kind: GroupKind,
         name: &str,
         description: Option<&str>,
         now_ms: i64,
@@ -124,6 +132,12 @@ pub enum InvalidInput {
     DescriptionTooLong,
     #[error("That link isn't valid.")]
     InvalidId,
+    #[error("Enter some code.")]
+    CodeRequired,
+    #[error("That snippet is too long.")]
+    CodeTooLong,
+    #[error("That language name is too long.")]
+    LanguageTooLong,
 }
 
 /// Store failures are logged where they happen; the UI gets a plain message, never SQL.
@@ -135,8 +149,12 @@ pub enum OrganizerError<E: std::error::Error> {
     Store(E),
 }
 
-/// Applies the user's annotations to a loaded library.
-pub fn annotate(snapshot: LibrarySnapshot, annotations: &Annotations) -> LibrarySnapshot {
+/// Applies the user's annotations and the last link check to a loaded library.
+pub fn annotate(
+    snapshot: LibrarySnapshot,
+    annotations: &Annotations,
+    health: &LinkHealthMap,
+) -> LibrarySnapshot {
     let resources = snapshot
         .resources
         .into_iter()
@@ -146,9 +164,11 @@ pub fn annotate(snapshot: LibrarySnapshot, annotations: &Annotations) -> Library
                     item.resource.category = category;
                 }
                 item.category_override = annotation.category;
+                item.status = annotation.status;
                 item.tags.clone_from(&annotation.tags);
                 item.note.clone_from(&annotation.note);
             }
+            item.link_health = health.get(&item.resource.id).copied();
             item
         })
         .collect();
@@ -158,16 +178,13 @@ pub fn annotate(snapshot: LibrarySnapshot, annotations: &Annotations) -> Library
     }
 }
 
-fn clean_edit(edit: ResourceEdit) -> Result<ResourceEdit, InvalidInput> {
-    if edit.tags.len() > MAX_RAW_TAGS {
+/// Trims, lowercases and de-duplicates tags, within the limits.
+pub(crate) fn clean_tags(raw: &[String]) -> Result<Vec<String>, InvalidInput> {
+    if raw.len() > MAX_RAW_TAGS {
         return Err(InvalidInput::TooManyTags);
     }
-    if edit.group_ids.len() > MAX_GROUP_SIZE {
-        return Err(InvalidInput::InvalidId);
-    }
     let mut seen = HashSet::new();
-    let tags: Vec<String> = edit
-        .tags
+    let tags: Vec<String> = raw
         .iter()
         .map(|tag| tag.trim().to_lowercase())
         .filter(|tag| !tag.is_empty() && seen.insert(tag.clone()))
@@ -178,6 +195,14 @@ fn clean_edit(edit: ResourceEdit) -> Result<ResourceEdit, InvalidInput> {
     if tags.iter().any(|tag| tag.chars().count() > MAX_TAG_LEN) {
         return Err(InvalidInput::TagTooLong);
     }
+    Ok(tags)
+}
+
+pub(crate) fn clean_edit(edit: ResourceEdit) -> Result<ResourceEdit, InvalidInput> {
+    if edit.group_ids.len() > MAX_GROUP_SIZE {
+        return Err(InvalidInput::InvalidId);
+    }
+    let tags = clean_tags(&edit.tags)?;
     let note = edit
         .note
         .as_deref()
@@ -193,7 +218,7 @@ fn clean_edit(edit: ResourceEdit) -> Result<ResourceEdit, InvalidInput> {
     Ok(ResourceEdit { tags, note, ..edit })
 }
 
-fn clean_group(
+pub(crate) fn clean_group(
     name: &str,
     description: Option<&str>,
 ) -> Result<(String, Option<String>), InvalidInput> {
@@ -211,7 +236,7 @@ fn clean_group(
     Ok((name.to_owned(), description.map(str::to_owned)))
 }
 
-fn check_id(id: &str) -> Result<(), InvalidInput> {
+pub(crate) fn check_id(id: &str) -> Result<(), InvalidInput> {
     if id.is_empty() || id.len() > MAX_ID_LEN {
         return Err(InvalidInput::InvalidId);
     }
@@ -229,6 +254,7 @@ pub async fn update_resource<S: OrganizerStore>(
     edit.group_ids.iter().try_for_each(|id| check_id(id))?;
     let annotation = ResourceAnnotation {
         category: edit.category,
+        status: edit.status,
         tags: edit.tags,
         note: edit.note,
     };
@@ -246,14 +272,13 @@ pub async fn list_groups<S: OrganizerStore>(
 
 pub async fn create_group<S: OrganizerStore>(
     store: &S,
-    kind: GroupKind,
     name: &str,
     description: Option<&str>,
     now_ms: i64,
 ) -> Result<Group, OrganizerError<S::Error>> {
     let (name, description) = clean_group(name, description)?;
     store
-        .create_group(kind, &name, description.as_deref(), now_ms)
+        .create_group(&name, description.as_deref(), now_ms)
         .await
         .map_err(OrganizerError::Store)
 }
@@ -302,10 +327,12 @@ mod tests {
 
     use super::*;
     use crate::library::{LibraryItem, LibrarySource};
+    use crate::link_health::{LinkHealth, LinkHealthMap};
 
     fn edit(tags: &[&str], note: Option<&str>) -> ResourceEdit {
         ResourceEdit {
             category: None,
+            status: None,
             tags: tags.iter().map(|tag| (*tag).to_owned()).collect(),
             note: note.map(str::to_owned),
             group_ids: Vec::new(),
@@ -390,8 +417,11 @@ mod tests {
             resource: Resource::from_bookmark(title, url, &[], None).unwrap(),
             is_new: false,
             category_override: None,
+            status: None,
             tags: Vec::new(),
             note: None,
+            last_opened_at: None,
+            link_health: None,
         };
         LibrarySnapshot {
             source: LibrarySource {
@@ -412,12 +442,13 @@ mod tests {
             "other.example".to_owned(),
             ResourceAnnotation {
                 category: Some(ResourceCategory::Icons),
+                status: None,
                 tags: vec!["svg".to_owned()],
                 note: Some("nice".to_owned()),
             },
         )]);
 
-        let annotated = annotate(snapshot(), &annotations);
+        let annotated = annotate(snapshot(), &annotations, &LinkHealthMap::new());
 
         let [motion, other] = annotated.resources.as_slice() else {
             panic!("two resources expected");
@@ -437,12 +468,13 @@ mod tests {
             "motion.dev".to_owned(),
             ResourceAnnotation {
                 category: None,
+                status: None,
                 tags: vec!["fav".to_owned()],
                 note: None,
             },
         )]);
 
-        let annotated = annotate(snapshot(), &annotations);
+        let annotated = annotate(snapshot(), &annotations, &LinkHealthMap::new());
 
         assert_eq!(
             annotated.resources[0].resource.category,
@@ -452,10 +484,30 @@ mod tests {
     }
 
     #[test]
-    fn group_kinds_serialize_lowercase() {
+    fn annotations_carry_reading_status_and_health_marks_links() {
+        let annotations = Annotations::from([(
+            "motion.dev".to_owned(),
+            ResourceAnnotation {
+                category: None,
+                status: Some(ReadingStatus::ToRead),
+                tags: Vec::new(),
+                note: None,
+            },
+        )]);
+        let health = LinkHealthMap::from([("other.example".to_owned(), LinkHealth::Broken)]);
+
+        let annotated = annotate(snapshot(), &annotations, &health);
+
+        assert_eq!(annotated.resources[0].status, Some(ReadingStatus::ToRead));
+        assert_eq!(annotated.resources[0].link_health, None);
+        assert_eq!(annotated.resources[1].link_health, Some(LinkHealth::Broken));
+    }
+
+    #[test]
+    fn reading_statuses_serialize_kebab_case() {
         assert_eq!(
-            serde_json::to_string(&GroupKind::Project).unwrap(),
-            "\"project\""
+            serde_json::to_string(&ReadingStatus::ToRead).unwrap(),
+            "\"to-read\""
         );
     }
 }

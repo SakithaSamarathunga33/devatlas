@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useId, useState, type MouseEvent, type ReactNode } from "react";
+import { Link, useLocation } from "react-router";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ import { addLink } from "@/services/library.service";
 import type { GithubRepo } from "@/types/discovery.types";
 import type { Resource } from "@/types/library.types";
 
-import { compactNumber, languageColor, openExternal } from "../repo-utils";
+import { compactNumber, languageColor, openExternal, repoViewerPath } from "../repo-utils";
 
 /** The panel that holds `RepoRow`s: one card with hairlines, like the dashboard's lists. */
 export const REPO_LIST =
@@ -67,18 +68,38 @@ export function RepoAvatar({
 export function RepoName({ fullName, url }: { fullName: string; url: string }) {
   const [owner, name] = fullName.split("/");
   return (
-    <a
-      href={url}
-      onClick={(event) => {
-        // The app webview must never navigate away; GitHub opens in the system browser.
-        event.preventDefault();
-        openExternal(url, fullName);
-      }}
+    <RepoLink
+      url={url}
       className="rounded outline-none hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="text-muted-foreground">{owner} / </span>
       <span className="font-semibold">{name}</span>
-    </a>
+    </RepoLink>
+  );
+}
+
+/** A GitHub link that opens inside DevAtlas; the viewer's back button returns here. */
+export function RepoLink({
+  url,
+  className,
+  title,
+  children,
+}: {
+  url: string;
+  className?: string;
+  title?: string;
+  children: ReactNode;
+}) {
+  const location = useLocation();
+  return (
+    <Link
+      to={repoViewerPath(url)}
+      state={{ from: `${location.pathname}${location.search}` }}
+      title={title ?? url}
+      className={className}
+    >
+      {children}
+    </Link>
   );
 }
 
@@ -188,18 +209,17 @@ export function StarHistory({ fullName }: { fullName: string }) {
 }
 
 export function OpenOnGithubButton({ fullName, url }: { fullName: string; url: string }) {
+  const location = useLocation();
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-label={`Open ${fullName} on GitHub`}
-      title="Open on GitHub"
-      onClick={() => {
-        openExternal(url, fullName);
-      }}
-      className="size-9 text-muted-foreground"
-    >
-      <ExternalLink aria-hidden />
+    <Button variant="ghost" size="icon" asChild className="size-9 text-muted-foreground">
+      <Link
+        to={repoViewerPath(url)}
+        state={{ from: `${location.pathname}${location.search}` }}
+        aria-label={`Open ${fullName} on GitHub`}
+        title="Open on GitHub"
+      >
+        <ExternalLink aria-hidden />
+      </Link>
     </Button>
   );
 }

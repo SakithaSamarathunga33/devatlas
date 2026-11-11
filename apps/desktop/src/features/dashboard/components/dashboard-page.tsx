@@ -1,5 +1,5 @@
 import { formatDistanceToNowStrict, startOfMonth, subMonths } from "date-fns";
-import { ArrowRight, Bookmark, ChevronRight, Flame, FolderOpen } from "lucide-react";
+import { ArrowRight, Bookmark, ChevronRight, Flame, FolderOpen, History } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { Link } from "react-router";
 
@@ -8,6 +8,7 @@ import { SiteIcon } from "@/features/library";
 import { NewsPreview } from "@/features/news";
 import { useLibrary } from "@/hooks/use-library";
 import { useResourcePreview } from "@/hooks/use-resource-preview";
+import { rediscoverable } from "@/lib/ecosystems";
 import { CATEGORY_META, countByCategory } from "@/lib/resource-categories";
 import { cn } from "@/lib/utils";
 import type { Resource } from "@/types/library.types";
@@ -84,6 +85,7 @@ export function DashboardPage() {
         <SidePanel title="Latest saves" icon={Bookmark} viewAll="/library">
           {status ?? <LatestSaves resources={resources} />}
         </SidePanel>
+        <Rediscover resources={resources} />
         <SidePanel title="Categories" icon={FolderOpen} viewAll="/library">
           {status ?? <Collections resources={resources} />}
         </SidePanel>
@@ -272,6 +274,23 @@ function LatestSaves({ resources }: { resources: readonly Resource[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Old links not opened in months, so saving something isn't the last you see of it. */
+function Rediscover({ resources }: { resources: readonly Resource[] }) {
+  const offered = rediscoverable(resources, new Date().getTime());
+  if (offered.length === 0) return null;
+  return (
+    <SidePanel title="Rediscover" icon={History}>
+      <ul className="flex flex-col">
+        {offered.map((resource) => (
+          <li key={resource.id}>
+            <LatestRow resource={resource} />
+          </li>
+        ))}
+      </ul>
+    </SidePanel>
   );
 }
 

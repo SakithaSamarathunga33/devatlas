@@ -2,10 +2,13 @@ import { Bookmark, Flame, Trophy } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
+import { ForYouToggle } from "@/components/shared/for-you-toggle";
 import { GooeyFilter } from "@/components/shared/gooey-filter";
 import { PageHeader } from "@/components/shared/page-header";
 import { SearchField } from "@/components/shared/search-field";
+import { useInterests } from "@/hooks/use-interests";
 import { useLibrary } from "@/hooks/use-library";
+import { interestMatcher } from "@/lib/interests";
 import { selectClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import {
@@ -72,6 +75,8 @@ export function DiscoveryPage() {
   const period = parsePeriod(params.get("period"));
   const language = parseLanguage(params.get("language"));
   const search = params.get("q") ?? "";
+  const interests = useInterests();
+  const forYou = params.get("for") === "me" && interests.length > 0;
   const library = useLibrary();
   const resources = library.data?.resources ?? [];
   const savedIds = new Set(resources.map((resource) => resource.id.toLowerCase()));
@@ -168,6 +173,13 @@ export function DiscoveryPage() {
         )}
         {section === "trending" && (
           <>
+            <ForYouToggle
+              active={forYou}
+              disabled={interests.length === 0}
+              onToggle={() => {
+                setParam("for", forYou ? null : "me");
+              }}
+            />
             <GooeyFilter
               label="Period"
               value={period}
@@ -205,6 +217,7 @@ export function DiscoveryPage() {
           period={period}
           language={language}
           search={search}
+          matches={forYou ? interestMatcher(interests) : undefined}
           isSaved={(repo) => savedIds.has(libraryId(repo.fullName))}
         />
       )}
@@ -250,10 +263,18 @@ interface TrendingListProps {
   period: TrendingPeriod;
   language: Language | null;
   search: string;
+  /** Narrows the list to what matches the user's interests. */
+  matches?: (text: string) => boolean;
   isSaved: (repo: GithubRepo) => boolean;
 }
 
-function TrendingList({ period, language, search, isSaved }: TrendingListProps) {
+function TrendingList({
+  period,
+  language,
+  search,
+  matches: isInteresting,
+  isSaved,
+}: TrendingListProps) {
   const repos = useTrendingRepos(period, language);
 
   if (repos.isPending) return <RepoListSkeleton label="Loading trending repositories" />;
@@ -273,7 +294,12 @@ function TrendingList({ period, language, search, isSaved }: TrendingListProps) 
   // Ranks come from GitHub's order, so they stay put while searching.
   const ranked = repos.data
     .map((repo, index) => ({ repo, rank: index + 1 }))
-    .filter(({ repo }) => matches(repo, term));
+    .filter(({ repo }) => matches(repo, term))
+    .filter(
+      ({ repo }) =>
+        isInteresting === undefined ||
+        isInteresting(`${repo.fullName} ${repo.description ?? ""} ${repo.language ?? ""}`),
+    );
 
   if (ranked.length === 0) {
     return (

@@ -1,7 +1,9 @@
 use std::fmt::{Debug, Display};
 use std::path::Path;
 
-use devatlas_application::organizer::{self, Group, GroupKind, ResourceEdit};
+use devatlas_application::organizer::{self, Group, ResourceEdit};
+use devatlas_application::snippets::{self, Snippet, SnippetInput};
+use devatlas_application::suggestions;
 use devatlas_storage::database::Database;
 use tauri::State;
 
@@ -50,7 +52,7 @@ pub async fn update_resource(
         .map_err(report)
 }
 
-/// Every collection and project.
+/// Every collection.
 #[tauri::command]
 pub async fn list_groups(organizer: State<'_, Organizer>) -> Result<Vec<Group>, String> {
     organizer::list_groups(organizer.database()?)
@@ -60,14 +62,12 @@ pub async fn list_groups(organizer: State<'_, Organizer>) -> Result<Vec<Group>, 
 
 #[tauri::command]
 pub async fn create_group(
-    kind: GroupKind,
     name: String,
     description: Option<String>,
     organizer: State<'_, Organizer>,
 ) -> Result<Group, String> {
     organizer::create_group(
         organizer.database()?,
-        kind,
         &name,
         description.as_deref(),
         now_ms(),
@@ -92,6 +92,68 @@ pub async fn update_group(
 #[tauri::command]
 pub async fn delete_group(id: String, organizer: State<'_, Organizer>) -> Result<bool, String> {
     organizer::delete_group(organizer.database()?, &id)
+        .await
+        .map_err(report)
+}
+
+#[tauri::command]
+pub async fn list_snippets(organizer: State<'_, Organizer>) -> Result<Vec<Snippet>, String> {
+    snippets::list_snippets(organizer.database()?)
+        .await
+        .map_err(report)
+}
+
+#[tauri::command]
+pub async fn create_snippet(
+    input: SnippetInput,
+    organizer: State<'_, Organizer>,
+) -> Result<Snippet, String> {
+    snippets::create_snippet(organizer.database()?, input, now_ms())
+        .await
+        .map_err(report)
+}
+
+#[tauri::command]
+pub async fn update_snippet(
+    id: String,
+    input: SnippetInput,
+    organizer: State<'_, Organizer>,
+) -> Result<bool, String> {
+    snippets::update_snippet(organizer.database()?, &id, input, now_ms())
+        .await
+        .map_err(report)
+}
+
+#[tauri::command]
+pub async fn delete_snippet(id: String, organizer: State<'_, Organizer>) -> Result<bool, String> {
+    snippets::delete_snippet(organizer.database()?, &id)
+        .await
+        .map_err(report)
+}
+
+/// The ids of the Explorer suggestions the user removed.
+#[tauri::command]
+pub async fn list_removed_suggestions(
+    organizer: State<'_, Organizer>,
+) -> Result<Vec<String>, String> {
+    suggestions::list_removed(organizer.database()?)
+        .await
+        .map_err(report)
+}
+
+#[tauri::command]
+pub async fn remove_suggestion(id: String, organizer: State<'_, Organizer>) -> Result<(), String> {
+    suggestions::remove_suggestion(organizer.database()?, &id)
+        .await
+        .map_err(report)
+}
+
+#[tauri::command]
+pub async fn restore_suggestions(
+    ids: Vec<String>,
+    organizer: State<'_, Organizer>,
+) -> Result<(), String> {
+    suggestions::restore_suggestions(organizer.database()?, &ids)
         .await
         .map_err(report)
 }

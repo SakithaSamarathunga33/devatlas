@@ -20,6 +20,9 @@ function resource(addedAt: number | null, isNew = false): Resource {
     isNew,
     origin: "browser",
     categoryOverride: null,
+    status: null,
+    lastOpenedAt: null,
+    linkHealth: null,
     tags: [],
     note: null,
   };

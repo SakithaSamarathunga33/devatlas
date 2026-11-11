@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { libraryQueryKey } from "@/hooks/use-library";
 import { describeError } from "@/services/ipc";
-import { addLink, openInBrowser, removeLink } from "@/services/library.service";
+import { addLink, markResourceOpened, openInBrowser, removeLink } from "@/services/library.service";
 import type { Resource } from "@/types/library.types";
 
 /** Path of the in-app viewer for a resource. */
@@ -17,9 +17,11 @@ export function useResourceActions(resource: Resource) {
   const refreshLibrary = () => queryClient.invalidateQueries({ queryKey: libraryQueryKey });
 
   const openExternally = () => {
-    openInBrowser(resource.url).catch((error: unknown) => {
-      toast.error(`Couldn't open ${resource.host}`, { description: describeError(error) });
-    });
+    openInBrowser(resource.url)
+      .then(() => markResourceOpened(resource.id))
+      .catch((error: unknown) => {
+        toast.error(`Couldn't open ${resource.host}`, { description: describeError(error) });
+      });
   };
 
   const remove = () => {

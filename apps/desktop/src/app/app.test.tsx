@@ -32,6 +32,9 @@ const LIBRARY: LibrarySnapshot = {
       addedAt: Date.now() - 60_000,
       isNew: true,
       categoryOverride: null,
+      status: null,
+      lastOpenedAt: null,
+      linkHealth: null,
       tags: [],
       note: null,
       origin: "browser",
@@ -85,7 +88,7 @@ describe("App", () => {
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("region", { name: "Coming soon" })).toHaveTextContent("Explorer");
+    expect(screen.queryByRole("region", { name: "Coming soon" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Minimize" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
     expect(await screen.findByText("DevAtlas 0.1.0 · Windows")).toBeInTheDocument();
@@ -171,7 +174,7 @@ describe("App", () => {
     const trending = await screen.findByRole("list", { name: "New this week" });
     expect(within(trending).getByRole("link", { name: /tauri-apps/ })).toHaveAttribute(
       "href",
-      "https://github.com/tauri-apps/tauri",
+      `/discovery/view?url=${encodeURIComponent("https://github.com/tauri-apps/tauri")}`,
     );
     expect(screen.getByRole("region", { name: "New on GitHub" })).toBeInTheDocument();
     const news = await screen.findByRole("list", { name: "Top stories" });

@@ -14,6 +14,10 @@ export const resourceCategories = [
 export const resourceCategorySchema = z.enum(resourceCategories);
 export type ResourceCategory = z.infer<typeof resourceCategorySchema>;
 
+/** Mirrors `devatlas_application::organizer::ReadingStatus`. */
+export const readingStatuses = ["to-read", "trying", "using"] as const;
+export type ReadingStatus = (typeof readingStatuses)[number];
+
 /** Mirrors `devatlas_domain::resource::Resource`. */
 export const resourceSchema = z.object({
   id: z.string().min(1),
@@ -29,8 +33,13 @@ export const resourceSchema = z.object({
   isNew: z.boolean(),
   /** The category the user chose; `null` when `category` is automatic. */
   categoryOverride: resourceCategorySchema.nullable(),
+  status: z.enum(readingStatuses).nullable(),
   tags: z.array(z.string()),
   note: z.string().nullable(),
+  /** When the user last opened it, as Unix milliseconds. */
+  lastOpenedAt: z.number().int().nullable(),
+  /** The last conclusive link check, if any. */
+  linkHealth: z.enum(["ok", "broken", "moved", "unknown"]).nullable(),
 });
 export type Resource = z.infer<typeof resourceSchema>;
 
@@ -38,8 +47,11 @@ export type Resource = z.infer<typeof resourceSchema>;
 export const savedResourceSchema = resourceSchema.omit({
   isNew: true,
   categoryOverride: true,
+  status: true,
   tags: true,
   note: true,
+  lastOpenedAt: true,
+  linkHealth: true,
 });
 
 /** IPC contract for the Rust `list_library` command. */

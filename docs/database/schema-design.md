@@ -1,6 +1,6 @@
 # Database design
 
-> Status: **in use** for annotations, collections, projects and repository history; see
+> Status: **in use** for annotations, collections, snippets and repository history; see
 > `crates/storage/migrations`. Links themselves still live in browser bookmarks and
 > `saved-links.json`, so resource ids carry no foreign key.
 
@@ -28,7 +28,6 @@ them.
 
 - Resources (URL, title, description, kind, ecosystem, timestamps)
 - Tags and collections, and their many-to-many links to resources
-- Projects and the resources they use
 - Extracted metadata cache (favicons, thumbnails — files in `cache/`, references in the DB)
 - Full-text search index (SQLite FTS5)
 

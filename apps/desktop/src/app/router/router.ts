@@ -3,15 +3,12 @@ import { createBrowserRouter, redirect, type RouteObject } from "react-router";
 import { AppLayout } from "@/app/layouts/app-layout";
 import { DashboardPage } from "@/features/dashboard";
 import { DiscoveryPage } from "@/features/discovery";
+import { ExplorerPage } from "@/features/explorer";
 import { LibraryPage, ResourceViewerPage } from "@/features/library";
 import { NewsPage, NewsViewerPage, RankingsPage } from "@/features/news";
-import {
-  CollectionDetailPage,
-  CollectionsPage,
-  ProjectDetailPage,
-  ProjectsPage,
-} from "@/features/organizer";
+import { CollectionDetailPage, CollectionsPage } from "@/features/organizer";
 import { SettingsPage } from "@/features/settings";
+import { SnippetsPage } from "@/features/snippets";
 import type { RouteHandle } from "@/hooks/use-page-title";
 
 export const routes: RouteObject[] = [
@@ -40,6 +37,11 @@ export const routes: RouteObject[] = [
         handle: { title: "Repos" } satisfies RouteHandle,
       },
       {
+        path: "discovery/view",
+        Component: NewsViewerPage,
+        handle: { title: "Repos" } satisfies RouteHandle,
+      },
+      {
         path: "news",
         Component: NewsPage,
         handle: { title: "News" } satisfies RouteHandle,
@@ -65,14 +67,19 @@ export const routes: RouteObject[] = [
         handle: { title: "Collections" } satisfies RouteHandle,
       },
       {
-        path: "projects",
-        Component: ProjectsPage,
-        handle: { title: "Projects" } satisfies RouteHandle,
+        path: "explorer",
+        Component: ExplorerPage,
+        handle: { title: "Explorer" } satisfies RouteHandle,
       },
       {
-        path: "projects/:groupId",
-        Component: ProjectDetailPage,
-        handle: { title: "Projects" } satisfies RouteHandle,
+        path: "explorer/view",
+        Component: NewsViewerPage,
+        handle: { title: "Explorer" } satisfies RouteHandle,
+      },
+      {
+        path: "snippets",
+        Component: SnippetsPage,
+        handle: { title: "Snippets" } satisfies RouteHandle,
       },
       {
         path: "settings",

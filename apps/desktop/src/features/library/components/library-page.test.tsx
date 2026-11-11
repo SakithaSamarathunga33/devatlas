@@ -26,6 +26,9 @@ const SNAPSHOT: LibrarySnapshot = {
       addedAt: 1_755_526_400_000,
       isNew: false,
       categoryOverride: null,
+      status: null,
+      lastOpenedAt: null,
+      linkHealth: null,
       tags: [],
       note: null,
       origin: "browser",
@@ -40,6 +43,9 @@ const SNAPSHOT: LibrarySnapshot = {
       addedAt: null,
       isNew: true,
       categoryOverride: null,
+      status: null,
+      lastOpenedAt: null,
+      linkHealth: null,
       tags: [],
       note: null,
       origin: "browser",
@@ -54,6 +60,9 @@ const SNAPSHOT: LibrarySnapshot = {
       addedAt: null,
       isNew: false,
       categoryOverride: null,
+      status: null,
+      lastOpenedAt: null,
+      linkHealth: null,
       tags: [],
       note: null,
       origin: "browser",
@@ -75,7 +84,6 @@ const AWWWARDS = {
 const GROUPS: Group[] = [
   {
     id: "c1",
-    kind: "collection",
     name: "Client work",
     description: null,
     resourceIds: [],
@@ -83,7 +91,6 @@ const GROUPS: Group[] = [
   },
   {
     id: "p1",
-    kind: "project",
     name: "Website",
     description: null,
     resourceIds: ["motion.dev/docs"],
@@ -101,6 +108,7 @@ async function renderLibrary(
     if (command === "remove_link") return Promise.resolve(true);
     if (command === "list_groups") return Promise.resolve(GROUPS);
     if (command === "update_resource") return Promise.resolve(null);
+    if (command === "mark_resource_opened") return Promise.resolve(null);
     const { url } = args as { url: string };
     return Promise.resolve({ title: null, image: `${url}/og.png`, icon: null });
   });
@@ -173,7 +181,16 @@ describe("LibraryPage", () => {
       ...SNAPSHOT,
       resources: [
         ...SNAPSHOT.resources,
-        { ...AWWWARDS, isNew: true, categoryOverride: null, tags: [], note: null },
+        {
+          ...AWWWARDS,
+          isNew: true,
+          categoryOverride: null,
+          status: null,
+          tags: [],
+          note: null,
+          lastOpenedAt: null,
+          linkHealth: null,
+        },
       ],
     });
 
@@ -252,6 +269,9 @@ describe("LibraryPage", () => {
     fireEvent.change(within(dialog).getByRole("combobox", { name: "Category" }), {
       target: { value: "icons" },
     });
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Status" }), {
+      target: { value: "trying" },
+    });
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Tags" }), {
       target: { value: "React, css , " },
     });
@@ -266,6 +286,7 @@ describe("LibraryPage", () => {
         id: "motion.dev/docs",
         edit: {
           category: "icons",
+          status: "trying",
           tags: ["React", "css"],
           note: "Good docs",
           groupIds: ["c1", "p1"],
@@ -326,7 +347,18 @@ describe("LibraryPage", () => {
   it("summarizes links saved without a browser", async () => {
     await renderLibrary({
       source: { browser: "", folder: "", warning: null },
-      resources: [{ ...AWWWARDS, isNew: false, categoryOverride: null, tags: [], note: null }],
+      resources: [
+        {
+          ...AWWWARDS,
+          isNew: false,
+          categoryOverride: null,
+          status: null,
+          tags: [],
+          note: null,
+          lastOpenedAt: null,
+          linkHealth: null,
+        },
+      ],
     });
 
     expect(await screen.findByText("1 developer resource, added in DevAtlas.")).toBeInTheDocument();
@@ -335,11 +367,79 @@ describe("LibraryPage", () => {
   it("still shows saved links when the browser can't be read, and says why", async () => {
     await renderLibrary({
       source: { browser: "Brave", folder: "develop", warning: "Bookmarks were not found." },
-      resources: [{ ...AWWWARDS, isNew: false, categoryOverride: null, tags: [], note: null }],
+      resources: [
+        {
+          ...AWWWARDS,
+          isNew: false,
+          categoryOverride: null,
+          status: null,
+          tags: [],
+          note: null,
+          lastOpenedAt: null,
+          linkHealth: null,
+        },
+      ],
     });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Bookmarks were not found.");
     expect(screen.getByRole("link", { name: /Best Portfolio Websites/ })).toBeInTheDocument();
+  });
+
+  it("marks broken and moved links and filters to broken ones", async () => {
+    const [first, second, ...rest] = SNAPSHOT.resources;
+    if (first === undefined || second === undefined) throw new Error("fixture");
+    await renderLibrary({
+      ...SNAPSHOT,
+      resources: [{ ...first, linkHealth: "broken" }, { ...second, linkHealth: "moved" }, ...rest],
+    });
+
+    expect(await screen.findByText("Broken link")).toBeInTheDocument();
+    expect(screen.getByText("Moved")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Broken/ }));
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
+  });
+
+  it("shows reading status and filters by it", async () => {
+    const [first, ...rest] = SNAPSHOT.resources;
+    if (first === undefined) throw new Error("fixture");
+    await renderLibrary({ ...SNAPSHOT, resources: [{ ...first, status: "to-read" }, ...rest] });
+
+    expect(await screen.findByRole("button", { name: /^To read/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^To read/ }));
+
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
+  });
+
+  it("shows everything when a filter's links are gone", async () => {
+    vi.mocked(invoke).mockClear();
+    vi.mocked(invoke).mockImplementation((command, args) => {
+      if (command === "list_library") return Promise.resolve(SNAPSHOT);
+      if (command === "list_groups") return Promise.resolve([]);
+      const { url } = args as { url: string };
+      return Promise.resolve({ title: null, image: `${url}/og.png`, icon: null });
+    });
+    render(
+      <AppProviders>
+        <MemoryRouter initialEntries={["/library?filter=to-read"]}>
+          <LibraryPage />
+        </MemoryRouter>
+      </AppProviders>,
+    );
+
+    expect(await screen.findByRole("region", { name: "UI components" })).toBeInTheDocument();
+  });
+
+  it("records opening a link in the browser", async () => {
+    await renderLibrary();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open reactbits.dev in your browser" }));
+
+    await vi.waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("mark_resource_opened", {
+        id: "reactbits.dev/get-started/index",
+      });
+    });
   });
 
   it("switches between the grid and a compact list", async () => {

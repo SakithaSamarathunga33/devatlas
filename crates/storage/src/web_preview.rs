@@ -8,7 +8,9 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
+use devatlas_application::link_health::{LinkChecker, LinkHealth};
 use devatlas_application::preview::{PreviewSource, ResourcePreview};
+use futures_util::future::join_all;
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use reqwest::redirect;
@@ -41,6 +43,8 @@ pub enum WebPreviewError {
 pub struct WebPreviewFetcher {
     client: reqwest::Client,
     permits: Semaphore,
+    /// Separate from `permits`, so a link check never starves preview images.
+    check_permits: Semaphore,
 }
 
 impl WebPreviewFetcher {
@@ -64,6 +68,7 @@ impl WebPreviewFetcher {
         Ok(Self {
             client,
             permits: Semaphore::new(MAX_CONCURRENT_FETCHES),
+            check_permits: Semaphore::new(MAX_CONCURRENT_FETCHES),
         })
     }
 }
@@ -111,6 +116,81 @@ impl PreviewSource for WebPreviewFetcher {
             }
         }
         Ok(extract_preview(&String::from_utf8_lossy(&body), &page_url))
+    }
+}
+
+impl WebPreviewFetcher {
+    /// Whether one link is still there. Only a definite answer counts: a login wall or a
+    /// timeout says nothing about whether the page exists.
+    async fn check(&self, raw: &str) -> LinkHealth {
+        let Ok(url) = Url::parse(raw) else {
+            return LinkHealth::Unknown;
+        };
+        if !is_public_url(&url) {
+            return LinkHealth::Unknown;
+        }
+        let Ok(_permit) = self.check_permits.acquire().await else {
+            return LinkHealth::Unknown;
+        };
+        if let Some(Host::Domain(domain)) = url.host() {
+            let lookup =
+                tokio::time::timeout(CONNECT_TIMEOUT, tokio::net::lookup_host((domain, 443))).await;
+            match lookup {
+                Ok(Ok(_)) => {}
+                Ok(Err(error)) if is_missing_host(&error.to_string()) => {
+                    return LinkHealth::Broken;
+                }
+                // A resolver hiccup says nothing about whether the site exists.
+                _ => return LinkHealth::Unknown,
+            }
+        }
+        match self
+            .client
+            .get(url.clone())
+            .header(ACCEPT, "text/html,*/*")
+            .send()
+            .await
+        {
+            Ok(response) => judge(response.status().as_u16(), &url, response.url()),
+            Err(_) => LinkHealth::Unknown,
+        }
+    }
+}
+
+impl LinkChecker for WebPreviewFetcher {
+    async fn online(&self) -> bool {
+        tokio::net::lookup_host(("github.com", 443)).await.is_ok()
+    }
+
+    async fn check_all(&self, urls: &[String]) -> Vec<LinkHealth> {
+        join_all(urls.iter().map(|url| self.check(url))).await
+    }
+}
+
+/// Whether a DNS failure definitely means the name doesn't exist, on any platform.
+fn is_missing_host(message: &str) -> bool {
+    ["No such host", "Name or service not known", "or not known"]
+        .iter()
+        .any(|text| message.contains(text))
+}
+
+fn same_site(a: &Url, b: &Url) -> bool {
+    let host = |url: &Url| {
+        url.host_str()
+            .unwrap_or_default()
+            .trim_start_matches("www.")
+            .to_ascii_lowercase()
+    };
+    let (a, b) = (host(a), host(b));
+    a == b || a.ends_with(&format!(".{b}")) || b.ends_with(&format!(".{a}"))
+}
+
+fn judge(status: u16, requested: &Url, landed: &Url) -> LinkHealth {
+    match status {
+        404 | 410 => LinkHealth::Broken,
+        200..=299 if same_site(requested, landed) => LinkHealth::Ok,
+        200..=299 => LinkHealth::Moved,
+        _ => LinkHealth::Unknown,
     }
 }
 
@@ -175,6 +255,57 @@ fn is_public_ip(ip: IpAddr) -> bool {
                 || unique_local
                 || link_local)
         }
+    }
+}
+
+#[cfg(test)]
+mod link_check_tests {
+    use super::*;
+
+    fn url(text: &str) -> Url {
+        Url::parse(text).unwrap()
+    }
+
+    #[test]
+    fn only_404_and_410_mean_a_page_is_gone() {
+        let page = url("https://a.example/x");
+        assert_eq!(judge(404, &page, &page), LinkHealth::Broken);
+        assert_eq!(judge(410, &page, &page), LinkHealth::Broken);
+        for status in [401, 403, 429, 500, 503] {
+            assert_eq!(judge(status, &page, &page), LinkHealth::Unknown, "{status}");
+        }
+    }
+
+    #[test]
+    fn only_a_definite_no_such_host_means_a_domain_is_gone() {
+        assert!(is_missing_host("No such host is known. (os error 11001)"));
+        assert!(is_missing_host(
+            "failed to lookup address information: Name or service not known"
+        ));
+        assert!(is_missing_host(
+            "failed to lookup address information: nodename nor servname provided, or not known"
+        ));
+        assert!(!is_missing_host(
+            "failed to lookup address information: Temporary failure in name resolution"
+        ));
+        assert!(!is_missing_host("A non-recoverable error occurred"));
+    }
+
+    #[test]
+    fn a_success_on_the_same_site_is_fine() {
+        let page = url("https://www.a.example/x");
+        assert_eq!(
+            judge(200, &page, &url("https://a.example/y")),
+            LinkHealth::Ok
+        );
+    }
+
+    #[test]
+    fn a_success_on_another_site_means_it_moved() {
+        assert_eq!(
+            judge(200, &url("https://a.example/x"), &url("https://b.example/")),
+            LinkHealth::Moved
+        );
     }
 }
 

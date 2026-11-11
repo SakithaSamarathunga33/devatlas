@@ -4,7 +4,7 @@ import { Star, Tag } from "lucide-react";
 
 import { getRepoActivity } from "@/services/discovery.service";
 
-import { openExternal } from "../repo-utils";
+import { RepoLink } from "./repo-ui";
 
 /** Matches the Rust-side cache for single repositories. */
 const FRESH_FOR_MS = 60 * 60 * 1000;
@@ -34,17 +34,13 @@ export function RepoActivityLine({ fullName }: { fullName: string }) {
       {release !== null && (
         <span className="inline-flex items-center gap-1.5">
           <Tag className="size-3.5" aria-hidden />
-          <a
-            href={release.url}
+          <RepoLink
+            url={release.url}
             title={release.name ?? release.tag}
-            onClick={(event) => {
-              event.preventDefault();
-              openExternal(release.url, release.tag);
-            }}
             className="rounded font-medium text-foreground outline-none hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring"
           >
             {release.tag}
-          </a>
+          </RepoLink>
           {differenceInDays(new Date(), new Date(release.publishedAt)) < NEW_RELEASE_DAYS && (
             <span className="rounded-full bg-highlight px-2 py-px font-semibold text-highlight-foreground">
               New release

@@ -83,9 +83,12 @@ function ShowMore({ expanded, onToggle }: { expanded: boolean; onToggle: () => v
 }
 
 /** What developers are discussing right now, across every topic. */
-export function TopStories() {
+export function TopStories({ matches }: { matches?: (text: string) => boolean }) {
   const stories = useTopStories();
   const [expanded, setExpanded] = useState(false);
+  const shown = (stories.data ?? []).filter(
+    (story) => matches === undefined || matches(story.title),
+  );
 
   return (
     <section aria-labelledby="top-stories-heading" className="@container min-w-0">
@@ -105,10 +108,14 @@ export function TopStories() {
         <p role="alert" className="text-sm text-muted-foreground">
           {stories.error.message.replace(/^.*?failed: /, "")}
         </p>
+      ) : matches !== undefined && shown.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Nothing in today&apos;s top stories matches your interests.
+        </p>
       ) : (
         <>
-          <StoryList stories={stories.data.slice(0, expanded ? undefined : STORIES_SHOWN)} />
-          {stories.data.length > STORIES_SHOWN && (
+          <StoryList stories={shown.slice(0, expanded ? undefined : STORIES_SHOWN)} />
+          {shown.length > STORIES_SHOWN && (
             <ShowMore
               expanded={expanded}
               onToggle={() => {

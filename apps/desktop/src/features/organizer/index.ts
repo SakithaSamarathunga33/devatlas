@@ -1,6 +1,1 @@
-export {
-  CollectionDetailPage,
-  CollectionsPage,
-  ProjectDetailPage,
-  ProjectsPage,
-} from "./components/groups-page";
+export { CollectionDetailPage, CollectionsPage } from "./components/groups-page";

@@ -5,19 +5,14 @@ import { Modal } from "@/components/shared/modal";
 import { Button } from "@/components/ui/button";
 import { groupsQueryKey, useGroups } from "@/hooks/use-groups";
 import { libraryQueryKey } from "@/hooks/use-library";
-import { CATEGORY_META } from "@/lib/resource-categories";
+import { CATEGORY_META, STATUS_LABELS } from "@/lib/resource-categories";
 import { fieldClass, selectClass } from "@/lib/styles";
 import { describeError } from "@/services/ipc";
 import { updateResource } from "@/services/organizer.service";
-import { resourceCategories, type Resource } from "@/types/library.types";
-import type { Group, GroupKind } from "@/types/organizer.types";
+import { readingStatuses, resourceCategories, type Resource } from "@/types/library.types";
+import type { Group } from "@/types/organizer.types";
 
-const GROUP_HEADINGS: Record<GroupKind, string> = {
-  collection: "Collections",
-  project: "Projects",
-};
-
-/** Edits what DevAtlas adds to a link: its category, tags, note, collections and projects. */
+/** Edits what DevAtlas adds to a link: its category, status, tags, note and collections. */
 export function EditResourceDialog({
   resource,
   onClose,
@@ -28,6 +23,7 @@ export function EditResourceDialog({
   const queryClient = useQueryClient();
   const groups = useGroups();
   const [category, setCategory] = useState<string>(resource.categoryOverride ?? "");
+  const [status, setStatus] = useState<string>(resource.status ?? "");
   const [tags, setTags] = useState(resource.tags.join(", "));
   const [note, setNote] = useState(resource.note ?? "");
   // Only what the user toggled; the rest comes from the loaded groups.
@@ -39,6 +35,7 @@ export function EditResourceDialog({
     mutationFn: () =>
       updateResource(resource.id, {
         category: resourceCategories.find((value) => value === category) ?? null,
+        status: readingStatuses.find((value) => value === status) ?? null,
         tags: tags
           .split(",")
           .map((tag) => tag.trim())
@@ -82,6 +79,23 @@ export function EditResourceDialog({
             ))}
           </select>
         </label>
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
+          Status
+          <select
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value);
+            }}
+            className={selectClass}
+          >
+            <option value="">None</option>
+            {readingStatuses.map((value) => (
+              <option key={value} value={value}>
+                {STATUS_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="flex flex-col gap-1.5">
           <label className="flex flex-col gap-1.5 text-sm font-medium">
             Tags
@@ -110,40 +124,36 @@ export function EditResourceDialog({
 
         {groups.isError && (
           <p role="alert" className="text-sm text-destructive">
-            Collections and projects couldn&apos;t be loaded.
+            Collections couldn&apos;t be loaded.
           </p>
         )}
-        {groups.isSuccess &&
-          (["collection", "project"] as const).map((kind) => {
-            const ofKind = groups.data.filter((group) => group.kind === kind);
-            return (
-              <fieldset key={kind}>
-                <legend className="text-sm font-medium">{GROUP_HEADINGS[kind]}</legend>
-                {ofKind.length === 0 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    None yet. Create one on the {GROUP_HEADINGS[kind]} page.
-                  </p>
-                ) : (
-                  <div className="mt-1.5 flex flex-col gap-1">
-                    {ofKind.map((group) => (
-                      <label key={group.id} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={isMember(group)}
-                          onChange={(event) => {
-                            const checked = event.target.checked;
-                            setToggled((current) => ({ ...current, [group.id]: checked }));
-                          }}
-                          className="size-4 accent-primary"
-                        />
-                        {group.name}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </fieldset>
-            );
-          })}
+        {groups.isSuccess && (
+          <fieldset>
+            <legend className="text-sm font-medium">Collections</legend>
+            {groups.data.length === 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                None yet. Create one on the Collections page.
+              </p>
+            ) : (
+              <div className="mt-1.5 flex flex-col gap-1">
+                {groups.data.map((group) => (
+                  <label key={group.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={isMember(group)}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setToggled((current) => ({ ...current, [group.id]: checked }));
+                      }}
+                      className="size-4 accent-primary"
+                    />
+                    {group.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </fieldset>
+        )}
 
         {save.isError && (
           <p role="alert" className="text-sm text-destructive">

@@ -14,6 +14,8 @@ pub fn run() -> tauri::Result<()> {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        // Used from Rust only, so paths never come from the webview; no capability is granted.
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let cache_file = app.path().app_cache_dir()?.join("previews.json");
             app.manage(commands::preview::Previews::new(cache_file)?);
@@ -31,6 +33,8 @@ pub fn run() -> tauri::Result<()> {
                 commands::organizer::Organizer::open(&data_dir.join(database)),
             ));
             app.manage(commands::discovery::Discovery::new()?);
+            app.manage(commands::settings::Secrets::new());
+            commands::settings::load_github_token(app.handle());
             app.manage(commands::news::News::new()?);
             Ok(())
         })
@@ -47,6 +51,18 @@ pub fn run() -> tauri::Result<()> {
             commands::organizer::set_group_resources,
             commands::settings::get_settings,
             commands::settings::update_settings,
+            commands::settings::set_github_token,
+            commands::settings::clear_github_token,
+            commands::organizer::list_snippets,
+            commands::organizer::create_snippet,
+            commands::organizer::update_snippet,
+            commands::organizer::delete_snippet,
+            commands::organizer::list_removed_suggestions,
+            commands::organizer::remove_suggestion,
+            commands::organizer::restore_suggestions,
+            commands::tools::export_backup,
+            commands::tools::import_file,
+            commands::tools::check_links,
             commands::news::list_news,
             commands::news::list_top_stories,
             commands::news::list_language_rankings,

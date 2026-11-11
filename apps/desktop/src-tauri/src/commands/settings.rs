@@ -1,11 +1,45 @@
 use devatlas_application::library;
 use devatlas_application::settings::{
-    self, BookmarkSettings, Browser, BrowserOption, ProfileOption, SettingsStore, SettingsView,
+    self, BookmarkSettings, Browser, BrowserOption, ProfileOption, SecretStore, SettingsStore,
+    SettingsView,
 };
 use devatlas_storage::chromium::{self, ChromiumBookmarks};
-use tauri::{AppHandle, Runtime, State};
+use devatlas_storage::credentials::KeyringSecret;
+use tauri::{AppHandle, Manager, Runtime, State};
 
+use super::discovery::Discovery;
 use super::library::{LibraryStore, current_settings, now_ms, selection, user_data_dir};
+
+/// The GitHub token in the OS credential store. Dev builds use their own entry.
+pub struct Secrets {
+    github_token: KeyringSecret,
+}
+
+impl Secrets {
+    pub fn new() -> Self {
+        let service = if cfg!(debug_assertions) {
+            "DevAtlas (dev)"
+        } else {
+            "DevAtlas"
+        };
+        Self {
+            github_token: KeyringSecret::new(service),
+        }
+    }
+
+    fn has_token(&self) -> bool {
+        matches!(self.github_token.load(), Ok(Some(_)))
+    }
+}
+
+/// Hands the stored GitHub token, if any, to the GitHub client at startup.
+pub fn load_github_token<R: Runtime>(app: &AppHandle<R>) {
+    match app.state::<Secrets>().github_token.load() {
+        Ok(Some(token)) => app.state::<Discovery>().set_github_token(Some(token)),
+        Ok(None) => {}
+        Err(error) => tracing::warn!(%error, "could not read the GitHub token"),
+    }
+}
 
 /// The browsers and profiles found on this computer, with each profile's bookmark folders.
 fn browser_options<R: Runtime>(app: &AppHandle<R>) -> Vec<BrowserOption> {
@@ -30,11 +64,12 @@ fn browser_options<R: Runtime>(app: &AppHandle<R>) -> Vec<BrowserOption> {
         .collect()
 }
 
-/// The current bookmark settings and what can be chosen.
+/// The current settings and what can be chosen.
 #[tauri::command]
 pub async fn get_settings<R: Runtime>(
     app: AppHandle<R>,
     store: State<'_, LibraryStore>,
+    secrets: State<'_, Secrets>,
 ) -> Result<SettingsView, String> {
     let settings = {
         let _guard = store.lock.lock().await;
@@ -44,6 +79,7 @@ pub async fn get_settings<R: Runtime>(
     Ok(SettingsView {
         settings,
         options: browser_options(&app),
+        has_github_token: secrets.has_token(),
     })
 }
 
@@ -54,6 +90,7 @@ pub async fn update_settings<R: Runtime>(
     settings: BookmarkSettings,
     app: AppHandle<R>,
     store: State<'_, LibraryStore>,
+    secrets: State<'_, Secrets>,
 ) -> Result<SettingsView, String> {
     let valid = settings::validate(settings).map_err(|error| error.to_string())?;
     {
@@ -77,5 +114,38 @@ pub async fn update_settings<R: Runtime>(
     Ok(SettingsView {
         settings: valid,
         options: browser_options(&app),
+        has_github_token: secrets.has_token(),
     })
+}
+
+const TOKEN_STORE_FAILED: &str = "Your system's credential store couldn't be used.";
+
+/// Stores a GitHub token in the OS credential store and starts using it.
+#[tauri::command]
+pub async fn set_github_token(
+    token: String,
+    secrets: State<'_, Secrets>,
+    discovery: State<'_, Discovery>,
+) -> Result<(), String> {
+    let token = settings::clean_token(&token).map_err(|error| error.to_string())?;
+    secrets.github_token.save(&token).map_err(|error| {
+        tracing::warn!(%error, "could not store the GitHub token");
+        TOKEN_STORE_FAILED.to_owned()
+    })?;
+    discovery.set_github_token(Some(token));
+    Ok(())
+}
+
+/// Forgets the GitHub token.
+#[tauri::command]
+pub async fn clear_github_token(
+    secrets: State<'_, Secrets>,
+    discovery: State<'_, Discovery>,
+) -> Result<(), String> {
+    secrets.github_token.delete().map_err(|error| {
+        tracing::warn!(%error, "could not delete the GitHub token");
+        TOKEN_STORE_FAILED.to_owned()
+    })?;
+    discovery.set_github_token(None);
+    Ok(())
 }

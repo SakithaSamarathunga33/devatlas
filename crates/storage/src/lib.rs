@@ -5,7 +5,9 @@
 //! and the SQLite database. Tauri commands only construct these adapters and hand them to
 //! use cases.
 
+pub mod backup_file;
 pub mod chromium;
+pub mod credentials;
 pub mod database;
 pub mod github;
 pub mod json_file;

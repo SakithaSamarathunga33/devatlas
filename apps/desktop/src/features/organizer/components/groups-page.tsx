@@ -19,24 +19,13 @@ import {
   updateGroup,
 } from "@/services/organizer.service";
 import type { Resource } from "@/types/library.types";
-import type { Group, GroupKind } from "@/types/organizer.types";
+import type { Group } from "@/types/organizer.types";
 
-const COPY: Record<
-  GroupKind,
-  { title: string; singular: string; path: string; description: string }
-> = {
-  collection: {
-    title: "Collections",
-    singular: "collection",
-    path: "/collections",
-    description: "Group links into curated sets for a stack, a client, or an idea.",
-  },
-  project: {
-    title: "Projects",
-    singular: "project",
-    path: "/projects",
-    description: "Keep track of the links each of your projects uses.",
-  },
+const COPY = {
+  title: "Collections",
+  singular: "collection",
+  path: "/collections",
+  description: "Group links into curated sets for a stack, a client, or an idea.",
 };
 
 const PAGE = "w-full px-5 pt-5 pb-16 lg:px-8";
@@ -66,30 +55,14 @@ function ListSkeleton() {
 }
 
 export function CollectionsPage() {
-  return <GroupsList kind="collection" />;
-}
-
-export function ProjectsPage() {
-  return <GroupsList kind="project" />;
-}
-
-export function CollectionDetailPage() {
-  return <GroupDetail kind="collection" />;
-}
-
-export function ProjectDetailPage() {
-  return <GroupDetail kind="project" />;
-}
-
-function GroupsList({ kind }: { kind: GroupKind }) {
-  const { title, singular, path, description } = COPY[kind];
+  const { title, singular, path, description } = COPY;
   const groups = useGroups();
   const library = useLibrary();
   const [creating, setCreating] = useState(false);
   // Without the library every count would read 0; a later failed poll keeps the last data.
   const libraryFailed = library.isError && library.data === undefined;
   const inLibrary = new Set(library.data?.resources.map((resource) => resource.id));
-  const ofKind = (groups.data ?? []).filter((group) => group.kind === kind);
+  const ofKind = groups.data ?? [];
 
   return (
     <div className={PAGE}>
@@ -141,7 +114,6 @@ function GroupsList({ kind }: { kind: GroupKind }) {
 
       {creating && (
         <GroupFormDialog
-          kind={kind}
           onClose={() => {
             setCreating(false);
           }}
@@ -153,8 +125,8 @@ function GroupsList({ kind }: { kind: GroupKind }) {
 
 type Dialog = "links" | "edit" | "delete" | null;
 
-function GroupDetail({ kind }: { kind: GroupKind }) {
-  const { title, singular, path } = COPY[kind];
+export function CollectionDetailPage() {
+  const { title, singular, path } = COPY;
   const { groupId } = useParams();
   const groups = useGroups();
   const library = useLibrary();
@@ -190,7 +162,7 @@ function GroupDetail({ kind }: { kind: GroupKind }) {
       </div>
     );
   }
-  const group = groups.data.find((item) => item.id === groupId && item.kind === kind);
+  const group = groups.data.find((item) => item.id === groupId);
   if (group === undefined) {
     return (
       <div className={PAGE}>
@@ -244,7 +216,6 @@ function GroupDetail({ kind }: { kind: GroupKind }) {
           </Button>
         </div>
       </PageHeader>
-
       {members.length === 0 ? (
         <p className="mt-8 text-sm text-muted-foreground">
           No links in this {singular} yet. Use Manage links to add some.
@@ -262,30 +233,22 @@ function GroupDetail({ kind }: { kind: GroupKind }) {
       {dialog === "links" && (
         <ManageLinksDialog group={group} resources={resources} onClose={closeDialog} />
       )}
-      {dialog === "edit" && <GroupFormDialog kind={kind} group={group} onClose={closeDialog} />}
+      {dialog === "edit" && <GroupFormDialog group={group} onClose={closeDialog} />}
       {dialog === "delete" && <DeleteDialog group={group} onClose={closeDialog} />}
     </div>
   );
 }
 
 /** Creates a group, or edits one when `group` is given. */
-function GroupFormDialog({
-  kind,
-  group,
-  onClose,
-}: {
-  kind: GroupKind;
-  group?: Group;
-  onClose: () => void;
-}) {
-  const { singular } = COPY[kind];
+function GroupFormDialog({ group, onClose }: { group?: Group; onClose: () => void }) {
+  const { singular } = COPY;
   const queryClient = useQueryClient();
   const [name, setName] = useState(group?.name ?? "");
   const [description, setDescription] = useState(group?.description ?? "");
   const save = useMutation({
     mutationFn: async () => {
       const text = description.trim() === "" ? null : description;
-      if (group === undefined) await createGroup(kind, name, text);
+      if (group === undefined) await createGroup(name, text);
       else await updateGroup(group.id, name, text);
     },
     onSuccess: async () => {
@@ -442,7 +405,7 @@ function ManageLinksDialog({
 }
 
 function DeleteDialog({ group, onClose }: { group: Group; onClose: () => void }) {
-  const { path } = COPY[group.kind];
+  const { path } = COPY;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const remove = useMutation({

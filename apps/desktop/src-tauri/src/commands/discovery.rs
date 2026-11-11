@@ -16,6 +16,11 @@ impl Discovery {
             github: GithubApi::new()?,
         })
     }
+
+    /// Sets or clears the token used for GitHub requests.
+    pub fn set_github_token(&self, token: Option<String>) {
+        self.github.set_token(token);
+    }
 }
 
 /// Repositories created within `period` that have the most stars, optionally in one language.

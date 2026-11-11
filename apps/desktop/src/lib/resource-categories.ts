@@ -9,7 +9,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { resourceCategories, type Resource, type ResourceCategory } from "@/types/library.types";
+import {
+  resourceCategories,
+  type ReadingStatus,
+  type Resource,
+  type ResourceCategory,
+} from "@/types/library.types";
 
 interface CategoryMeta {
   label: string;
@@ -63,6 +68,12 @@ export const CATEGORY_META: Record<ResourceCategory, CategoryMeta> = {
     tint: "from-category-other/40 to-category-other/10",
     swatch: "bg-category-other",
   },
+};
+
+export const STATUS_LABELS: Record<ReadingStatus, string> = {
+  "to-read": "To read",
+  trying: "Trying",
+  using: "Using",
 };
 
 /** Categories that have resources, in display order, with their counts. */

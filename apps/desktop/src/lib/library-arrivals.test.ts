@@ -16,6 +16,9 @@ function resource(id: string, isNew: boolean): Resource {
     origin: "browser",
     isNew,
     categoryOverride: null,
+    status: null,
+    lastOpenedAt: null,
+    linkHealth: null,
     tags: [],
     note: null,
   };

@@ -7,9 +7,17 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { libraryQueryKey } from "@/hooks/use-library";
-import { selectClass } from "@/lib/styles";
+import { fieldClass, selectClass } from "@/lib/styles";
 import { describeError } from "@/services/ipc";
-import { getSettings, updateSettings } from "@/services/settings.service";
+import {
+  checkLinks,
+  clearGithubToken,
+  exportBackup,
+  getSettings,
+  importFile,
+  setGithubToken,
+  updateSettings,
+} from "@/services/settings.service";
 import type { BookmarkSettings, SettingsView } from "@/types/settings.types";
 
 const settingsQueryKey = ["settings"] as const;
@@ -34,8 +42,179 @@ export function SettingsPage() {
           {describeError(view.error).replace(/^.*?failed: /, "")}
         </p>
       )}
-      {view.isSuccess && <BookmarkForm view={view.data} />}
+      {view.isSuccess && (
+        <div className="flex max-w-xl flex-col gap-4">
+          <BookmarkForm view={view.data} />
+          <GithubTokenForm hasToken={view.data.hasGithubToken} />
+          <LibraryTools />
+        </div>
+      )}
     </div>
+  );
+}
+
+function plural(count: number, noun: string): string {
+  return `${String(count)} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+function errorText(error: unknown): string {
+  return describeError(error).replace(/^.*?failed: /, "");
+}
+
+/** An optional token that raises GitHub's limit. It is sent to Rust and never shown again. */
+function GithubTokenForm({ hasToken }: { hasToken: boolean }) {
+  const queryClient = useQueryClient();
+  const [token, setToken] = useState("");
+  const refresh = () => queryClient.invalidateQueries({ queryKey: settingsQueryKey });
+  const save = useMutation({
+    mutationFn: () => setGithubToken(token),
+    onSuccess: async () => {
+      setToken("");
+      await refresh();
+      toast.success("GitHub token saved");
+    },
+    onError: (error) => {
+      toast.error("Couldn't save the token", { description: errorText(error) });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: clearGithubToken,
+    onSuccess: refresh,
+    onError: (error) => {
+      toast.error("Couldn't remove the token", { description: errorText(error) });
+    },
+  });
+
+  return (
+    <form
+      className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        save.mutate();
+      }}
+    >
+      <div>
+        <h2 className="text-base font-semibold">GitHub token</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Optional. Raises GitHub&apos;s limit from 60 to 5,000 requests an hour. It needs no
+          permissions, and is kept in your system&apos;s credential store.
+        </p>
+      </div>
+      {hasToken && <p className="text-sm text-primary">A token is saved.</p>}
+      <label className="flex flex-col gap-1.5 text-sm font-medium">
+        GitHub token
+        <input
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          value={token}
+          placeholder={hasToken ? "Paste a new token to replace it" : "ghp_…"}
+          onChange={(event) => {
+            setToken(event.target.value);
+          }}
+          className={fieldClass}
+        />
+      </label>
+      <div className="flex justify-end gap-2">
+        {hasToken && (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={remove.isPending}
+            onClick={() => {
+              remove.mutate();
+            }}
+          >
+            Remove token
+          </Button>
+        )}
+        <Button type="submit" disabled={save.isPending || token.trim() === ""}>
+          Save token
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Link checking, backup and import. */
+function LibraryTools() {
+  const queryClient = useQueryClient();
+  const refreshAll = () => queryClient.invalidateQueries();
+  const check = useMutation({
+    mutationFn: checkLinks,
+    onSuccess: async ({ checked, broken, moved, unknown }) => {
+      await refreshAll();
+      toast.success(`Checked ${plural(checked, "link")}`, {
+        description: `${String(broken)} broken, ${String(moved)} moved, ${String(unknown)} couldn't be confirmed.`,
+      });
+    },
+    onError: (error) => {
+      toast.error("Couldn't check the links", { description: errorText(error) });
+    },
+  });
+  const backup = useMutation({
+    mutationFn: exportBackup,
+    onSuccess: (name) => {
+      if (name !== null) toast.success("Backup saved", { description: name });
+    },
+    onError: (error) => {
+      toast.error("Couldn't save the backup", { description: errorText(error) });
+    },
+  });
+  const restore = useMutation({
+    mutationFn: importFile,
+    onSuccess: async (summary) => {
+      if (summary === null) return;
+      await refreshAll();
+      toast.success("Import complete", {
+        description: `${plural(summary.links, "link")}, ${plural(summary.groups, "group")}, ${plural(summary.snippets, "snippet")}.`,
+      });
+    },
+    onError: (error) => {
+      toast.error("Couldn't import that file", { description: errorText(error) });
+    },
+  });
+
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
+      <div>
+        <h2 className="text-base font-semibold">Library tools</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Find links that have died, back up everything you added, or import a backup or a
+          browser&apos;s bookmarks file. Importing never deletes anything, but a backup&apos;s
+          notes, tags and snippets replace your current versions of them.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          disabled={check.isPending}
+          onClick={() => {
+            check.mutate();
+          }}
+        >
+          {check.isPending ? "Checking…" : "Check links"}
+        </Button>
+        <Button
+          variant="outline"
+          disabled={backup.isPending}
+          onClick={() => {
+            backup.mutate();
+          }}
+        >
+          Export backup
+        </Button>
+        <Button
+          variant="outline"
+          disabled={restore.isPending}
+          onClick={() => {
+            restore.mutate();
+          }}
+        >
+          Import
+        </Button>
+      </div>
+    </section>
   );
 }
 

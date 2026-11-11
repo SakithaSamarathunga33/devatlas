@@ -8,6 +8,8 @@ use std::convert::Infallible;
 use devatlas_domain::resource::{Resource, ResourceCategory, normalize_url};
 use serde::{Deserialize, Serialize};
 
+use crate::link_health::LinkHealth;
+use crate::organizer::ReadingStatus;
 use crate::preview::{self, PreviewCache, PreviewSource};
 
 /// How long a newly found resource keeps its "new" mark if it is never opened.
@@ -70,6 +72,9 @@ pub struct ResourceMemory {
     /// rather than deleted, so the browser profile is never written to.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub hidden: bool,
+    /// When the user last opened it, as Unix milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opened_at: Option<i64>,
 }
 
 /// Remembered resources, keyed by resource id.
@@ -102,8 +107,13 @@ pub struct LibraryItem {
     pub is_new: bool,
     /// The category the user chose; `None` when `resource.category` is automatic.
     pub category_override: Option<ResourceCategory>,
+    pub status: Option<ReadingStatus>,
     pub tags: Vec<String>,
     pub note: Option<String>,
+    /// When the user last opened it, as Unix milliseconds.
+    pub last_opened_at: Option<i64>,
+    /// The last conclusive link check, if any.
+    pub link_health: Option<LinkHealth>,
 }
 
 /// The developer library as currently found.
@@ -126,6 +136,16 @@ pub enum LibraryError<B: std::error::Error, L: std::error::Error, M: std::error:
 /// Result of [`load_library`], with each port's error type.
 pub type LoadResult<B, L, M> = Result<
     LibrarySnapshot,
+    LibraryError<
+        <B as BookmarkSource>::Error,
+        <L as SavedLinkStore>::Error,
+        <M as LibraryMemoryStore>::Error,
+    >,
+>;
+
+/// Result of [`import_links`]: how many links were added.
+pub type ImportResult<B, L, M> = Result<
+    usize,
     LibraryError<
         <B as BookmarkSource>::Error,
         <L as SavedLinkStore>::Error,
@@ -203,12 +223,16 @@ where
             let is_new = known
                 .get(&resource.id)
                 .is_some_and(|entry| !entry.opened && now_ms - entry.first_seen < NEW_FOR_MS);
+            let last_opened_at = known.get(&resource.id).and_then(|entry| entry.opened_at);
             LibraryItem {
                 resource,
                 is_new,
                 category_override: None,
+                status: None,
                 tags: Vec::new(),
                 note: None,
+                last_opened_at,
+                link_health: None,
             }
         })
         .collect();
@@ -260,9 +284,90 @@ where
             first_seen: now_ms,
             opened: true,
             hidden: false,
+            opened_at: None,
         });
     }
     memory.save(&known).map_err(LibraryError::Memory)
+}
+
+/// Adds restored or imported links to the saved links, skipping duplicates and unusable
+/// ones, and hides the links listed in `hidden`. Imported links count as already seen.
+/// Returns how many links were added.
+pub fn import_links<B, L, M>(
+    source: &B,
+    saved: &L,
+    memory: &M,
+    folder: &str,
+    links: &[SavedLink],
+    hidden: &[String],
+    now_ms: i64,
+) -> ImportResult<B, L, M>
+where
+    B: BookmarkSource,
+    L: SavedLinkStore,
+    M: LibraryMemoryStore,
+{
+    let mut current = saved.load().map_err(LibraryError::Saved)?;
+    let browser = browser_resources(source, folder).map_err(LibraryError::Source)?;
+    let mut seen: HashSet<String> = browser
+        .iter()
+        .cloned()
+        .chain(saved_resources(&current))
+        .map(|resource| resource.id)
+        .collect();
+    let mut known = memory
+        .load()
+        .map_err(LibraryError::Memory)?
+        .unwrap_or_default();
+
+    let mut added = 0;
+    for link in links {
+        let Some(resource) = Resource::saved(&link.title, &link.url, link.added_at) else {
+            continue;
+        };
+        if !seen.insert(resource.id.clone()) {
+            continue;
+        }
+        current.push(SavedLink {
+            url: resource.url,
+            title: resource.title,
+            added_at: link.added_at,
+        });
+        known.entry(resource.id).or_insert(ResourceMemory {
+            first_seen: now_ms,
+            opened: true,
+            hidden: false,
+            opened_at: None,
+        });
+        added += 1;
+    }
+    for id in hidden {
+        known
+            .entry(id.clone())
+            .or_insert(ResourceMemory {
+                first_seen: now_ms,
+                opened: true,
+                hidden: true,
+                opened_at: None,
+            })
+            .hidden = true;
+    }
+    if added > 0 {
+        saved.save(&current).map_err(LibraryError::Saved)?;
+    }
+    memory.save(&known).map_err(LibraryError::Memory)?;
+    Ok(added)
+}
+
+/// The links removed from the library, for backups.
+pub fn hidden_ids<M: LibraryMemoryStore>(memory: &M) -> Result<Vec<String>, M::Error> {
+    Ok(memory
+        .load()?
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(_, entry)| entry.hidden)
+        .map(|(id, _)| id)
+        .collect())
 }
 
 /// Saves a link in DevAtlas after fetching its title (and warming the preview cache).
@@ -375,13 +480,16 @@ where
 }
 
 /// Records that the user opened a resource, which clears its "new" mark.
-pub fn mark_opened<M: LibraryMemoryStore>(memory: &M, id: &str) -> Result<(), M::Error> {
+pub fn mark_opened<M: LibraryMemoryStore>(
+    memory: &M,
+    id: &str,
+    now_ms: i64,
+) -> Result<(), M::Error> {
     let mut known = memory.load()?.unwrap_or_default();
     if let Some(entry) = known.get_mut(id) {
-        if !entry.opened {
-            entry.opened = true;
-            memory.save(&known)?;
-        }
+        entry.opened = true;
+        entry.opened_at = Some(now_ms);
+        memory.save(&known)?;
     }
     Ok(())
 }
@@ -415,6 +523,7 @@ fn remember<M: LibraryMemoryStore>(
                 first_seen: now_ms,
                 opened: first_run,
                 hidden: false,
+                opened_at: None,
             }
         });
     }
@@ -423,7 +532,9 @@ fn remember<M: LibraryMemoryStore>(
     if browser_found {
         let current: HashSet<&str> = resources.iter().map(|r| r.id.as_str()).collect();
         let before = known.len();
-        known.retain(|id, entry| entry.hidden || current.contains(id.as_str()));
+        known.retain(|id, entry| {
+            entry.hidden || entry.opened_at.is_some() || current.contains(id.as_str())
+        });
         changed |= known.len() != before;
     }
     if changed {
@@ -730,7 +841,7 @@ mod tests {
         let library = load(&source, &memory, 2_000);
         assert_eq!(new_titles(&library), ["Uiverse"]);
 
-        mark_opened(&memory, "uiverse.io").unwrap();
+        mark_opened(&memory, "uiverse.io", 2_500).unwrap();
         assert!(new_titles(&load(&source, &memory, 3_000)).is_empty());
     }
 
@@ -1020,6 +1131,138 @@ mod tests {
         ]);
 
         assert_eq!(top_level_folders(&source), ["develop", "work"]);
+    }
+
+    #[test]
+    fn records_every_open_and_reports_the_last_one() {
+        let source = FakeSource::new(vec![bookmark("A", "https://a.example/", &["develop"])]);
+        let memory = FakeMemory::default();
+        load(&source, &memory, 0);
+
+        mark_opened(&memory, "a.example", 500).unwrap();
+        mark_opened(&memory, "a.example", 900).unwrap();
+
+        assert_eq!(
+            load(&source, &memory, 1_000).resources[0].last_opened_at,
+            Some(900)
+        );
+    }
+
+    #[test]
+    fn switching_browsers_keeps_when_links_were_opened() {
+        let a = bookmark("A", "https://a.example/", &["develop"]);
+        let b = bookmark("B", "https://b.example/", &["develop"]);
+        let source = FakeSource::new(vec![a.clone()]);
+        let memory = FakeMemory::default();
+        load(&source, &memory, 0);
+        mark_opened(&memory, "a.example", 7).unwrap();
+
+        *source.0.borrow_mut() = vec![b];
+        load(&source, &memory, 1);
+        *source.0.borrow_mut() = vec![a];
+
+        assert_eq!(
+            load(&source, &memory, 2).resources[0].last_opened_at,
+            Some(7)
+        );
+    }
+
+    fn saved_link(url: &str) -> SavedLink {
+        SavedLink {
+            url: url.to_owned(),
+            title: "Imported".to_owned(),
+            added_at: 5,
+        }
+    }
+
+    #[test]
+    fn importing_adds_new_links_as_already_seen() {
+        let source = FakeSource::new(vec![]);
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+        load_with(&source, &saved, &memory, 0);
+
+        let added = import_links(
+            &source,
+            &saved,
+            &memory,
+            "develop",
+            &[saved_link("https://a.example/")],
+            &[],
+            1,
+        )
+        .unwrap();
+
+        assert_eq!(added, 1);
+        let library = load_with(&source, &saved, &memory, 2);
+        assert_eq!(titles(&library), ["Imported"]);
+        assert!(new_titles(&library).is_empty());
+    }
+
+    #[test]
+    fn importing_skips_duplicates_and_unusable_links() {
+        let source = FakeSource::new(vec![bookmark(
+            "Motion",
+            "https://motion.dev/",
+            &["develop"],
+        )]);
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+
+        let added = import_links(
+            &source,
+            &saved,
+            &memory,
+            "develop",
+            &[
+                saved_link("https://motion.dev"),
+                saved_link("javascript:alert(1)"),
+                saved_link("https://a.example/"),
+                saved_link("https://a.example"),
+            ],
+            &[],
+            1,
+        )
+        .unwrap();
+
+        assert_eq!(added, 1);
+        assert_eq!(saved.0.borrow().len(), 1);
+    }
+
+    #[test]
+    fn importing_restores_hidden_links() {
+        let source = FakeSource::new(vec![bookmark(
+            "Motion",
+            "https://motion.dev/",
+            &["develop"],
+        )]);
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+        load_with(&source, &saved, &memory, 0);
+
+        import_links(
+            &source,
+            &saved,
+            &memory,
+            "develop",
+            &[],
+            &["motion.dev".to_owned()],
+            1,
+        )
+        .unwrap();
+
+        assert!(titles(&load_with(&source, &saved, &memory, 2)).is_empty());
+    }
+
+    #[test]
+    fn lists_hidden_links_for_backups() {
+        let source = FakeSource::new(vec![bookmark(
+            "Motion",
+            "https://motion.dev/",
+            &["develop"],
+        )]);
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+        load_with(&source, &saved, &memory, 0);
+        remove_link(&saved, &memory, "motion.dev").unwrap();
+
+        assert_eq!(hidden_ids(&memory).unwrap(), ["motion.dev"]);
     }
 
     #[test]

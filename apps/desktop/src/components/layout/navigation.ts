@@ -1,6 +1,6 @@
 import {
+  Code2,
   Compass,
-  FolderKanban,
   Layers,
   LayoutDashboard,
   Library,
@@ -32,7 +32,9 @@ export const primaryNavigation: readonly NavigationItem[] = [
   {
     label: "Explorer",
     icon: Compass,
-    description: "Browse your library by ecosystem: React, Vue, Rust, Go, Python, and more.",
+    to: "/explorer",
+    description:
+      "Your links and suggested starting points by ecosystem: React, Vue, Rust, Go, and more.",
   },
   {
     label: "Repos",
@@ -53,10 +55,10 @@ export const primaryNavigation: readonly NavigationItem[] = [
     description: "How popular programming languages are (TIOBE and PYPL, monthly).",
   },
   {
-    label: "Projects",
-    icon: FolderKanban,
-    to: "/projects",
-    description: "Link resources to the projects that use them.",
+    label: "Snippets",
+    icon: Code2,
+    to: "/snippets",
+    description: "Small pieces of code worth keeping.",
   },
 ];
 

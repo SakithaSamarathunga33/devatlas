@@ -4,13 +4,19 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use devatlas_application::backup::{Backup, BackupStore};
 use devatlas_application::discovery::{RepoHistoryStore, RepoRelease};
+use devatlas_application::link_health::{LinkHealth, LinkHealthMap, LinkHealthStore};
 use devatlas_application::organizer::{
-    Annotations, Group, GroupKind, OrganizerStore, ResourceAnnotation,
+    Annotations, Group, OrganizerStore, ReadingStatus, ResourceAnnotation,
 };
+use devatlas_application::snippets::{Snippet, SnippetInput, SnippetStore};
+use devatlas_application::suggestions::SuggestionStore;
 use devatlas_domain::resource::ResourceCategory;
 use sqlx::Row;
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions};
+use sqlx::sqlite::{
+    SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions, SqliteRow,
+};
 use uuid::Uuid;
 
 /// Star counts older than this are deleted; growth only looks back a week.
@@ -92,14 +98,19 @@ impl OrganizerStore for Database {
 
     async fn annotations(&self) -> Result<Annotations, sqlx::Error> {
         let mut annotations = Annotations::new();
-        let rows = sqlx::query("SELECT resource_id, category, note FROM resource_annotations")
-            .fetch_all(&self.pool)
-            .await?;
+        let rows =
+            sqlx::query("SELECT resource_id, category, status, note FROM resource_annotations")
+                .fetch_all(&self.pool)
+                .await?;
         for row in rows {
             annotations.insert(
                 row.try_get("resource_id")?,
                 ResourceAnnotation {
                     category: parse_category(row.try_get("category")?),
+                    status: row
+                        .try_get::<Option<String>, _>("status")?
+                        .as_deref()
+                        .and_then(ReadingStatus::parse),
                     tags: Vec::new(),
                     note: row.try_get("note")?,
                 },
@@ -125,12 +136,14 @@ impl OrganizerStore for Database {
     ) -> Result<(), sqlx::Error> {
         let mut tx = self.pool.begin().await?;
         sqlx::query(
-            "INSERT INTO resource_annotations (resource_id, category, note) VALUES (?, ?, ?)
-             ON CONFLICT (resource_id)
-             DO UPDATE SET category = excluded.category, note = excluded.note",
+            "INSERT INTO resource_annotations (resource_id, category, status, note)
+             VALUES (?, ?, ?, ?)
+             ON CONFLICT (resource_id) DO UPDATE SET category = excluded.category,
+             status = excluded.status, note = excluded.note",
         )
         .bind(id)
         .bind(annotation.category.and_then(category_text))
+        .bind(annotation.status.map(ReadingStatus::as_str))
         .bind(annotation.note.as_deref())
         .execute(&mut *tx)
         .await?;
@@ -179,7 +192,7 @@ impl OrganizerStore for Database {
         }
 
         let rows = sqlx::query(
-            "SELECT id, kind, name, description, created_at
+            "SELECT id, name, description, created_at
              FROM link_groups ORDER BY created_at, rowid",
         )
         .fetch_all(&self.pool)
@@ -187,15 +200,9 @@ impl OrganizerStore for Database {
         rows.into_iter()
             .map(|row| {
                 let id: String = row.try_get("id")?;
-                let kind: String = row.try_get("kind")?;
                 Ok(Group {
                     resource_ids: members.remove(&id).unwrap_or_default(),
                     id,
-                    kind: if kind == GroupKind::Project.as_str() {
-                        GroupKind::Project
-                    } else {
-                        GroupKind::Collection
-                    },
                     name: row.try_get("name")?,
                     description: row.try_get("description")?,
                     created_at: row.try_get("created_at")?,
@@ -206,7 +213,6 @@ impl OrganizerStore for Database {
 
     async fn create_group(
         &self,
-        kind: GroupKind,
         name: &str,
         description: Option<&str>,
         now_ms: i64,
@@ -214,10 +220,9 @@ impl OrganizerStore for Database {
         let id = Uuid::new_v4().to_string();
         sqlx::query(
             "INSERT INTO link_groups (id, kind, name, description, created_at)
-             VALUES (?, ?, ?, ?, ?)",
+             VALUES (?, 'collection', ?, ?, ?)",
         )
         .bind(&id)
-        .bind(kind.as_str())
         .bind(name)
         .bind(description)
         .bind(now_ms)
@@ -225,7 +230,6 @@ impl OrganizerStore for Database {
         .await?;
         Ok(Group {
             id,
-            kind,
             name: name.to_owned(),
             description: description.map(str::to_owned),
             resource_ids: Vec::new(),
@@ -287,6 +291,249 @@ impl OrganizerStore for Database {
         }
         tx.commit().await?;
         Ok(true)
+    }
+}
+
+fn tags_text(tags: &[String]) -> Result<String, sqlx::Error> {
+    serde_json::to_string(tags).map_err(|error| sqlx::Error::Encode(Box::new(error)))
+}
+
+fn parse_snippet(row: &SqliteRow) -> Result<Snippet, sqlx::Error> {
+    let tags: String = row.try_get("tags")?;
+    Ok(Snippet {
+        id: row.try_get("id")?,
+        title: row.try_get("title")?,
+        language: row.try_get("language")?,
+        code: row.try_get("code")?,
+        tags: serde_json::from_str(&tags).unwrap_or_default(),
+        resource_id: row.try_get("resource_id")?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
+    })
+}
+
+impl SnippetStore for Database {
+    type Error = sqlx::Error;
+
+    async fn snippets(&self) -> Result<Vec<Snippet>, sqlx::Error> {
+        sqlx::query("SELECT * FROM snippets ORDER BY updated_at DESC, rowid DESC")
+            .fetch_all(&self.pool)
+            .await?
+            .iter()
+            .map(parse_snippet)
+            .collect()
+    }
+
+    async fn create_snippet(
+        &self,
+        input: &SnippetInput,
+        now_ms: i64,
+    ) -> Result<Snippet, sqlx::Error> {
+        let id = Uuid::new_v4().to_string();
+        sqlx::query(
+            "INSERT INTO snippets
+             (id, title, language, code, tags, resource_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&id)
+        .bind(&input.title)
+        .bind(input.language.as_deref())
+        .bind(&input.code)
+        .bind(tags_text(&input.tags)?)
+        .bind(input.resource_id.as_deref())
+        .bind(now_ms)
+        .bind(now_ms)
+        .execute(&self.pool)
+        .await?;
+        Ok(Snippet {
+            id,
+            title: input.title.clone(),
+            language: input.language.clone(),
+            code: input.code.clone(),
+            tags: input.tags.clone(),
+            resource_id: input.resource_id.clone(),
+            created_at: now_ms,
+            updated_at: now_ms,
+        })
+    }
+
+    async fn update_snippet(
+        &self,
+        id: &str,
+        input: &SnippetInput,
+        now_ms: i64,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE snippets SET title = ?, language = ?, code = ?, tags = ?, resource_id = ?,
+             updated_at = ? WHERE id = ?",
+        )
+        .bind(&input.title)
+        .bind(input.language.as_deref())
+        .bind(&input.code)
+        .bind(tags_text(&input.tags)?)
+        .bind(input.resource_id.as_deref())
+        .bind(now_ms)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn delete_snippet(&self, id: &str) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM snippets WHERE id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+}
+
+impl SuggestionStore for Database {
+    type Error = sqlx::Error;
+
+    async fn removed_suggestions(&self) -> Result<Vec<String>, sqlx::Error> {
+        let rows = sqlx::query("SELECT id FROM removed_suggestions ORDER BY id")
+            .fetch_all(&self.pool)
+            .await?;
+        rows.iter().map(|row| row.try_get("id")).collect()
+    }
+
+    async fn remove_suggestion(&self, id: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("INSERT OR IGNORE INTO removed_suggestions (id) VALUES (?)")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    async fn restore_suggestions(&self, ids: &[String]) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        for id in ids {
+            sqlx::query("DELETE FROM removed_suggestions WHERE id = ?")
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await
+    }
+}
+
+impl LinkHealthStore for Database {
+    type Error = sqlx::Error;
+
+    async fn link_health(&self) -> Result<LinkHealthMap, sqlx::Error> {
+        let rows = sqlx::query("SELECT resource_id, health FROM link_checks")
+            .fetch_all(&self.pool)
+            .await?;
+        let mut health = LinkHealthMap::new();
+        for row in rows {
+            let text: String = row.try_get("health")?;
+            if let Some(verdict) = LinkHealth::parse(&text) {
+                health.insert(row.try_get("resource_id")?, verdict);
+            }
+        }
+        Ok(health)
+    }
+
+    async fn save_link_health(
+        &self,
+        results: &[(String, LinkHealth)],
+        checked_at: i64,
+    ) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        for (id, health) in results {
+            sqlx::query(
+                "INSERT OR REPLACE INTO link_checks (resource_id, health, checked_at)
+                 VALUES (?, ?, ?)",
+            )
+            .bind(id)
+            .bind(health.as_str())
+            .bind(checked_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await
+    }
+}
+
+impl BackupStore for Database {
+    type Error = sqlx::Error;
+
+    async fn restore(&self, backup: &Backup) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        for annotation in &backup.annotations {
+            sqlx::query(
+                "INSERT INTO resource_annotations (resource_id, category, status, note)
+                 VALUES (?, ?, ?, ?)
+                 ON CONFLICT (resource_id) DO UPDATE SET category = excluded.category,
+                 status = excluded.status, note = excluded.note",
+            )
+            .bind(&annotation.resource_id)
+            .bind(annotation.category.and_then(category_text))
+            .bind(annotation.status.map(ReadingStatus::as_str))
+            .bind(annotation.note.as_deref())
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query("DELETE FROM resource_tags WHERE resource_id = ?")
+                .bind(&annotation.resource_id)
+                .execute(&mut *tx)
+                .await?;
+            for (position, tag) in annotation.tags.iter().enumerate() {
+                sqlx::query(
+                    "INSERT INTO resource_tags (resource_id, tag, position) VALUES (?, ?, ?)",
+                )
+                .bind(&annotation.resource_id)
+                .bind(tag)
+                .bind(i64::try_from(position).unwrap_or(i64::MAX))
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+        // An upsert rather than REPLACE, which would cascade-delete the memberships.
+        for group in &backup.groups {
+            sqlx::query(
+                "INSERT INTO link_groups (id, kind, name, description, created_at)
+                 VALUES (?, 'collection', ?, ?, ?)
+                 ON CONFLICT (id) DO UPDATE SET name = excluded.name,
+                 description = excluded.description",
+            )
+            .bind(&group.id)
+            .bind(&group.name)
+            .bind(group.description.as_deref())
+            .bind(group.created_at)
+            .execute(&mut *tx)
+            .await?;
+            for resource_id in &group.resource_ids {
+                sqlx::query(
+                    "INSERT OR IGNORE INTO group_resources (group_id, resource_id) VALUES (?, ?)",
+                )
+                .bind(&group.id)
+                .bind(resource_id)
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+        for snippet in &backup.snippets {
+            sqlx::query(
+                "INSERT INTO snippets
+                 (id, title, language, code, tags, resource_id, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT (id) DO UPDATE SET title = excluded.title,
+                 language = excluded.language, code = excluded.code, tags = excluded.tags,
+                 resource_id = excluded.resource_id, updated_at = excluded.updated_at",
+            )
+            .bind(&snippet.id)
+            .bind(&snippet.title)
+            .bind(snippet.language.as_deref())
+            .bind(&snippet.code)
+            .bind(tags_text(&snippet.tags)?)
+            .bind(snippet.resource_id.as_deref())
+            .bind(snippet.created_at)
+            .bind(snippet.updated_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await
     }
 }
 
@@ -383,8 +630,8 @@ impl RepoHistoryStore for Database {
 
 #[cfg(test)]
 mod tests {
-    use devatlas_application::discovery::{RepoHistoryStore, RepoRelease};
-    use devatlas_application::organizer::{GroupKind, OrganizerStore, ResourceAnnotation};
+    use devatlas_application::backup::{BackupAnnotation, BackupGroup};
+    use devatlas_application::discovery::RepoRelease;
     use devatlas_domain::resource::ResourceCategory;
 
     use super::*;
@@ -392,6 +639,7 @@ mod tests {
     fn annotation(tags: &[&str], note: Option<&str>) -> ResourceAnnotation {
         ResourceAnnotation {
             category: Some(ResourceCategory::Icons),
+            status: None,
             tags: tags.iter().map(|tag| (*tag).to_owned()).collect(),
             note: note.map(str::to_owned),
         }
@@ -418,6 +666,7 @@ mod tests {
 
         let cleared = ResourceAnnotation {
             category: None,
+            status: None,
             tags: vec!["new".to_owned()],
             note: None,
         };
@@ -430,15 +679,11 @@ mod tests {
     async fn creates_lists_and_renames_groups() {
         let db = Database::in_memory().await.unwrap();
 
-        let created = db
-            .create_group(GroupKind::Project, "Site", Some("Client"), 5)
-            .await
-            .unwrap();
+        let created = db.create_group("Site", Some("Client"), 5).await.unwrap();
         assert!(db.update_group(&created.id, "Website", None).await.unwrap());
 
         let groups = db.groups().await.unwrap();
         assert_eq!(groups.len(), 1);
-        assert_eq!(groups[0].kind, GroupKind::Project);
         assert_eq!(groups[0].name, "Website");
         assert_eq!(groups[0].description, None);
         assert_eq!(groups[0].created_at, 5);
@@ -449,8 +694,8 @@ mod tests {
     async fn group_ids_are_unique() {
         let db = Database::in_memory().await.unwrap();
 
-        let a = db.create_group(GroupKind::Collection, "A", None, 1).await;
-        let b = db.create_group(GroupKind::Collection, "A", None, 1).await;
+        let a = db.create_group("A", None, 1).await;
+        let b = db.create_group("A", None, 1).await;
 
         assert_ne!(a.unwrap().id, b.unwrap().id);
     }
@@ -458,10 +703,7 @@ mod tests {
     #[tokio::test]
     async fn replaces_a_groups_links() {
         let db = Database::in_memory().await.unwrap();
-        let group = db
-            .create_group(GroupKind::Collection, "A", None, 1)
-            .await
-            .unwrap();
+        let group = db.create_group("A", None, 1).await.unwrap();
         let ids = |list: &[&str]| list.iter().map(|id| (*id).to_owned()).collect::<Vec<_>>();
 
         assert!(
@@ -482,14 +724,8 @@ mod tests {
     #[tokio::test]
     async fn saving_a_link_sets_exactly_its_groups_and_skips_deleted_ones() {
         let db = Database::in_memory().await.unwrap();
-        let a = db
-            .create_group(GroupKind::Collection, "A", None, 1)
-            .await
-            .unwrap();
-        let b = db
-            .create_group(GroupKind::Project, "B", None, 2)
-            .await
-            .unwrap();
+        let a = db.create_group("A", None, 1).await.unwrap();
+        let b = db.create_group("B", None, 2).await.unwrap();
         db.save_resource("x", &annotation(&[], None), std::slice::from_ref(&a.id))
             .await
             .unwrap();
@@ -510,10 +746,7 @@ mod tests {
     #[tokio::test]
     async fn deleting_a_group_removes_its_memberships_but_not_annotations() {
         let db = Database::in_memory().await.unwrap();
-        let group = db
-            .create_group(GroupKind::Collection, "A", None, 1)
-            .await
-            .unwrap();
+        let group = db.create_group("A", None, 1).await.unwrap();
         db.save_resource(
             "x",
             &annotation(&["t"], None),
@@ -585,15 +818,164 @@ mod tests {
         );
     }
 
+    fn snippet_input(title: &str) -> SnippetInput {
+        SnippetInput {
+            title: title.to_owned(),
+            language: Some("Rust".to_owned()),
+            code: "fn main() {}".to_owned(),
+            tags: vec!["a".to_owned(), "b".to_owned()],
+            resource_id: Some("x".to_owned()),
+        }
+    }
+
+    #[tokio::test]
+    async fn round_trips_reading_status() {
+        let db = Database::in_memory().await.unwrap();
+        let saved = ResourceAnnotation {
+            status: Some(ReadingStatus::Trying),
+            ..annotation(&[], None)
+        };
+
+        db.save_resource("x", &saved, &[]).await.unwrap();
+
+        assert_eq!(db.annotations().await.unwrap()["x"], saved);
+    }
+
+    #[tokio::test]
+    async fn creates_updates_and_deletes_snippets() {
+        let db = Database::in_memory().await.unwrap();
+
+        let created = db.create_snippet(&snippet_input("A"), 5).await.unwrap();
+        assert_eq!(created.tags, ["a", "b"]);
+        assert!(
+            db.update_snippet(&created.id, &snippet_input("B"), 9)
+                .await
+                .unwrap()
+        );
+
+        let all = db.snippets().await.unwrap();
+        assert_eq!(all[0].title, "B");
+        assert_eq!(all[0].created_at, 5);
+        assert_eq!(all[0].updated_at, 9);
+        assert!(db.delete_snippet(&created.id).await.unwrap());
+        assert!(!db.delete_snippet(&created.id).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn removing_projects_keeps_them_as_collections() {
+        let db = Database::in_memory().await.unwrap();
+        sqlx::query(
+            "INSERT INTO link_groups (id, kind, name, created_at, folder)
+             VALUES ('p1', 'project', 'Site', 1, 'C:/site')",
+        )
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+        sqlx::raw_sql(include_str!("../migrations/0004_remove_projects.sql"))
+            .execute(&db.pool)
+            .await
+            .unwrap();
+
+        let row = sqlx::query("SELECT kind, folder FROM link_groups WHERE id = 'p1'")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+        assert_eq!(row.get::<String, _>("kind"), "collection");
+        assert_eq!(row.get::<Option<String>, _>("folder"), None);
+    }
+
+    #[tokio::test]
+    async fn remembers_removed_suggestions_until_restored() {
+        let db = Database::in_memory().await.unwrap();
+
+        db.remove_suggestion("docs.rs").await.unwrap();
+        db.remove_suggestion("docs.rs").await.unwrap();
+        db.remove_suggestion("go.dev/tour").await.unwrap();
+        assert_eq!(
+            db.removed_suggestions().await.unwrap(),
+            ["docs.rs", "go.dev/tour"]
+        );
+
+        db.restore_suggestions(&["docs.rs".to_owned()])
+            .await
+            .unwrap();
+        assert_eq!(db.removed_suggestions().await.unwrap(), ["go.dev/tour"]);
+    }
+
+    #[tokio::test]
+    async fn stores_the_latest_link_verdict() {
+        let db = Database::in_memory().await.unwrap();
+
+        db.save_link_health(&[("a".to_owned(), LinkHealth::Broken)], 1)
+            .await
+            .unwrap();
+        db.save_link_health(&[("a".to_owned(), LinkHealth::Ok)], 2)
+            .await
+            .unwrap();
+
+        assert_eq!(db.link_health().await.unwrap()["a"], LinkHealth::Ok);
+    }
+
+    fn restored_backup(groups: Vec<BackupGroup>, snippets: Vec<Snippet>) -> Backup {
+        Backup {
+            version: 1,
+            exported_at: 1,
+            saved_links: Vec::new(),
+            hidden: Vec::new(),
+            annotations: vec![BackupAnnotation {
+                resource_id: "x".to_owned(),
+                category: None,
+                status: Some(ReadingStatus::Using),
+                tags: vec!["t".to_owned()],
+                note: Some("restored".to_owned()),
+            }],
+            groups,
+            snippets,
+        }
+    }
+
+    fn backup_group(id: &str, members: &[&str]) -> BackupGroup {
+        BackupGroup {
+            id: id.to_owned(),
+            name: "From backup".to_owned(),
+            description: None,
+            resource_ids: members.iter().map(|id| (*id).to_owned()).collect(),
+            created_at: 1,
+        }
+    }
+
+    #[tokio::test]
+    async fn restoring_merges_without_dropping_existing_members() {
+        let db = Database::in_memory().await.unwrap();
+        let group = db.create_group("Old", None, 1).await.unwrap();
+        db.set_group_resources(&group.id, &["kept".to_owned()])
+            .await
+            .unwrap();
+
+        db.restore(&restored_backup(
+            vec![backup_group(&group.id, &["new"])],
+            Vec::new(),
+        ))
+        .await
+        .unwrap();
+
+        let groups = db.groups().await.unwrap();
+        assert_eq!(groups[0].name, "From backup");
+        assert_eq!(groups[0].resource_ids, ["kept", "new"]);
+        assert_eq!(
+            db.annotations().await.unwrap()["x"].note.as_deref(),
+            Some("restored")
+        );
+    }
+
     #[tokio::test]
     async fn opens_a_file_creating_its_folder_and_keeps_data() {
         let dir = std::env::temp_dir().join(format!("devatlas-db-test-{}", std::process::id()));
         let path = dir.join("nested").join("devatlas.db");
         {
             let db = Database::open(&path).await.unwrap();
-            db.create_group(GroupKind::Collection, "Kept", None, 1)
-                .await
-                .unwrap();
+            db.create_group("Kept", None, 1).await.unwrap();
             db.pool.close().await;
         }
 

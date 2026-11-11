@@ -1,14 +1,10 @@
 import { z } from "zod";
 
-import type { ResourceCategory } from "./library.types";
-
-export const groupKinds = ["collection", "project"] as const;
-export type GroupKind = (typeof groupKinds)[number];
+import type { ReadingStatus, ResourceCategory } from "./library.types";
 
 /** Mirrors `devatlas_application::organizer::Group`. */
 export const groupSchema = z.object({
   id: z.string().min(1),
-  kind: z.enum(groupKinds),
   name: z.string().min(1),
   description: z.string().nullable(),
   resourceIds: z.array(z.string()),
@@ -22,6 +18,7 @@ export const groupsSchema = z.array(groupSchema);
 export interface ResourceEdit {
   /** `null` keeps the automatic category. */
   category: ResourceCategory | null;
+  status: ReadingStatus | null;
   tags: string[];
   note: string | null;
   /** Every group the link belongs to after this edit. */

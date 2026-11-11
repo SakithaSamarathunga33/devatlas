@@ -8,11 +8,14 @@ import { SearchField } from "@/components/shared/search-field";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLibrary } from "@/hooks/use-library";
-import { CATEGORY_META, countByCategory } from "@/lib/resource-categories";
+import { CATEGORY_META, countByCategory, STATUS_LABELS } from "@/lib/resource-categories";
 import { cn } from "@/lib/utils";
 import {
+  readingStatuses,
   resourceCategories,
   type LibrarySnapshot,
+  type ReadingStatus,
+  type Resource,
   type ResourceCategory,
 } from "@/types/library.types";
 
@@ -20,12 +23,23 @@ import { AddLinkForm } from "./add-link-form";
 import { ResourceCard } from "./resource-card";
 import { ResourceRow } from "./resource-row";
 
-type CategoryFilter = ResourceCategory | "all" | "new";
+type CategoryFilter = ResourceCategory | ReadingStatus | "all" | "new" | "broken";
 type View = "grid" | "list";
 
 function parseFilter(value: string | null): CategoryFilter {
-  if (value === "new") return "new";
-  return resourceCategories.find((category) => category === value) ?? "all";
+  if (value === "new" || value === "broken") return value;
+  return (
+    readingStatuses.find((status) => status === value) ??
+    resourceCategories.find((category) => category === value) ??
+    "all"
+  );
+}
+
+function inFilter(resource: Resource, filter: CategoryFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "new") return resource.isNew;
+  if (filter === "broken") return resource.linkHealth === "broken";
+  return resource.category === filter || resource.status === filter;
 }
 
 function librarySummary({ source, resources }: LibrarySnapshot): string {
@@ -212,11 +226,24 @@ function LibraryBrowser({
   }
 
   const newCount = snapshot.resources.filter((resource) => resource.isNew).length;
+  const brokenCount = snapshot.resources.filter(
+    (resource) => resource.linkHealth === "broken",
+  ).length;
+  const statusCounts = readingStatuses
+    .map((value) => ({
+      value,
+      label: STATUS_LABELS[value],
+      count: snapshot.resources.filter((resource) => resource.status === value).length,
+    }))
+    .filter(({ count }) => count > 0);
+  // A filter whose last link just left it would otherwise show an empty page.
+  const filter = snapshot.resources.some((resource) => inFilter(resource, category))
+    ? category
+    : "all";
   const term = search.trim().toLowerCase();
   const visible = snapshot.resources.filter(
     (resource) =>
-      (category === "all" ||
-        (category === "new" ? resource.isNew : resource.category === category)) &&
+      inFilter(resource, filter) &&
       (term === "" ||
         [resource.title, resource.host, resource.note ?? "", ...resource.tags].some((text) =>
           text.toLowerCase().includes(term),
@@ -237,11 +264,15 @@ function LibraryBrowser({
       <div className="mt-4">
         <GooeyFilter
           label="Filter by category"
-          value={category}
+          value={filter}
           onChange={onCategoryChange}
           options={[
             { value: "all", label: "All", count: snapshot.resources.length },
             ...(newCount > 0 ? [{ value: "new" as const, label: "New", count: newCount }] : []),
+            ...(brokenCount > 0
+              ? [{ value: "broken" as const, label: "Broken", count: brokenCount }]
+              : []),
+            ...statusCounts,
             ...countByCategory(snapshot.resources).map(({ category: value, count }) => ({
               value,
               label: CATEGORY_META[value].label,

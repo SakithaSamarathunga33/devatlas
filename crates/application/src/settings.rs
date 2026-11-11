@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Longest bookmark folder name accepted.
 const MAX_FOLDER_LEN: usize = 128;
+const MAX_TOKEN_LEN: usize = 255;
 
 /// Browsers that keep bookmarks in Chromium's JSON format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,6 +75,8 @@ pub struct BrowserOption {
 pub struct SettingsView {
     pub settings: BookmarkSettings,
     pub options: Vec<BrowserOption>,
+    /// Whether a GitHub token is stored; the token itself never reaches the UI.
+    pub has_github_token: bool,
 }
 
 /// Port: persists the settings. `load` returns `None` when nothing was stored yet.
@@ -90,6 +93,27 @@ pub enum SettingsError {
     InvalidProfile,
     #[error("Choose a bookmark folder from the list.")]
     MissingFolder,
+    #[error("That doesn't look like a GitHub token.")]
+    InvalidToken,
+}
+
+/// Port: keeps secrets in the operating system's credential store.
+pub trait SecretStore {
+    type Error: std::error::Error;
+
+    fn load(&self) -> Result<Option<String>, Self::Error>;
+    fn save(&self, secret: &str) -> Result<(), Self::Error>;
+    fn delete(&self) -> Result<(), Self::Error>;
+}
+
+/// Trims a pasted GitHub token and checks its shape, so it can't smuggle extra HTTP headers.
+pub fn clean_token(raw: &str) -> Result<String, SettingsError> {
+    let token = raw.trim();
+    let allowed = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    if token.is_empty() || token.len() > MAX_TOKEN_LEN || !token.chars().all(allowed) {
+        return Err(SettingsError::InvalidToken);
+    }
+    Ok(token.to_owned())
 }
 
 /// `Default` or `Profile N`: the only directories read, so a value can never name a path.
@@ -180,6 +204,33 @@ mod tests {
         assert_eq!(
             validate(settings(None, "../evil", "anything")).unwrap(),
             BookmarkSettings::default()
+        );
+    }
+
+    #[test]
+    fn accepts_github_token_shapes_and_trims() {
+        assert_eq!(
+            clean_token("  ghp_abcDEF123  ").unwrap(),
+            "ghp_abcDEF123".to_owned()
+        );
+        assert_eq!(
+            clean_token("github_pat_11AA_bb").unwrap(),
+            "github_pat_11AA_bb".to_owned()
+        );
+    }
+
+    #[test]
+    fn refuses_tokens_that_could_inject_headers() {
+        for token in ["", "   ", "abc\r\nX-Evil: 1", "has space", "semi;colon"] {
+            assert_eq!(
+                clean_token(token),
+                Err(SettingsError::InvalidToken),
+                "{token}"
+            );
+        }
+        assert_eq!(
+            clean_token(&"a".repeat(MAX_TOKEN_LEN + 1)),
+            Err(SettingsError::InvalidToken)
         );
     }
 

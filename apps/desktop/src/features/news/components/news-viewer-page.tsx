@@ -8,6 +8,8 @@ const webUrl = z.url({ protocol: /^https?$/ });
 
 const BACK_LABELS: Record<string, string> = {
   "/": "Back to dashboard",
+  "/discovery": "Back to repos",
+  "/explorer": "Back to Explorer",
   "/news": "Back to news",
   "/rankings": "Back to rankings",
 };
@@ -21,7 +23,8 @@ function backTarget(state: unknown): string {
     : "/news";
 }
 
-/** A news story, blog post or source page shown inside DevAtlas. The URL lives in `?url=`. */
+/** A news story, blog post, source page, GitHub repository or suggested link shown inside
+ * DevAtlas. The URL lives in `?url=`. */
 export function NewsViewerPage() {
   const [params] = useSearchParams();
   const location = useLocation();

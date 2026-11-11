@@ -8,8 +8,7 @@ interface SearchFieldProps {
   placeholder: string;
 }
 
-/** A page's main search box. Ctrl+K focuses it (see AppHeader), so pages that render one
- * hide the header's search. */
+/** A page's own search box, filtering just that page. */
 export function SearchField({ value, onChange, label, placeholder }: SearchFieldProps) {
   return (
     <label className="relative block max-w-sm min-w-48 flex-1">
@@ -18,7 +17,6 @@ export function SearchField({ value, onChange, label, placeholder }: SearchField
         className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
       />
       <input
-        data-search-shortcut
         type="search"
         aria-label={label}
         placeholder={placeholder}
@@ -26,11 +24,8 @@ export function SearchField({ value, onChange, label, placeholder }: SearchField
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className="h-9 w-full rounded-lg border border-input bg-card pr-16 pl-9 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30"
+        className="h-9 w-full rounded-lg border border-input bg-card pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30"
       />
-      <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-input bg-secondary px-1.5 py-px font-sans text-xs text-muted-foreground">
-        Ctrl K
-      </kbd>
     </label>
   );
 }

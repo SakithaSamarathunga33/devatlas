@@ -39,15 +39,14 @@ export function ResourceViewerPage() {
 function ResourceViewer({ resource }: { resource: Resource }) {
   const queryClient = useQueryClient();
 
-  // Opening a new resource clears its "new" mark.
+  // Records every open, once per visit; a new resource's "new" mark clears with it.
   useEffect(() => {
-    if (!resource.isNew) return;
     markResourceOpened(resource.id)
       .then(() => queryClient.invalidateQueries({ queryKey: libraryQueryKey }))
       .catch((cause: unknown) => {
         console.warn("Could not mark the resource as opened.", cause);
       });
-  }, [resource.id, resource.isNew, queryClient]);
+  }, [resource.id, queryClient]);
 
   return (
     <SiteViewer

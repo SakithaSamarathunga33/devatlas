@@ -1,7 +1,7 @@
 //! GitHub REST API client for Discovery: recently created repositories, most-starred first
 //! (search), and details of single repositories saved in the library.
 //!
-//! Talks only to `api.github.com`, sends no credentials, follows no redirects, bounds every
+//! Talks only to `api.github.com`, sends a token only if the user saved one, follows no redirects, bounds every
 //! response in time and size, and caches answers so browsing stays within the
 //! unauthenticated limits (10 searches a minute, 60 other requests an hour).
 
@@ -63,6 +63,8 @@ pub struct GithubApi {
     client: reqwest::Client,
     searches: Cache<Vec<GithubRepo>>,
     repos: Cache<GithubRepo>,
+    /// Optional, raises GitHub's limit. Only ever sent to `api.github.com`.
+    token: Mutex<Option<String>>,
 }
 
 impl GithubApi {
@@ -77,18 +79,46 @@ impl GithubApi {
             client,
             searches: Mutex::default(),
             repos: Mutex::default(),
+            token: Mutex::default(),
         })
+    }
+
+    /// Sets or clears the token. Cached answers were fetched with the old one, so they go.
+    pub fn set_token(&self, token: Option<String>) {
+        *self.token.lock().unwrap_or_else(PoisonError::into_inner) = token;
+        lock(&self.searches).clear();
+        lock(&self.repos).clear();
+    }
+
+    fn token(&self) -> Option<String> {
+        self.token
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    async fn send(&self, url: Url, token: Option<&str>) -> Result<reqwest::Response, GithubError> {
+        let request = self
+            .client
+            .get(url)
+            .header(ACCEPT, "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28");
+        let request = match token {
+            Some(token) => request.bearer_auth(token),
+            None => request,
+        };
+        Ok(request.send().await?)
     }
 
     /// GETs a GitHub API URL and returns the body, at most `MAX_RESPONSE_BYTES` long.
     async fn get(&self, url: Url) -> Result<Vec<u8>, GithubError> {
-        let mut response = self
-            .client
-            .get(url)
-            .header(ACCEPT, "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .send()
-            .await?;
+        let token = self.token();
+        let mut response = self.send(url.clone(), token.as_deref()).await?;
+        if response.status() == StatusCode::UNAUTHORIZED && token.is_some() {
+            // A revoked or expired token must not break Repos: carry on without it.
+            tracing::warn!("GitHub rejected the saved token; continuing without it");
+            response = self.send(url, None).await?;
+        }
         match response.status() {
             status if status.is_success() => {}
             StatusCode::FORBIDDEN | StatusCode::TOO_MANY_REQUESTS => {
@@ -237,6 +267,8 @@ struct ApiRepo {
     forks_count: u64,
     created_at: String,
     owner: Option<ApiOwner>,
+    #[serde(default)]
+    private: bool,
 }
 
 #[derive(Deserialize)]
@@ -245,9 +277,10 @@ struct ApiOwner {
 }
 
 /// Maps one API repository, or `None` when its link does not point at GitHub over https:
-/// this is external data, and the UI opens these links.
+/// this is external data, and the UI opens these links. Private repositories are dropped too:
+/// a token can see them, and their details must not be stored or shown as public.
 fn into_repo(repo: ApiRepo) -> Option<GithubRepo> {
-    if !repo.html_url.starts_with("https://github.com/") {
+    if repo.private || !repo.html_url.starts_with("https://github.com/") {
         return None;
     }
     Some(GithubRepo {
@@ -424,6 +457,28 @@ mod tests {
         assert_eq!(parse_release(unnamed).unwrap().unwrap().name, None);
         assert!(parse_release(off_github).unwrap().is_none());
         assert!(parse_release(unpublished).unwrap().is_none());
+    }
+
+    #[test]
+    fn never_shows_private_repositories_a_token_can_see() {
+        let body = br#"{
+          "full_name": "me/secret", "html_url": "https://github.com/me/secret",
+          "description": null, "language": null, "stargazers_count": 0, "forks_count": 0,
+          "created_at": "2024-01-01T00:00:00Z", "owner": null, "private": true
+        }"#;
+
+        assert!(parse_repo(body).unwrap().is_none());
+    }
+
+    #[test]
+    fn changing_the_token_clears_answers_fetched_with_the_old_one() {
+        let api = GithubApi::new().unwrap();
+        lock(&api.searches).insert("q".to_owned(), (Instant::now(), Vec::new()));
+
+        api.set_token(Some("abc".to_owned()));
+
+        assert!(lock(&api.searches).is_empty());
+        assert_eq!(api.token().as_deref(), Some("abc"));
     }
 
     #[test]

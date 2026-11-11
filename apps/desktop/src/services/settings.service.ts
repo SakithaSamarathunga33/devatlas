@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { invokeCommand } from "@/services/ipc";
 import {
   settingsViewSchema,
@@ -12,4 +14,41 @@ export function getSettings(): Promise<SettingsView> {
 
 export function updateSettings(settings: BookmarkSettings): Promise<SettingsView> {
   return invokeCommand("update_settings", settingsViewSchema, { settings });
+}
+
+export function setGithubToken(token: string): Promise<null> {
+  return invokeCommand("set_github_token", z.null(), { token });
+}
+
+export function clearGithubToken(): Promise<null> {
+  return invokeCommand("clear_github_token", z.null());
+}
+
+const linkCheckSchema = z.object({
+  checked: z.number().int(),
+  broken: z.number().int(),
+  moved: z.number().int(),
+  unknown: z.number().int(),
+});
+
+export function checkLinks(): Promise<z.infer<typeof linkCheckSchema>> {
+  return invokeCommand("check_links", linkCheckSchema);
+}
+
+/** Saves a backup through a native dialog. The file name, or `null` if cancelled. */
+export function exportBackup(): Promise<string | null> {
+  return invokeCommand("export_backup", z.string().nullable());
+}
+
+const importSummarySchema = z
+  .object({
+    links: z.number().int(),
+    groups: z.number().int(),
+    snippets: z.number().int(),
+  })
+  .nullable();
+
+/** Imports a backup or a bookmarks export through a native dialog. `null` if cancelled. */
+export function importFile(): Promise<z.infer<typeof importSummarySchema>> {
+  return invokeCommand("import_file", importSummarySchema);
 }

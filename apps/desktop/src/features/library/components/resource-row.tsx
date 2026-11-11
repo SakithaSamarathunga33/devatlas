@@ -42,11 +42,18 @@ export function ResourceRow({ resource }: { resource: Resource }) {
                 New
               </span>
             )}
+            {(resource.linkHealth === "broken" || resource.linkHealth === "moved") && (
+              <span className="shrink-0 rounded-full bg-destructive px-2 py-px text-xs font-semibold text-white">
+                {resource.linkHealth === "broken" ? "Broken link" : "Moved"}
+              </span>
+            )}
           </span>
           <span className="block truncate font-mono text-xs text-muted-foreground">
             {resource.host}
           </span>
-          {resource.tags.length > 0 && <ResourceTags tags={resource.tags} className="mt-1" />}
+          {(resource.tags.length > 0 || resource.status !== null) && (
+            <ResourceTags tags={resource.tags} status={resource.status} className="mt-1" />
+          )}
         </span>
         <span className="hidden w-36 shrink-0 truncate text-xs text-muted-foreground md:block">
           {label}

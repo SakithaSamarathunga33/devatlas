@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use devatlas_application::library::{
     self, BookmarkSource, LibrarySnapshot, LibrarySource, RawBookmark,
 };
+use devatlas_application::link_health::LinkHealthStore;
 use devatlas_application::organizer::{self, OrganizerStore};
 use devatlas_application::settings::{self, BookmarkSettings, Browser, SettingsStore};
 use devatlas_domain::resource::Resource;
@@ -161,10 +162,15 @@ pub async fn list_library<R: Runtime>(
     let Ok(database) = organizer.database() else {
         return Ok(snapshot);
     };
-    match database.annotations().await {
-        Ok(annotations) => Ok(organizer::annotate(snapshot, &annotations)),
-        Err(error) => {
-            tracing::warn!(%error, "could not read annotations");
+    let extras = (database.annotations().await, database.link_health().await);
+    match extras {
+        (Ok(annotations), Ok(health)) => Ok(organizer::annotate(snapshot, &annotations, &health)),
+        (annotations, health) => {
+            tracing::warn!(
+                annotations = annotations.is_ok(),
+                health = health.is_ok(),
+                "could not read what the user added to links"
+            );
             Ok(snapshot)
         }
     }
@@ -211,7 +217,7 @@ pub async fn mark_resource_opened(
     store: State<'_, LibraryStore>,
 ) -> Result<(), String> {
     let _guard = store.lock.lock().await;
-    library::mark_opened(&store.memory, &id).map_err(|error| {
+    library::mark_opened(&store.memory, &id, now_ms()).map_err(|error| {
         tracing::warn!(%error, "could not record an opened resource");
         error.to_string()
     })

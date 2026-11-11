@@ -55,6 +55,9 @@ function resource(id: string, url: string, addedAt: number | null): Resource {
     addedAt,
     isNew: false,
     categoryOverride: null,
+    status: null,
+    lastOpenedAt: null,
+    linkHealth: null,
     tags: [],
     note: null,
     origin: "browser",
@@ -115,15 +118,30 @@ describe("DiscoveryPage — trending", () => {
     const list = await screen.findByRole("list", { name: "New repositories" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(2);
     const tauri = rowOf(/^tauri-apps\s*\/\s*tauri$/);
-    expect(within(tauri).getByRole("link", { name: /tauri-apps/ })).toHaveAttribute(
+    expect(within(tauri).getByRole("link", { name: /^tauri-apps\s*\/\s*tauri$/ })).toHaveAttribute(
       "href",
-      "https://github.com/tauri-apps/tauri",
+      `/discovery/view?url=${encodeURIComponent("https://github.com/tauri-apps/tauri")}`,
     );
     expect(tauri).toHaveTextContent(/^1/);
     expect(tauri).toHaveTextContent("Rust");
     expect(tauri).toHaveTextContent("1.2Kstars");
     expect(tauri).toHaveTextContent("Created 2 days ago");
     expect(invoke).toHaveBeenCalledWith("list_trending_repos", { period: "week", language: null });
+  });
+
+  it("opens repositories inside DevAtlas, from the name and the button", async () => {
+    renderDiscovery();
+    await screen.findByRole("list", { name: "New repositories" });
+    const inApp = `/discovery/view?url=${encodeURIComponent("https://github.com/tauri-apps/tauri")}`;
+
+    expect(screen.getByRole("link", { name: /^tauri-apps\s*\/\s*tauri$/ })).toHaveAttribute(
+      "href",
+      inApp,
+    );
+    expect(screen.getByRole("link", { name: "Open tauri-apps/tauri on GitHub" })).toHaveAttribute(
+      "href",
+      inApp,
+    );
   });
 
   it("marks repositories already in the library and saves new ones", async () => {
@@ -478,7 +496,7 @@ describe("DiscoveryPage — saved repositories", () => {
     const release = await within(row).findByRole("link", { name: /v2\.0\.0/ });
     expect(release).toHaveAttribute(
       "href",
-      "https://github.com/tauri-apps/tauri/releases/tag/v2.0.0",
+      `/discovery/view?url=${encodeURIComponent("https://github.com/tauri-apps/tauri/releases/tag/v2.0.0")}`,
     );
     expect(row).toHaveTextContent("New release");
     expect(row).toHaveTextContent("2 days ago");

@@ -21,7 +21,12 @@ foundation only (milestone DEVATLAS-001):
   also paste a link into **Add link** on the Library page: DevAtlas fetches its title and preview,
   files it under the right category, and keeps it in its own data folder (the browser is never
   written to). Each link's **Edit** button changes its category and adds tags and a note.
-- **Collections** and **Projects**: named groups of links, stored in a local SQLite database.
+- **Collections**: named groups of links, stored in a local SQLite database.
+- **Snippets**, **Explorer** (the library and removable suggested links, by language and framework), **Ctrl K** search across
+  everything, reading status, a dashboard panel that resurfaces forgotten links, and a
+  **For you** filter on News and New repos.
+- **Settings** also holds an optional GitHub token, a dead-link checker, and backup, export and
+  import (including any browser's bookmarks file).
 - **Repos**: new GitHub repositories collecting the most stars today, this week, or this
   month, optionally by language, with one-click **Save** to the Library. Rows expand (click
   again to collapse) to show each repository's **Star history** chart from
@@ -42,8 +47,7 @@ foundation only (milestone DEVATLAS-001):
   monthly (TIOBE and PYPL), side by side, with each language's movement over the last year.
 - Linting, formatting, tests, and CI.
 
-Explorer, full-text search, AI features, and sync are **not implemented yet**. Explorer's
-navigation entry is visible but disabled and marked "Soon".
+AI features and sync are **not implemented yet**.
 
 ## Technology stack
 
@@ -159,8 +163,7 @@ then reports that no app is embedded until `pnpm build:installer` has run once.
 
 ## Current scope and known limitations
 
-- The dashboard, Library, Discovery, News, and Rankings are the only routes; Collections, Explorer, Projects,
-  and Settings are planned. The Library mirrors Brave's `develop` folder (Default profile);
+- The Library mirrors Brave's `develop` folder (Default profile);
   removing a Brave bookmark in DevAtlas hides it there without touching Brave. Categories come
   from a built-in list of known sites.
 - No database or persistence yet, so DevAtlas cannot edit, tag, or store resources itself.

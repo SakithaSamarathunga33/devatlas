@@ -5,7 +5,7 @@ import { Link } from "react-router";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { useResourcePreview } from "@/hooks/use-resource-preview";
-import { CATEGORY_META } from "@/lib/resource-categories";
+import { CATEGORY_META, STATUS_LABELS } from "@/lib/resource-categories";
 import { cn } from "@/lib/utils";
 import type { Resource } from "@/types/library.types";
 
@@ -59,6 +59,11 @@ export function ResourceCard({ resource }: { resource: Resource }) {
               New
             </span>
           )}
+          {(resource.linkHealth === "broken" || resource.linkHealth === "moved") && (
+            <span className="absolute bottom-2.5 left-2.5 rounded-full bg-destructive px-2.5 py-0.5 text-xs font-semibold text-white">
+              {resource.linkHealth === "broken" ? "Broken link" : "Moved"}
+            </span>
+          )}
         </div>
 
         <div className="flex items-start gap-3 p-3">
@@ -78,7 +83,9 @@ export function ResourceCard({ resource }: { resource: Resource }) {
                 </span>
               )}
             </p>
-            {resource.tags.length > 0 && <ResourceTags tags={resource.tags} className="mt-2" />}
+            {(resource.tags.length > 0 || resource.status !== null) && (
+              <ResourceTags tags={resource.tags} status={resource.status} className="mt-2" />
+            )}
           </div>
         </div>
       </Link>
@@ -127,9 +134,22 @@ export function ResourceCard({ resource }: { resource: Resource }) {
 }
 
 /** A link's tags, as small chips. */
-export function ResourceTags({ tags, className }: { tags: readonly string[]; className?: string }) {
+export function ResourceTags({
+  tags,
+  status = null,
+  className,
+}: {
+  tags: readonly string[];
+  status?: Resource["status"];
+  className?: string;
+}) {
   return (
     <span className={cn("flex flex-wrap gap-1", className)}>
+      {status !== null && (
+        <span className="rounded-full bg-primary/15 px-2 py-px text-xs font-medium text-primary">
+          {STATUS_LABELS[status]}
+        </span>
+      )}
       {tags.map((tag) => (
         <span
           key={tag}

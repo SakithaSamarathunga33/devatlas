@@ -7,4 +7,5 @@ pub mod news;
 pub mod organizer;
 pub mod preview;
 pub mod settings;
+pub mod tools;
 pub mod viewer;

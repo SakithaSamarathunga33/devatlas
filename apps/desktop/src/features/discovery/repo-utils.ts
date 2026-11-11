@@ -3,6 +3,11 @@ import { toast } from "sonner";
 import { describeError } from "@/services/ipc";
 import { openInBrowser } from "@/services/library.service";
 
+/** In-app viewer route for a GitHub page. */
+export function repoViewerPath(url: string): string {
+  return `/discovery/view?url=${encodeURIComponent(url)}`;
+}
+
 /** Opens a page in the system browser, reporting failure; the app webview never navigates. */
 export function openExternal(url: string, label: string) {
   openInBrowser(url).catch((error: unknown) => {

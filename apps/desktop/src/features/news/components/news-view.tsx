@@ -50,18 +50,25 @@ function SourceLogo({ source, className }: { source: NewsSource; className?: str
 
 /** What developers are discussing on top, then the latest posts from official blogs, by
  * category. */
-export function NewsView({ search }: { search: string }) {
+export function NewsView({
+  search,
+  matches,
+}: {
+  search: string;
+  /** Narrows the page to what matches the user's interests. */
+  matches?: (text: string) => boolean;
+}) {
   return (
     <>
       <div className="mt-5">
-        <TopStories />
+        <TopStories matches={matches} />
       </div>
-      <LatestPosts search={search} />
+      <LatestPosts search={search} matches={matches} />
     </>
   );
 }
 
-function LatestPosts({ search }: { search: string }) {
+function LatestPosts({ search, matches }: { search: string; matches?: (text: string) => boolean }) {
   const news = useNews();
   const [category, setCategory] = useState<NewsCategory | "all">("all");
   const [sourceId, setSourceId] = useState("");
@@ -96,6 +103,9 @@ function LatestPosts({ search }: { search: string }) {
     if (source === undefined) return false;
     if (category !== "all" && source.category !== category) return false;
     if (sourceId !== "" && item.sourceId !== sourceId) return false;
+    if (matches !== undefined && !matches(`${source.name} ${item.title} ${item.summary ?? ""}`)) {
+      return false;
+    }
     if (term === "") return true;
     return [item.title, item.summary ?? "", source.name].some((text) =>
       text.toLowerCase().includes(term),

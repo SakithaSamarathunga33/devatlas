@@ -30,6 +30,8 @@ reqwest = { version = "0.13", default-features = false, features = [
     "gzip",
 ] }
 scraper = "0.29"
+# The OS credential store, for the optional GitHub token.
+keyring = { version = "3", features = ["apple-native", "sync-secret-service", "windows-native"] }
 # RSS/Atom parsing for Discovery's news view.
 feed-rs = "3"
 # `join_all` to fetch news feeds concurrently.
@@ -44,9 +46,10 @@ sqlx = { version = "0.9", default-features = false, features = [
 ] }
 tauri = { version = "2", features = [] }
 tauri-build = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 thiserror = "2"
-tokio = { version = "1", features = ["net", "sync"] }
+tokio = { version = "1", features = ["net", "sync", "time"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2"

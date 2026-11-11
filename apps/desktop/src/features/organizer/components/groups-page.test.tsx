@@ -7,12 +7,7 @@ import { AppProviders } from "@/app/providers/app-providers";
 import type { LibrarySnapshot, Resource } from "@/types/library.types";
 import type { Group } from "@/types/organizer.types";
 
-import {
-  CollectionDetailPage,
-  CollectionsPage,
-  ProjectDetailPage,
-  ProjectsPage,
-} from "./groups-page";
+import { CollectionDetailPage, CollectionsPage } from "./groups-page";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resolve()) }));
@@ -29,6 +24,9 @@ function resource(id: string, title: string): Resource {
     origin: "devatlas",
     isNew: false,
     categoryOverride: null,
+    status: null,
+    lastOpenedAt: null,
+    linkHealth: null,
     tags: [],
     note: null,
   };
@@ -42,7 +40,6 @@ const LIBRARY: LibrarySnapshot = {
 function group(overrides: Partial<Group>): Group {
   return {
     id: "c1",
-    kind: "collection",
     name: "Client work",
     description: "For Acme",
     resourceIds: [],
@@ -56,8 +53,8 @@ function renderAt(path: string, groups: Group[]) {
     if (command === "list_groups") return Promise.resolve(groups);
     if (command === "list_library") return Promise.resolve(LIBRARY);
     if (command === "create_group") {
-      const { kind, name, description } = args as Pick<Group, "kind" | "name" | "description">;
-      return Promise.resolve(group({ id: "new", kind, name, description }));
+      const { name, description } = args as Pick<Group, "name" | "description">;
+      return Promise.resolve(group({ id: "new", name, description }));
     }
     if (command === "update_group") return Promise.resolve(true);
     if (command === "delete_group") return Promise.resolve(true);
@@ -70,26 +67,20 @@ function renderAt(path: string, groups: Group[]) {
         <Routes>
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/collections/:groupId" element={<CollectionDetailPage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:groupId" element={<ProjectDetailPage />} />
         </Routes>
       </MemoryRouter>
     </AppProviders>,
   );
 }
 
-describe("Collections and Projects", () => {
-  it("lists only this page's kind, linking to each", async () => {
-    renderAt("/collections", [
-      group({ resourceIds: ["motion.dev"] }),
-      group({ id: "p1", kind: "project", name: "Website" }),
-    ]);
+describe("Collections", () => {
+  it("lists collections, linking to each", async () => {
+    renderAt("/collections", [group({ resourceIds: ["motion.dev"] })]);
 
     const link = await screen.findByRole("link", { name: /Client work/ });
     expect(link).toHaveAttribute("href", "/collections/c1");
     expect(link).toHaveTextContent("For Acme");
     expect(link).toHaveTextContent("1 link");
-    expect(screen.queryByText("Website")).not.toBeInTheDocument();
   });
 
   it("counts only links still in the library", async () => {
@@ -98,19 +89,19 @@ describe("Collections and Projects", () => {
     expect(await screen.findByRole("link", { name: /Client work/ })).toHaveTextContent("1 link");
   });
 
-  it("explains an empty page, in terms of its kind", async () => {
-    renderAt("/projects", []);
+  it("explains an empty page", async () => {
+    renderAt("/collections", []);
 
-    expect(await screen.findByText(/No projects yet/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Projects" })).toBeInTheDocument();
+    expect(await screen.findByText(/No collections yet/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Collections" })).toBeInTheDocument();
   });
 
   it("creates one, requiring a name", async () => {
-    renderAt("/projects", []);
-    await screen.findByText(/No projects yet/);
+    renderAt("/collections", []);
+    await screen.findByText(/No collections yet/);
 
-    fireEvent.click(screen.getByRole("button", { name: "New project" }));
-    const dialog = await screen.findByRole("dialog", { name: "New project" });
+    fireEvent.click(screen.getByRole("button", { name: "New collection" }));
+    const dialog = await screen.findByRole("dialog", { name: "New collection" });
     const create = within(dialog).getByRole("button", { name: "Create" });
     expect(create).toBeDisabled();
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), {
@@ -120,7 +111,6 @@ describe("Collections and Projects", () => {
 
     await vi.waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("create_group", {
-        kind: "project",
         name: "Website",
         description: null,
       });

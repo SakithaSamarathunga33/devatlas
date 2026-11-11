@@ -1,30 +1,20 @@
 import { z } from "zod";
 
 import { invokeCommand } from "@/services/ipc";
-import {
-  groupSchema,
-  groupsSchema,
-  type Group,
-  type GroupKind,
-  type ResourceEdit,
-} from "@/types/organizer.types";
+import { groupSchema, groupsSchema, type Group, type ResourceEdit } from "@/types/organizer.types";
 
 /** Saves a link's category, tags, note and groups. */
 export function updateResource(id: string, edit: ResourceEdit): Promise<null> {
   return invokeCommand("update_resource", z.null(), { id, edit });
 }
 
-/** Every collection and project. */
+/** Every collection. */
 export function listGroups(): Promise<Group[]> {
   return invokeCommand("list_groups", groupsSchema);
 }
 
-export function createGroup(
-  kind: GroupKind,
-  name: string,
-  description: string | null,
-): Promise<Group> {
-  return invokeCommand("create_group", groupSchema, { kind, name, description });
+export function createGroup(name: string, description: string | null): Promise<Group> {
+  return invokeCommand("create_group", groupSchema, { name, description });
 }
 
 export function updateGroup(

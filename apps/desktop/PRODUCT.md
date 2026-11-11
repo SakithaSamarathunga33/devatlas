@@ -38,12 +38,13 @@ allow-list (GitHub Search API, Hacker News, 35 official blogs, TIOBE/PYPL).
 ## Capabilities and Constraints
 
 - Shipped: Library (a chosen browser's bookmark folder + links added in-app, editable categories,
-  tags and notes, "New" tag for 7 days, in-app site viewer), Collections and Projects (named groups
+  tags and notes, "New" tag for 7 days, in-app site viewer), Collections (named groups
   of links), Repos (new GitHub repos by period and language, Star History rankings, Save to
   Library, star history, Saved repos with latest release and star growth), News (Hacker News front
   page + official blogs), Languages (TIOBE and PYPL side by side), Settings (bookmark source).
-- Planned, not built (navigation shows it as "Soon"): Explorer. Also unbuilt: full-text search, AI
-  features, sync. A browser extension was considered and dropped: links can be added in the app.
+- Also shipped: Ctrl K search, Snippets, Explorer, reading status, Rediscover, For you, link checker, backup and import.
+- Not built: AI features, sync. A browser extension was considered and dropped: links can be added
+  in the app.
 - Browsers are never written to. GitHub data is cached (15 min trending, 1 h repo details); feeds 30 min.
 - Windows is the only tested platform.
 

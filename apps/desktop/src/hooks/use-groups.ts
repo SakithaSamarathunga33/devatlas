@@ -4,7 +4,7 @@ import { listGroups } from "@/services/organizer.service";
 
 export const groupsQueryKey = ["groups"] as const;
 
-/** Every collection and project. */
+/** Every collection. */
 export function useGroups() {
   return useQuery({ queryKey: groupsQueryKey, queryFn: listGroups, retry: false });
 }

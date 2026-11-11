@@ -13,6 +13,8 @@ export type BookmarkSettings = z.infer<typeof bookmarkSettingsSchema>;
 /** IPC contract for `get_settings` and `update_settings`; mirrors
  * `devatlas_application::settings::SettingsView`. */
 export const settingsViewSchema = z.object({
+  /** Whether a GitHub token is stored; the token itself never reaches the UI. */
+  hasGithubToken: z.boolean(),
   settings: bookmarkSettingsSchema,
   options: z.array(
     z.object({
