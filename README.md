@@ -1,112 +1,126 @@
-# DevAtlas
+<div align="center">
 
-DevAtlas is a personal, local-first developer resource intelligence platform. It will help you
-capture, organize, search, and rediscover the resources you rely on: UI components and design
-systems, libraries and frameworks across ecosystems (React, Vue, Svelte, Rust, Go, Python, Java,
-…), developer tools, templates, and design inspiration.
+<img src="docs/readme_images/devatlas-banner.png" alt="DevAtlas: Developer Resource Intelligence. Capture, organize, search, and rediscover the developer resources you rely on, all in one local-first desktop app." width="100%"/>
 
-## Project status
+**Every developer resource you rely on, in one place your AI agents can read.**
 
-**v0.1.0, in active development.** A Windows desktop app (Tauri 2, React 19, a layered Rust
-workspace) with:
+[![Latest release](https://img.shields.io/badge/download-latest%20release-00BFA6)](https://github.com/SakithaSamarathunga33/devatlas/releases/latest)
+[![CI](https://github.com/SakithaSamarathunga33/devatlas/actions/workflows/ci.yml/badge.svg)](https://github.com/SakithaSamarathunga33/devatlas/actions/workflows/ci.yml)
+[![Release](https://github.com/SakithaSamarathunga33/devatlas/actions/workflows/release.yml/badge.svg)](https://github.com/SakithaSamarathunga33/devatlas/actions/workflows/release.yml)
+[![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
+[![Rust](https://img.shields.io/badge/Rust-2024-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-- A **Library** that can read one bookmark folder live (read-only) from Brave, Chrome, Edge, Vivaldi,
-  Opera, Opera GX or Firefox, chosen in **Settings**, or no browser at all. Links are cleaned, de-duplicated, and
-  sorted into UI components, design inspiration, animation, icons, tools, and cloud consoles.
-  Cards show each site's preview image, sites open inside DevAtlas, and links saved in the browser
-  appear within a few seconds with a **New** tag (until you open them, or for 7 days). You can
-  also paste a link into **Add link** on the Library page: DevAtlas fetches its title and preview,
-  files it under the right category, and keeps it in its own data folder (the browser is never
-  written to). Each link's **Edit** button changes its category and adds tags and a note.
-- **Collections**: named groups of links, stored in a local SQLite database.
-- **Snippets**, **Explorer** (the library and removable suggested links, by language and framework), **Ctrl K** search across
-  everything, reading status, a dashboard panel that resurfaces forgotten links, and a
-  **For you** filter on News and New repos.
-- **Settings** also holds an optional GitHub token, a dead-link checker, and backup, export and
-  import (including any browser's bookmarks file).
-- **AI coding agents (MCP)**: Claude Code, Cursor and other agents can search your library and
-  read why you saved each link. See [Use with AI coding agents](#use-with-ai-coding-agents-mcp).
-- **GitHub stars import**: bring in up to 1,000 repositories you starred, from Settings.
-- **Repos**: new GitHub repositories collecting the most stars today, this week, or this
-  month, optionally by language, with one-click **Save** to the Library. Rows expand (click
-  again to collapse) to show each repository's **Star history** chart from
-  [star-history.com](https://www.star-history.com). **Star History** shows that site's
-  rankings of repositories of any age: Weekly (biggest star gainers), All-time, Random and
-  Pyramid (how stars are distributed). **Saved repos** lists the GitHub
-  repositories in your library as cards or rows, with search, language and sort filters, their
-  latest release and recent star growth (details come from GitHub's API and are cached for an
-  hour; release checks are stored for six). The dashboard shows this week's
-  top five. GitHub has no API for its Trending page, so this uses the official Search API
-  (repositories created in the period, most stars first), cached for 15 minutes to respect its
-  rate limit.
-- **News**: the stories developers are discussing now (Hacker News front page) and the latest
-  posts from 35 official blogs, grouped into languages, frameworks, databases, and tools &
-  platforms, each with its logo (from Simple Icons). Feeds are read in Rust from a fixed
-  allow-list and cached for 30 minutes.
-- **Languages**: how popular programming languages are, from the two indexes that update
-  monthly (TIOBE and PYPL), side by side, with each language's movement over the last year.
-- Linting, formatting, tests, and CI.
+_A local-first Windows desktop app built with **Tauri 2, Rust and React** that turns your browser
+bookmarks, GitHub stars and saved links into one searchable library: collections, snippets, an
+Explorer of suggested links, trending repos and star history, news from official blogs, language
+rankings, a dead-link checker, backups, and a read-only MCP server so Claude Code, Cursor and other
+coding agents can answer from what you saved. No account, no cloud, nothing written to your browser._
 
-There is no built-in AI assistant and no sync.
+</div>
 
-## Technology stack
+---
 
-| Area             | Technology                                                                     |
-| ---------------- | ------------------------------------------------------------------------------ |
-| Desktop runtime  | Tauri 2, Rust (stable, edition 2024)                                           |
-| Frontend         | React 19, TypeScript 6, Vite 8                                                 |
-| UI               | Astryx design system, Tailwind CSS 4 for layout, Lucide icons, Geist fonts     |
-| State & data     | TanStack Query (backend data), Zustand (shared UI state), Zod (IPC validation) |
-| Forms (upcoming) | React Hook Form + @hookform/resolvers                                          |
-| Charts           | Bklit UI (area chart; d3-scale, d3-shape)                                      |
-| Other            | React Router, Sonner (toasts), date-fns                                        |
-| Rust crates      | serde, tracing, SQLx (SQLite), rmcp (MCP server), reqwest, toml, winreg        |
-| Tooling          | pnpm 10 workspaces, Cargo workspace, ESLint, Prettier, Vitest, rustfmt, Clippy |
+## Contents
 
-TypeScript is pinned to 6.0.x because `typescript-eslint` does not yet support TypeScript 7.
+- [Features](#features)
+- [Use with AI coding agents (MCP)](#use-with-ai-coding-agents-mcp)
+- [Design system](#design-system)
+- [Architecture](#architecture)
+- [Project layout](#project-layout)
+- [Getting started](#getting-started)
+- [Configuration](#configuration)
+- [Build and release](#build-and-release)
+- [Testing and quality](#testing-and-quality)
+- [Security](#security)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Repository structure
+---
 
-```text
-devatlas/
-├── apps/
-│   ├── desktop/               # Tauri 2 desktop app
-│   │   ├── public/            # Static assets (brand mark)
-│   │   ├── src/               # React frontend (feature-oriented)
-│   │   │   ├── app/           # Providers, router, layouts
-│   │   │   ├── components/    # layout/, shared/, charts/
-│   │   │   ├── features/      # dashboard, library, discovery, explorer, settings, …
-│   │   │   ├── hooks/ lib/ services/ stores/ types/ styles/ themes/
-│   │   │   └── test/          # Vitest setup
-│   │   └── src-tauri/         # Rust delivery layer: commands, MCP server, capabilities, config
-│   └── installer/             # DevAtlas Setup, the custom install wizard
-├── crates/
-│   ├── domain/                # Core concepts — no infrastructure dependencies
-│   ├── application/           # Use cases and ports — depends on domain only
-│   └── storage/               # SQLite, browser bookmarks, GitHub, project manifests
-├── docs/                      # Architecture, database, security, decisions, development
-├── .github/workflows/         # ci.yml (checks + Windows build), release.yml (publishing)
-├── scripts/                   # release-notes.sh, used by the release workflow
-├── Cargo.toml                 # Rust workspace
-└── package.json               # pnpm workspace root
-```
+## Features
 
-`packages/` is reserved in `pnpm-workspace.yaml` for shared contracts and configuration once they
-exist; no empty placeholder packages are committed.
+### Dashboard
 
-## Download
+- Time-of-day greeting, how many resources you have and how many you saved this month, and a bar
+  of your library by category.
+- **Saved per month** chart, the **Top stories** developers are discussing, **New on GitHub**
+  (this week's top five new repositories, one click to save), **Latest saves**, a **Rediscover**
+  panel that resurfaces links you forgot, and your categories at a glance.
+- **Ctrl K** searches everything: links (titles, notes and tags), collections, snippets and pages.
 
-Every push to `main` that passes CI publishes a
-[GitHub release](https://github.com/SakithaSamarathunga33/devatlas/releases) named
-`v<version>-build.<CI run>`, with notes listing the changes since the previous release (grouped
-into New, Fixes and Other changes from the commit messages). Pushes that only change docs
-(Markdown files, `docs/`, `LICENSE`) skip CI and publish nothing. Each release has:
+### Library
 
-- `DevAtlas-Setup-<tag>.exe`: the setup wizard (recommended).
-- `DevAtlas_<version>_x64-setup.exe` and `DevAtlas_<version>_x64_en-US.msi`: standard installers.
+- Reads **one bookmark folder live** from Brave, Chrome (including signed-in account bookmarks),
+  Edge, Vivaldi, Opera, Opera GX or Firefox, chosen in **Settings**, or none (only links you add).
+  Bookmarks are read, never written: removing one in DevAtlas only hides it there.
+- Links are cleaned, de-duplicated and sorted into UI components, design inspiration, animation,
+  icons, tools and cloud consoles. Links you save in the browser appear within a few seconds with
+  a **New** tag (until you open them, or for 7 days).
+- **Add link**: paste an address and DevAtlas fetches its title and preview image and files it
+  under the right category.
+- **Edit** any link to change its category, add tags and write **Why it's here**, the note your
+  AI agents read.
+- **GitHub stars import**: bring in up to 1,000 repositories any GitHub user starred.
+- Cards show each site's preview image, and sites open in a viewer inside DevAtlas.
+- **Reading status** for each link.
 
-The installers are not code-signed yet, so Windows SmartScreen warns before running them. Quit
-any AI agent using DevAtlas before updating, since it keeps `DevAtlas.exe` open.
+### Organize
+
+- **Collections**: named groups of links.
+- **Snippets**: code snippets, which can be attached to a link.
+- **Explorer**: your library plus suggested links by language and framework. Remove any suggestion
+  you don't want, and restore them later.
+
+### Discover
+
+- **Repos**: new GitHub repositories collecting the most stars today, this week or this month,
+  optionally by language, with one-click **Save**. Rows expand to show each repository's star
+  history chart from [star-history.com](https://www.star-history.com). GitHub has no API for its
+  Trending page, so this uses the official Search API (repositories created in the period, most
+  stars first), cached for 15 minutes.
+- **Star History**: that site's rankings of repositories of any age: Weekly (biggest gainers),
+  All-time, Random and Pyramid (how stars are distributed).
+- **Saved repos**: the GitHub repositories in your library as cards or rows, with search,
+  language and sort filters, their latest release and recent star growth (cached for an hour;
+  release checks are kept for six).
+- **News**: the Hacker News front page and the latest posts from 35 official blogs, grouped into
+  languages, frameworks, databases and tools & platforms, each with its logo. Feeds are read in
+  Rust from a fixed allow-list and cached for 30 minutes. A **For you** filter keeps the stories that
+  match your tags and library (also on Repos).
+- **Languages**: how popular programming languages are, from the two indexes that update monthly
+  (TIOBE and PYPL), side by side, with each language's movement over the last year.
+
+### AI coding agents
+
+- The installed app doubles as an **MCP server** (`DevAtlas.exe --mcp`), so Claude Code, Cursor,
+  Windsurf and Codex can search your library, read why you saved each link, and see which saved
+  resources match a project's dependencies. Read-only. See
+  [Use with AI coding agents](#use-with-ai-coding-agents-mcp).
+
+### Your data
+
+- **Local-first**: the library lives in a SQLite database in your app-data folder. There is no
+  account and no server.
+- **Backup and import**: export everything to one file; import a DevAtlas backup or any browser's
+  bookmarks export. Importing merges and never removes anything.
+- **Dead-link checker**: finds links that are gone or have moved.
+- **GitHub token** (optional): raises GitHub's rate limit. It is kept in the Windows Credential
+  Manager, never in a file.
+- **Light and dark** themes.
+
+### Installer
+
+- **DevAtlas Setup**, a step-by-step wizard: welcome, license, install options, live progress,
+  finish. It installs per user to `%LOCALAPPDATA%\Programs\DevAtlas` (no admin prompt), can add
+  desktop and Start Menu shortcuts, and registers in **Settings → Apps**. Uninstalling keeps your
+  library.
+
+---
 
 ## Use with AI coding agents (MCP)
 
@@ -166,93 +180,296 @@ Run `claude mcp list` (or the agent's own MCP view) to check that `devatlas` is 
 Write the reason you saved a link in its **Why it's here** field (the **Edit** button on any
 Library card): that note is what makes the agent's answers useful.
 
-## Prerequisites
+---
 
-- **Node.js** ≥ 22.22 (CI uses Node 24)
-- **pnpm** 10.x (`corepack enable` or `npm i -g pnpm@10`)
-- **Rust** stable via [rustup](https://rustup.rs) — `rust-toolchain.toml` selects the channel and
-  installs `rustfmt` and `clippy` automatically
-- **Windows:** Microsoft C++ Build Tools and WebView2 — see
-  [docs/development/windows-setup.md](docs/development/windows-setup.md)
+## Design system
 
-## Installation
+Both apps are built on [Astryx](https://github.com/meta/astryx) (`@astryxdesign/core`) with a
+custom DevAtlas theme, so screens share one set of components and tokens.
+
+| Piece      | Where                                | Notes                                                                                                             |
+| ---------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Theme      | `apps/desktop/src/themes/devatlas`   | The DevAtlas theme built with `astryx theme build`: teal accent, neutral charcoal surfaces, Geist and Geist Mono. |
+| Components | `@astryxdesign/core`                 | App shell, side and top navigation, lists, tables, cards, dialogs, selectors, banners, empty and error states.    |
+| Layout     | Tailwind CSS 4                       | Layout only. Colours, type and spacing come from Astryx tokens, never hex values.                                 |
+| Charts     | `apps/desktop/src/components/charts` | Area charts (d3-scale, d3-shape) for saves per month and star history.                                            |
+| Icons      | Lucide, Simple Icons                 | Interface icons, and brand logos for blogs and languages.                                                         |
+| Installer  | `apps/installer`                     | The same theme in a 560×600 wizard with a stepper, progress bar and banners.                                      |
+
+Look components up with `pnpm exec astryx search "<what you need>"` and
+`pnpm exec astryx component <Name>` inside `apps/desktop`.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+  UI["React UI<br/>(features/)"] --> S["services/<br/>Zod-validated invoke()"]
+  S --> C["Tauri commands<br/>(thin adapters)"]
+  C --> A["crates/application<br/>use cases + ports"]
+  A --> D["crates/domain"]
+  ST["crates/storage<br/>SQLite, browsers, GitHub, feeds"] -. implements ports .-> A
+  ST --> D
+  Agent["AI agent"] -- "stdio (MCP)" --> M["DevAtlas.exe --mcp<br/>read-only"]
+  M --> A
+```
+
+- **Layers**: `domain` holds core concepts with no infrastructure. `application` holds the use
+  cases and the ports (traits) they need, and depends on `domain` only. `storage` implements those
+  ports. The Tauri commands in `apps/desktop/src-tauri` are thin adapters that call the
+  application layer; they never hold business logic or call storage directly. Full rules:
+  [dependency rules](docs/architecture/dependency-rules.md).
+- **Frontend**: TanStack Query for backend data, Zustand only for shared UI state, component state
+  for the rest. Every IPC payload is validated with Zod at the boundary.
+- **Least privilege**: each Tauri command is listed in `build.rs` and granted one by one in
+  `capabilities/default.json`. No `fs`, `shell` or `http` plugins.
+- **MCP mode**: `DevAtlas.exe --mcp` skips the window and serves the
+  [rmcp](https://github.com/modelcontextprotocol/rust-sdk) server over stdin/stdout, with the
+  database opened read-only.
+
+**Pages**
+
+| Route          | Page                                                        |
+| -------------- | ----------------------------------------------------------- |
+| `/`            | Dashboard                                                   |
+| `/library`     | Library (`/library/:resourceId` for one resource)           |
+| `/collections` | Collections (`/collections/:groupId` for one)               |
+| `/explorer`    | Explorer                                                    |
+| `/discovery`   | Repos: New, Star History and Saved repos                    |
+| `/news`        | News                                                        |
+| `/rankings`    | Languages                                                   |
+| `/snippets`    | Snippets                                                    |
+| `/settings`    | Settings                                                    |
+| `/…/view`      | The in-app site viewer, opened from Repos, News or Explorer |
+
+**Data on disk** (`%APPDATA%\com.devatlas.app`)
+
+| File                  | Contents                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `devatlas.db`         | SQLite: collections, snippets, edits, repo history, removed suggestions (`devatlas-dev.db` for development builds) |
+| JSON files            | Settings, saved links and caches (previews, news, rankings, star history)                                          |
+| `agent-lookups.jsonl` | One line per AI agent lookup, pruned to 30 days                                                                    |
+
+**Tech stack**
+
+| Area            | Choice                                                                                 |
+| --------------- | -------------------------------------------------------------------------------------- |
+| Desktop runtime | Tauri 2, WebView2, Rust (stable, edition 2024)                                         |
+| Frontend        | React 19, TypeScript 6, Vite 8, React Router                                           |
+| UI              | Astryx, Tailwind CSS 4 (layout), Lucide and Simple Icons, Geist fonts, Sonner (toasts) |
+| State and data  | TanStack Query, Zustand, Zod, React Hook Form                                          |
+| Charts          | d3-scale, d3-shape                                                                     |
+| Rust            | SQLx (SQLite), reqwest, rmcp, serde, tracing, toml, keyring, winreg                    |
+| Tooling         | pnpm 10 workspaces, Cargo workspace, ESLint, Prettier, Vitest, rustfmt, Clippy         |
+
+TypeScript is pinned to 6.0.x because `typescript-eslint` does not yet support TypeScript 7.
+
+---
+
+## Project layout
+
+```text
+apps/
+├── desktop/
+│   ├── src/                   # React frontend
+│   │   ├── app/               # Providers, router, layouts
+│   │   ├── components/        # layout/, shared/, charts/
+│   │   ├── features/          # dashboard, library, collections, explorer, discovery, news, …
+│   │   ├── hooks/ lib/ services/ stores/ types/ styles/ themes/
+│   │   └── test/              # Vitest setup
+│   └── src-tauri/             # Rust delivery layer: commands, MCP server, capabilities, config
+└── installer/                 # DevAtlas Setup, the custom install wizard
+crates/
+├── domain/                    # Core concepts, no infrastructure
+├── application/               # Use cases and ports, depends on domain only
+└── storage/                   # SQLite + migrations, browser bookmarks, GitHub, feeds, manifests
+docs/                          # Architecture, database, security, decisions, Windows setup, README images
+scripts/                       # release-notes.sh (+ its test), used by the release workflow
+.github/workflows/             # ci.yml (checks + Windows build), release.yml (publishing)
+AGENTS.md                      # Guidance for AI coding agents working in this repo
+```
+
+`packages/` is reserved in `pnpm-workspace.yaml` for shared contracts once they exist.
+
+---
+
+## Getting started
+
+### Prerequisites
+
+| Tool                      | Notes                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Node.js ≥ 22.22           | CI uses Node 24                                                                                                     |
+| pnpm 10                   | `corepack enable` or `npm i -g pnpm@10`                                                                             |
+| Rust stable (MSVC)        | Install with [rustup](https://rustup.rs). `rust-toolchain.toml` selects the channel and adds `rustfmt` and `clippy` |
+| C++ Build Tools, WebView2 | See [docs/development/windows-setup.md](docs/development/windows-setup.md). WebView2 ships with Windows 10 and 11   |
+
+### Set up
 
 ```bash
+git clone https://github.com/SakithaSamarathunga33/devatlas.git
+cd devatlas
 pnpm install
 ```
 
-## Development
+No accounts or keys are needed.
+
+### Run
 
 ```bash
-pnpm dev          # Start the desktop app (Vite dev server + Tauri window with hot reload)
+pnpm dev     # Vite dev server + the Tauri window, with hot reload
 ```
 
-The frontend can also be opened in a regular browser via `pnpm --filter @devatlas/desktop dev`,
-but the Rust backend is only reachable inside the Tauri window — the dashboard will say so.
+The frontend also opens in a regular browser with `pnpm --filter @devatlas/desktop dev`, but the
+Rust backend is only reachable inside the Tauri window; the status bar says so.
 
-## Build
+---
+
+## Configuration
+
+Everything is set in the app's **Settings** page:
+
+| Setting           | Purpose                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| Browser bookmarks | Which browser, profile and bookmark folder the Library reads, or none                                   |
+| GitHub token      | Optional. Raises GitHub's API limit for Repos and Saved repos. Stored in the Windows Credential Manager |
+| GitHub stars      | Import the starred repositories of any GitHub username                                                  |
+| AI coding agents  | The commands to connect an agent, and how many lookups agents made this week                            |
+| Library tools     | Dead-link check, backup, and import from a backup or a browser's bookmarks file                         |
+
+The release workflow needs no secrets: it uses the built-in `GITHUB_TOKEN`.
+
+---
+
+## Build and release
+
+### Local build
 
 ```bash
-pnpm build        # Release build + Windows installers (NSIS .exe and .msi)
-```
-
-Installers are written to `target/release/bundle/`.
-
-### Custom setup wizard
-
-```bash
+pnpm build             # Release build + standard Windows installers (NSIS .exe and .msi)
 pnpm build:installer   # Builds DevAtlas, then DevAtlas Setup with the app embedded
 ```
 
-This writes `target/release/devatlas-installer.exe`, a single-file branded installer
-([apps/installer](apps/installer)): welcome, license, install options, live progress, finish.
-It installs per user to `%LOCALAPPDATA%\Programs\DevAtlas` by default (no admin prompt), can add
-desktop and Start Menu shortcuts, and registers in **Settings → Apps**, whose Uninstall runs
-`Uninstall DevAtlas.exe --uninstall` from the install folder. Uninstalling keeps the user's library.
-To iterate on the wizard UI, run `pnpm --filter @devatlas/installer tauri dev`. The Install button
-then reports that no app is embedded until `pnpm build:installer` has run once.
+`pnpm build` writes installers to `target/release/bundle/`. `pnpm build:installer` writes
+`target/release/devatlas-installer.exe`, the single-file setup wizard. To work on the wizard UI,
+run `pnpm --filter @devatlas/installer tauri dev`; its Install button reports that no app is
+embedded until `pnpm build:installer` has run once.
 
-## Quality checks
+### Releasing with GitHub Actions
+
+Every push to `main` that passes CI publishes a release. Nothing to tag by hand.
+
+1. `ci.yml` runs the frontend checks (Ubuntu), the Rust checks (Windows), then the Windows build,
+   which uploads the installers.
+2. When CI succeeds on a push, `release.yml` downloads those installers.
+3. It names the release `v<version>-build.<CI run>` (the version comes from `Cargo.toml`).
+4. `scripts/release-notes.sh` writes the notes: every commit since the previous release, grouped
+   into **New**, **Fixes** and **Other changes**, each with its message body.
+5. It publishes the GitHub release with the three installers attached. A re-run never duplicates a
+   release.
+
+Pushes that only change docs (Markdown files, `docs/`, `LICENSE`) skip CI and publish nothing.
+Pull requests run every check but never release.
+
+### Installing a release
+
+Download from the [Releases](https://github.com/SakithaSamarathunga33/devatlas/releases) page:
+
+- `DevAtlas-Setup-<tag>.exe`: the setup wizard (recommended).
+- `DevAtlas_<version>_x64-setup.exe` and `DevAtlas_<version>_x64_en-US.msi`: standard installers.
+
+Run the new installer over the old one to update; your library is kept. There is no in-app
+updater, so check the Releases page.
+
+---
+
+## Testing and quality
 
 | Command             | What it runs                                            |
 | ------------------- | ------------------------------------------------------- |
-| `pnpm typecheck`    | `tsc --noEmit` for the app and its Vite config          |
+| `pnpm typecheck`    | `tsc --noEmit` for both apps                            |
 | `pnpm lint`         | ESLint (type-aware, React Hooks, React Refresh)         |
-| `pnpm format`       | Prettier write (with Tailwind class sorting)            |
-| `pnpm format:check` | Prettier check                                          |
-| `pnpm test`         | Vitest frontend tests, then `cargo test --workspace`    |
-| `pnpm rust:check`   | `cargo check --workspace --all-targets`                 |
+| `pnpm test`         | Vitest for both apps, then `cargo test --workspace`     |
+| `pnpm format:check` | Prettier                                                |
 | `pnpm rust:fmt`     | `cargo fmt --all -- --check`                            |
 | `pnpm rust:clippy`  | `cargo clippy --workspace --all-targets -- -D warnings` |
-| `pnpm rust:test`    | `cargo test --workspace`                                |
 
-## Windows notes
+- **Frontend**: Vitest and Testing Library for every page and shared component, with
+  `@tauri-apps/api/core` mocked at the module boundary.
+- **Rust**: unit tests next to the code for use cases, search and stack matching, bookmark readers
+  for every browser (against fixture files), manifest parsing, the read-only database, the MCP
+  server's path confinement, and the install-location lookup.
+- **Scripts**: `scripts/release-notes.test.sh` checks the notes against a throwaway repository.
+- CI runs all of these on every push and pull request; Clippy warnings fail the build.
 
-- The Rust toolchain must target MSVC (`stable-x86_64-pc-windows-msvc`, the rustup default).
-- WebView2 ships with Windows 10/11. The installer bootstraps it on machines where it is missing.
-- The NSIS installer installs per user (no administrator rights required).
-- Application data will live under the per-user app-data directory resolved by Tauri
-  (`%APPDATA%\com.devatlas.app` on Windows) — paths are never hard-coded.
+---
 
-## Current scope and known limitations
+## Security
 
-- Browser bookmarks are read, never written: removing one in DevAtlas hides it there without
-  touching the browser. Categories come from a built-in list of known sites.
-- AI agents can read the library but not change it. There is no built-in AI assistant.
-- No browser extension, sync, or accounts.
-- Releases are unsigned, and the version number only changes when `Cargo.toml` is bumped.
-- Builds and CI target Windows; Linux and macOS are kept in mind architecturally but are untested.
+- A strict Content Security Policy and no remote scripts.
+- Least-privilege Tauri capabilities: one permission per command, no file system, shell or HTTP
+  plugins.
+- Paths come from the OS, never hard-coded, and file dialogs run in Rust so the webview never
+  supplies a path.
+- Browser data is read-only. Firefox's database is copied before reading, so it works while
+  Firefox is open.
+- `unsafe` Rust is forbidden workspace-wide, and production code has no `unwrap()`.
 
-## Documentation
+Details: [security model](docs/security/security-model.md).
 
-- [System design](docs/architecture/system-design.md) ·
-  [Dependency rules](docs/architecture/dependency-rules.md)
-- [Planned database design](docs/database/schema-design.md)
-- [Security model](docs/security/security-model.md)
-- Decisions: [ADR-001 Tauri 2 + Rust](docs/decisions/ADR-001-tauri.md),
-  [ADR-002 Local-first](docs/decisions/ADR-002-local-first.md)
-- [Contributing](CONTRIBUTING.md) · [Agent instructions](AGENTS.md)
+---
+
+## Troubleshooting
+
+| Symptom                                                   | Cause and fix                                                                                                                                 |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows SmartScreen warns about the installer             | Releases are not code-signed yet. Choose **More info → Run anyway**.                                                                          |
+| The installer can't replace `DevAtlas.exe`                | An AI agent is running DevAtlas as its MCP server. Quit the agent (for example Claude Code), then install again.                              |
+| Settings → AI coding agents shows a `target\release` path | DevAtlas isn't installed through DevAtlas Setup, so it shows the program you are running. Install it to get a stable path.                    |
+| `devatlas` doesn't appear in `claude mcp list`            | It was added for one folder only. Run the command from Settings, which uses `-s user`.                                                        |
+| "No supported browser was found"                          | None of the seven browsers has bookmarks in its default location. Choose **None, only links I add** and use Add link, import or GitHub stars. |
+| Repos or Saved repos stop loading                         | GitHub's rate limit without a token is 60 requests an hour. Add a token in Settings.                                                          |
+| The status bar says "Backend unavailable"                 | The frontend is open in a browser instead of the Tauri window. Use `pnpm dev`.                                                                |
+| Rust build fails with linker errors                       | The toolchain must target MSVC (`stable-x86_64-pc-windows-msvc`) with the C++ Build Tools installed.                                          |
+
+---
+
+## Roadmap
+
+Ideas, not commitments:
+
+- Code-signed installers and an in-app updater
+- A browser extension for saving links in one click
+- Semantic search across links and notes
+- A component explorer and a personal tech radar
+- Project workspaces that group links by the project they're for
+- macOS and Linux builds (the architecture allows them; they are untested)
+- Optional sync between computers
+
+---
+
+## Contributing
+
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).
+2. Keep the layers: domain → application → storage, with thin Tauri commands.
+3. Add tests for new behaviour, and keep `pnpm typecheck`, `pnpm lint`, `pnpm test`,
+   `pnpm format:check`, `pnpm rust:fmt` and `pnpm rust:clippy` green.
+4. Use Astryx components and tokens rather than raw elements and hex colours.
+5. Write Conventional Commit messages (`feat:`, `fix:`, …): they become the release notes.
+
+---
 
 ## License
 
-[MIT](LICENSE)
+MIT. See [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+**Built with Tauri, Rust and React**
+
+If this project helps you, consider giving it a star.
+
+</div>
