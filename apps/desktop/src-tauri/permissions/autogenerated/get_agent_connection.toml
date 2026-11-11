@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-agent-connection"
+description = "Enables the get_agent_connection command without any pre-configured scope."
+commands.allow = ["get_agent_connection"]
+
+[[permission]]
+identifier = "deny-get-agent-connection"
+description = "Denies the get_agent_connection command without any pre-configured scope."
+commands.deny = ["get_agent_connection"]

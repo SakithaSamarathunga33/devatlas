@@ -1,0 +1,62 @@
+name: Release
+
+# Publishes the Windows installers CI built for every push to main, with notes listing the
+# commits since the previous release.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish a release
+    # Only pushes whose checks and Windows build passed; pull requests never release.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    env:
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          # Full history and tags, so the notes can start at the previous release.
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: devatlas-windows-installers
+          path: dist
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Name the release
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          echo "TAG=v${version}-build.${RUN_NUMBER}" >> "$GITHUB_ENV"
+
+      - name: Write release notes
+        run: bash scripts/release-notes.sh "$HEAD_SHA" "$GITHUB_REPOSITORY" > notes.md
+
+      - name: Publish
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "$TAG is already released."
+            exit 0
+          fi
+          mv dist/devatlas-installer.exe "dist/DevAtlas-Setup-${TAG}.exe"
+          gh release create "$TAG" \
+            "dist/DevAtlas-Setup-${TAG}.exe" dist/bundle/nsis/*.exe dist/bundle/msi/*.msi \
+            --target "$HEAD_SHA" \
+            --title "DevAtlas ${TAG}" \
+            --notes-file notes.md

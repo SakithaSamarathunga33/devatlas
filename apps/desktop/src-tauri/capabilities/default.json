@@ -27,6 +27,8 @@
     "allow-create-snippet",
     "allow-update-snippet",
     "allow-delete-snippet",
+    "allow-get-agent-connection",
+    "allow-import-github-stars",
     "allow-list-removed-suggestions",
     "allow-remove-suggestion",
     "allow-restore-suggestions",

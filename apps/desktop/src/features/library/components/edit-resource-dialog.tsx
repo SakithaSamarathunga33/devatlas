@@ -106,7 +106,14 @@ export function EditResourceDialog({
               value={tags}
               onChange={setTags}
             />
-            <TextArea label="Note" rows={3} value={note} onChange={setNote} />
+            <TextArea
+              label="Why it's here"
+              description="What you'd use it for, or what you chose it over. Your AI agent reads this."
+              placeholder="Chose this over GSAP: smaller, and works with React 19."
+              rows={3}
+              value={note}
+              onChange={setNote}
+            />
 
             {groups.isError && (
               <Banner role="alert" status="error" title="Collections couldn't be loaded." />

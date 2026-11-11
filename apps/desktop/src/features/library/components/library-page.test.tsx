@@ -288,7 +288,7 @@ describe("LibraryPage", () => {
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Tags" }), {
       target: { value: "React, css , " },
     });
-    fireEvent.change(within(dialog).getByRole("textbox", { name: "Note" }), {
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Why it.s here/ }), {
       target: { value: "Good docs" },
     });
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Client work" }));
@@ -324,7 +324,7 @@ describe("LibraryPage", () => {
 
     expect(within(dialog).getByRole("combobox", { name: /^Category/ })).toHaveTextContent("Icons");
     expect(within(dialog).getByRole("textbox", { name: "Tags" })).toHaveValue("a, b");
-    expect(within(dialog).getByRole("textbox", { name: "Note" })).toHaveValue("Hi");
+    expect(within(dialog).getByRole("textbox", { name: /Why it.s here/ })).toHaveValue("Hi");
   });
 
   it("won't save while the collections are still loading", async () => {

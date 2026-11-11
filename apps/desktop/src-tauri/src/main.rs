@@ -4,6 +4,9 @@
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
+    if std::env::args().skip(1).any(|arg| arg == "--mcp") {
+        return devatlas_desktop_lib::run_mcp();
+    }
     match devatlas_desktop_lib::run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {

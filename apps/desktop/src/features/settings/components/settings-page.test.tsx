@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
@@ -45,6 +45,13 @@ function renderSettings(
     }
     if (command === "export_backup") return Promise.resolve("devatlas-backup.json");
     if (command === "import_file") return Promise.resolve({ links: 3, groups: 1, snippets: 2 });
+    if (command === "get_agent_connection") {
+      return Promise.resolve({
+        executable: "C:\\Apps\\DevAtlas\\devatlas.exe",
+        usage: { lookups: 3, lastAt: 1_700_000_000_000 },
+      });
+    }
+    if (command === "import_github_stars") return Promise.resolve(12);
     return Promise.resolve({ source: { browser: "", folder: "", warning: null }, resources: [] });
   });
   render(
@@ -200,6 +207,53 @@ describe("SettingsPage", () => {
     expect(await screen.findByText(/2 broken, 1 moved/)).toBeInTheDocument();
   });
 
+  it("shows how to connect an AI agent, using this computer's DevAtlas", async () => {
+    renderSettings();
+
+    // The code block highlights its text in pieces, so check the page's text as a whole.
+    await waitFor(() => {
+      expect(document.body).toHaveTextContent(
+        'claude mcp add devatlas -s user -- "C:\\Apps\\DevAtlas\\devatlas.exe" --mcp',
+      );
+    });
+    expect(screen.getByText(/3 lookups in the last 7 days/)).toBeInTheDocument();
+  });
+
+  it("imports the repositories a GitHub user starred", async () => {
+    renderSettings();
+
+    fireEvent.change(await screen.findByRole("textbox", { name: "GitHub username" }), {
+      target: { value: "octocat" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import stars" }));
+
+    expect(await screen.findByText("Added 12 repositories")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("import_github_stars", { username: "octocat" });
+  });
+
+  it("offers Firefox and Opera when they are installed", async () => {
+    renderSettings({
+      ...VIEW,
+      options: [
+        ...VIEW.options,
+        {
+          browser: "firefox",
+          label: "Mozilla Firefox",
+          profiles: [{ id: "x7y2.default-release", name: "default-release", folders: ["dev"] }],
+        },
+        {
+          browser: "operagx",
+          label: "Opera GX",
+          profiles: [{ id: "Default", name: "Default", folders: ["dev"] }],
+        },
+      ],
+    });
+
+    fireEvent.click(await browser());
+
+    expect(await screen.findByRole("option", { name: "Mozilla Firefox" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Opera GX" })).toBeInTheDocument();
+  });
   it("exports a backup", async () => {
     renderSettings();
     await browser();

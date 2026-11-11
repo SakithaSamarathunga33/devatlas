@@ -104,12 +104,11 @@ pub async fn viewer_open<R: Runtime>(
         .on_navigation(is_web)
         .on_new_window(move |target, _features| {
             // Keep `target="_blank"` links and `window.open` inside the viewer.
-            if is_web(&target) {
-                if let Some(current) = viewer(&navigator) {
-                    if let Err(error) = current.navigate(target) {
-                        tracing::warn!(%error, "viewer could not follow a new-window link");
-                    }
-                }
+            if is_web(&target)
+                && let Some(current) = viewer(&navigator)
+                && let Err(error) = current.navigate(target)
+            {
+                tracing::warn!(%error, "viewer could not follow a new-window link");
             }
             NewWindowResponse::Deny
         })

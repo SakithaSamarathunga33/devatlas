@@ -55,6 +55,17 @@ impl Database {
         Self::migrated(pool).await
     }
 
+    /// Opens an existing database for reading only, without migrating it, for the MCP server,
+    /// which must never change the user's data. Fails when the file doesn't exist yet.
+    pub async fn open_read_only(path: &Path) -> Result<Self, DatabaseError> {
+        let options = SqliteConnectOptions::new().filename(path).read_only(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await?;
+        Ok(Self { pool })
+    }
+
     async fn migrated(pool: SqlitePool) -> Result<Self, DatabaseError> {
         let mut migrator = sqlx::migrate!();
         // An older build opening a database touched by a newer one should still start.
@@ -901,6 +912,26 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(db.removed_suggestions().await.unwrap(), ["go.dev/tour"]);
+    }
+
+    #[tokio::test]
+    async fn read_only_access_reads_but_never_writes() {
+        let path = std::env::temp_dir()
+            .join(format!("devatlas-readonly-{}", std::process::id()))
+            .join("devatlas.db");
+        let _ = std::fs::remove_file(&path);
+        let writer = Database::open(&path).await.unwrap();
+        writer.create_group("Kept", None, 1).await.unwrap();
+
+        let reader = Database::open_read_only(&path).await.unwrap();
+
+        assert_eq!(reader.groups().await.unwrap()[0].name, "Kept");
+        assert!(reader.create_group("Refused", None, 2).await.is_err());
+        assert!(
+            Database::open_read_only(&path.with_file_name("missing.db"))
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]

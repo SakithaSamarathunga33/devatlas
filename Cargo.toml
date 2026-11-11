@@ -11,7 +11,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 license = "MIT"
 publish = false
 
@@ -37,6 +37,14 @@ feed-rs = "3"
 # `join_all` to fetch news feeds concurrently.
 futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 serde_json = "1"
+# Project manifests (Cargo.toml, pyproject.toml) read for agents.
+toml = "1"
+# The Windows registry: the installer's Add/Remove Programs entry.
+winreg = "0.56"
+# Per-user folders when DevAtlas runs as an agent's MCP server, without a Tauri app.
+dirs = "7"
+# Model Context Protocol server over stdio, for AI coding agents.
+rmcp = { version = "3.9", default-features = false, features = ["macros", "server", "transport-io"] }
 # The embedded database. Runtime queries only, so no database is needed to compile.
 sqlx = { version = "0.9", default-features = false, features = [
     "macros",
@@ -49,7 +57,7 @@ tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 thiserror = "2"
-tokio = { version = "1", features = ["net", "sync", "time"] }
+tokio = { version = "1", features = ["net", "rt", "sync", "time"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2"

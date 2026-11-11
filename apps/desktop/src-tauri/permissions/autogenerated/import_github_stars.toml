@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-import-github-stars"
+description = "Enables the import_github_stars command without any pre-configured scope."
+commands.allow = ["import_github_stars"]
+
+[[permission]]
+identifier = "deny-import-github-stars"
+description = "Denies the import_github_stars command without any pre-configured scope."
+commands.deny = ["import_github_stars"]

@@ -2,18 +2,14 @@ import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Divider } from "@astryxdesign/core/Divider";
 import { FormLayout } from "@astryxdesign/core/FormLayout";
-import { Grid } from "@astryxdesign/core/Grid";
-import { Heading } from "@astryxdesign/core/Heading";
 import { HStack } from "@astryxdesign/core/HStack";
-import { Section } from "@astryxdesign/core/Section";
 import { Selector } from "@astryxdesign/core/Selector";
 import { Skeleton } from "@astryxdesign/core/Skeleton";
-import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { VisuallyHidden } from "@astryxdesign/core/VisuallyHidden";
 import { VStack } from "@astryxdesign/core/VStack";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/page-header";
@@ -29,6 +25,9 @@ import {
   updateSettings,
 } from "@/services/settings.service";
 import type { BookmarkSettings, SettingsView } from "@/types/settings.types";
+
+import { AgentConnectionSettings, GithubStarsSettings } from "./agent-settings";
+import { SettingsSection } from "./settings-section";
 
 const settingsQueryKey = ["settings"] as const;
 const NO_BROWSER: BookmarkSettings = { browser: null, profile: "Default", folder: "" };
@@ -52,6 +51,10 @@ export function SettingsPage() {
           <VStack gap={8}>
             <BookmarkForm view={view.data} />
             <Divider />
+            <AgentConnectionSettings />
+            <Divider />
+            <GithubStarsSettings />
+            <Divider />
             <GithubTokenForm hasToken={view.data.hasGithubToken} />
             <Divider />
             <LibraryTools />
@@ -59,29 +62,6 @@ export function SettingsPage() {
         )}
       </VStack>
     </VStack>
-  );
-}
-
-interface SettingsSectionProps {
-  title: string;
-  description: string;
-  children: ReactNode;
-}
-
-/** One settings group: what it is on the left, its controls on the right. */
-function SettingsSection({ title, description, children }: SettingsSectionProps) {
-  return (
-    <Section variant="transparent" padding={0} maxWidth={960}>
-      <Grid gap={10} columns={{ minWidth: 320, max: 2 }}>
-        <VStack gap={1}>
-          <Heading level={2}>{title}</Heading>
-          <Text type="supporting" as="p">
-            {description}
-          </Text>
-        </VStack>
-        {children}
-      </Grid>
-    </Section>
   );
 }
 

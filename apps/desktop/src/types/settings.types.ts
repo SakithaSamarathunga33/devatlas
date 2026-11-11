@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const browserSchema = z.enum(["brave", "chrome", "edge", "vivaldi"]);
+const browserSchema = z.enum(["brave", "chrome", "edge", "vivaldi", "opera", "operagx", "firefox"]);
 
 const bookmarkSettingsSchema = z.object({
   /** `null`: read no browser; the library holds only links added in DevAtlas. */

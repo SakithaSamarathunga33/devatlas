@@ -36,6 +36,7 @@ jobs:
       - run: pnpm --filter @devatlas/desktop test
       - run: pnpm --filter @devatlas/installer test
       - run: pnpm format:check
+      - run: bash scripts/release-notes.test.sh
 
   rust:
     name: Rust checks (Windows)

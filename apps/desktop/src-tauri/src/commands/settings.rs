@@ -3,12 +3,12 @@ use devatlas_application::settings::{
     self, BookmarkSettings, Browser, BrowserOption, ProfileOption, SecretStore, SettingsStore,
     SettingsView,
 };
-use devatlas_storage::chromium::{self, ChromiumBookmarks};
+use devatlas_storage::browsers;
 use devatlas_storage::credentials::KeyringSecret;
 use tauri::{AppHandle, Manager, Runtime, State};
 
 use super::discovery::Discovery;
-use super::library::{LibraryStore, current_settings, now_ms, selection, user_data_dir};
+use super::library::{LibraryStore, current_settings, now_ms, selection};
 
 /// The GitHub token in the OS credential store. Dev builds use their own entry.
 pub struct Secrets {
@@ -42,15 +42,16 @@ pub fn load_github_token<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// The browsers and profiles found on this computer, with each profile's bookmark folders.
-fn browser_options<R: Runtime>(app: &AppHandle<R>) -> Vec<BrowserOption> {
+fn browser_options() -> Vec<BrowserOption> {
     Browser::ALL
         .iter()
         .filter_map(|&browser| {
-            let dir = user_data_dir(app, browser).ok()?;
-            let profiles: Vec<ProfileOption> = chromium::profiles(&dir)
+            let profiles: Vec<ProfileOption> = browsers::profiles(browser)
                 .into_iter()
                 .map(|profile| ProfileOption {
-                    folders: library::top_level_folders(&ChromiumBookmarks::new(profile.bookmarks)),
+                    folders: browsers::bookmarks(browser, &profile.id)
+                        .map(|bookmarks| library::top_level_folders(&bookmarks))
+                        .unwrap_or_default(),
                     id: profile.id,
                     name: profile.name,
                 })
@@ -66,8 +67,7 @@ fn browser_options<R: Runtime>(app: &AppHandle<R>) -> Vec<BrowserOption> {
 
 /// The current settings and what can be chosen.
 #[tauri::command]
-pub async fn get_settings<R: Runtime>(
-    app: AppHandle<R>,
+pub async fn get_settings(
     store: State<'_, LibraryStore>,
     secrets: State<'_, Secrets>,
 ) -> Result<SettingsView, String> {
@@ -78,7 +78,7 @@ pub async fn get_settings<R: Runtime>(
     // Outside the lock: this reads every profile's bookmarks, and the library polls.
     Ok(SettingsView {
         settings,
-        options: browser_options(&app),
+        options: browser_options(),
         has_github_token: secrets.has_token(),
     })
 }
@@ -86,9 +86,8 @@ pub async fn get_settings<R: Runtime>(
 /// Saves the bookmark settings. Links the new source brings in count as already seen, so
 /// switching browser doesn't flag the whole library as new.
 #[tauri::command]
-pub async fn update_settings<R: Runtime>(
+pub async fn update_settings(
     settings: BookmarkSettings,
-    app: AppHandle<R>,
     store: State<'_, LibraryStore>,
     secrets: State<'_, Secrets>,
 ) -> Result<SettingsView, String> {
@@ -100,7 +99,7 @@ pub async fn update_settings<R: Runtime>(
             "DevAtlas couldn't save your settings. Please try again.".to_owned()
         })?;
 
-        let selected = selection(&app, &store);
+        let selected = selection(&store);
         if let Err(error) = library::rebaseline(
             &selected.bookmarks,
             &store.saved,
@@ -113,7 +112,7 @@ pub async fn update_settings<R: Runtime>(
     }
     Ok(SettingsView {
         settings: valid,
-        options: browser_options(&app),
+        options: browser_options(),
         has_github_token: secrets.has_token(),
     })
 }

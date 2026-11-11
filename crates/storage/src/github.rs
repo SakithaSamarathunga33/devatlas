@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 use devatlas_application::discovery::{
     GithubRepo, ReleaseSource, RepoRelease, RepoSource, TrendingQuery, TrendingSource,
 };
+use devatlas_application::stars::{PER_PAGE, StarPage, StarSource};
 use reqwest::StatusCode;
 use reqwest::header::ACCEPT;
 use serde::Deserialize;
@@ -179,6 +180,31 @@ impl RepoSource for GithubApi {
         let repo = parse_repo(&body)?.ok_or_else(not_found)?;
         lock(&self.repos).insert(key, (Instant::now(), repo.clone()));
         Ok(repo)
+    }
+}
+
+impl StarSource for GithubApi {
+    type Error = GithubError;
+
+    /// Not cached: an import is a one-off, and must see stars added a minute ago.
+    async fn starred(&self, user: &str, page: u32) -> Result<StarPage, GithubError> {
+        let mut url = Url::parse(API_ROOT)?;
+        // Segments, not string joining: a user name can never add to the path.
+        url.path_segments_mut()
+            .map_err(|()| GithubError::NotFound(user.to_owned()))?
+            .extend(["users", user, "starred"]);
+        url.query_pairs_mut()
+            .append_pair("per_page", &PER_PAGE.to_string())
+            .append_pair("page", &page.to_string());
+        let body = match self.get(url).await {
+            Err(GithubError::Status(404)) => return Err(GithubError::NotFound(user.to_owned())),
+            other => other?,
+        };
+        let repos = serde_json::from_slice::<Vec<ApiRepo>>(&body)?;
+        Ok(StarPage {
+            is_last: repos.len() < PER_PAGE,
+            repos: repos.into_iter().filter_map(into_repo).collect(),
+        })
     }
 }
 

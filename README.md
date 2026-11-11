@@ -13,8 +13,8 @@ foundation only (milestone DEVATLAS-001):
 - A Tauri 2 desktop shell with a React 19 + TypeScript frontend.
 - A layered Rust workspace (`domain`, `application`, `storage`).
 - One end-to-end Rust ↔ frontend integration: the `get_app_info` command, shown on the dashboard.
-- A **Library** that can read one bookmark folder live (read-only) from Brave, Chrome, Edge or
-  Vivaldi, chosen in **Settings**, or no browser at all. Links are cleaned, de-duplicated, and
+- A **Library** that can read one bookmark folder live (read-only) from Brave, Chrome, Edge, Vivaldi,
+  Opera, Opera GX or Firefox, chosen in **Settings**, or no browser at all. Links are cleaned, de-duplicated, and
   sorted into UI components, design inspiration, animation, icons, tools, and cloud consoles.
   Cards show each site's preview image, sites open inside DevAtlas, and links saved in the browser
   appear within a few seconds with a **New** tag (until you open them, or for 7 days). You can
@@ -27,6 +27,10 @@ foundation only (milestone DEVATLAS-001):
   **For you** filter on News and New repos.
 - **Settings** also holds an optional GitHub token, a dead-link checker, and backup, export and
   import (including any browser's bookmarks file).
+- **AI coding agents**: run `devatlas-desktop --mcp` as an MCP server so Claude Code, Cursor and
+  others can search your library, read your notes ("why it's here"), and see which saved resources
+  match a project's dependencies. Read-only; Settings shows the setup command and weekly lookups.
+- **GitHub stars import**: bring in up to 1,000 repositories you starred, from Settings.
 - **Repos**: new GitHub repositories collecting the most stars today, this week, or this
   month, optionally by language, with one-click **Save** to the Library. Rows expand (click
   again to collapse) to show each repository's **Star history** chart from

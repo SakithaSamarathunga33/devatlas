@@ -6,6 +6,22 @@
 use tauri::Manager;
 
 mod commands;
+mod mcp;
+
+/// Runs DevAtlas as an AI agent's MCP server on stdio (`devatlas --mcp`), with no window.
+pub fn run_mcp() -> std::process::ExitCode {
+    mcp::run()
+}
+
+/// The database file. Dev builds get their own, so a work-in-progress migration never
+/// touches the installed app's data.
+pub(crate) const fn database_file() -> &'static str {
+    if cfg!(debug_assertions) {
+        "devatlas-dev.db"
+    } else {
+        "devatlas.db"
+    }
+}
 
 /// Builds and runs the desktop application until the last window closes.
 pub fn run() -> tauri::Result<()> {
@@ -22,15 +38,8 @@ pub fn run() -> tauri::Result<()> {
             let data_dir = app.path().app_data_dir()?;
             app.manage(commands::library::LibraryStore::new(&data_dir));
             commands::library::initialize_settings(app.handle());
-            // Dev builds get their own file: a work-in-progress migration must never touch
-            // the installed app's data.
-            let database = if cfg!(debug_assertions) {
-                "devatlas-dev.db"
-            } else {
-                "devatlas.db"
-            };
             app.manage(tauri::async_runtime::block_on(
-                commands::organizer::Organizer::open(&data_dir.join(database)),
+                commands::organizer::Organizer::open(&data_dir.join(database_file())),
             ));
             app.manage(commands::discovery::Discovery::new()?);
             app.manage(commands::settings::Secrets::new());
@@ -39,6 +48,8 @@ pub fn run() -> tauri::Result<()> {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::agent::get_agent_connection,
+            commands::agent::import_github_stars,
             commands::app_info::get_app_info,
             commands::discovery::list_trending_repos,
             commands::discovery::get_github_repo,

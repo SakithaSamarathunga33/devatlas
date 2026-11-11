@@ -26,6 +26,8 @@ const COMMANDS: &[&str] = &[
     "create_snippet",
     "update_snippet",
     "delete_snippet",
+    "get_agent_connection",
+    "import_github_stars",
     "list_removed_suggestions",
     "remove_suggestion",
     "restore_suggestions",

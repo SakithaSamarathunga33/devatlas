@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 const MAX_FOLDER_LEN: usize = 128;
 const MAX_TOKEN_LEN: usize = 255;
 
-/// Browsers that keep bookmarks in Chromium's JSON format.
+/// Browsers whose bookmarks can be read: Chromium's JSON format (Brave, Chrome, Edge, Vivaldi,
+/// and Opera, which keeps one profile at the top of its folder) and Firefox's database.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Browser {
@@ -15,10 +16,24 @@ pub enum Browser {
     Chrome,
     Edge,
     Vivaldi,
+    Opera,
+    OperaGx,
+    Firefox,
 }
 
+/// The longest Firefox profile folder name accepted, such as `x7y2abcd.default-release`.
+const MAX_FIREFOX_PROFILE_LEN: usize = 64;
+
 impl Browser {
-    pub const ALL: [Self; 4] = [Self::Brave, Self::Chrome, Self::Edge, Self::Vivaldi];
+    pub const ALL: [Self; 7] = [
+        Self::Brave,
+        Self::Chrome,
+        Self::Edge,
+        Self::Vivaldi,
+        Self::Opera,
+        Self::OperaGx,
+        Self::Firefox,
+    ];
 
     pub const fn label(self) -> &'static str {
         match self {
@@ -26,8 +41,33 @@ impl Browser {
             Self::Chrome => "Google Chrome",
             Self::Edge => "Microsoft Edge",
             Self::Vivaldi => "Vivaldi",
+            Self::Opera => "Opera",
+            Self::OperaGx => "Opera GX",
+            Self::Firefox => "Mozilla Firefox",
         }
     }
+
+    /// Whether `id` names one of this browser's profiles, checked by its text alone, so a
+    /// value from the UI or a tampered settings file can never name another path.
+    pub fn is_profile_id(self, id: &str) -> bool {
+        match self {
+            Self::Brave | Self::Chrome | Self::Edge | Self::Vivaldi => is_profile_dir(id),
+            // Opera keeps its one profile at the top of its folder.
+            Self::Opera | Self::OperaGx => id == "Default",
+            Self::Firefox => is_firefox_profile(id),
+        }
+    }
+}
+
+/// A Firefox profile folder name inside `Profiles`: letters, digits, `.`, `_` and `-`, not
+/// starting with a dot.
+fn is_firefox_profile(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= MAX_FIREFOX_PROFILE_LEN
+        && !name.starts_with('.')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,7 +75,8 @@ impl Browser {
 pub struct BookmarkSettings {
     /// `None`: read no browser; the library holds only links added in DevAtlas.
     pub browser: Option<Browser>,
-    /// A profile directory name, such as `Default` or `Profile 1`.
+    /// A profile id: a Chromium profile folder (`Default`, `Profile 1`), `Default` for Opera,
+    /// or a Firefox profile folder name.
     pub profile: String,
     /// The top-level bookmark folder holding developer links.
     pub folder: String,
@@ -126,10 +167,10 @@ pub fn is_profile_dir(name: &str) -> bool {
 
 /// Checks a selection coming from the UI, and from disk, since either could be tampered with.
 pub fn validate(settings: BookmarkSettings) -> Result<BookmarkSettings, SettingsError> {
-    if settings.browser.is_none() {
+    let Some(browser) = settings.browser else {
         return Ok(BookmarkSettings::default());
-    }
-    if !is_profile_dir(&settings.profile) {
+    };
+    if !browser.is_profile_id(&settings.profile) {
         return Err(SettingsError::InvalidProfile);
     }
     let folder = settings.folder.trim();
@@ -170,6 +211,41 @@ mod tests {
         ] {
             assert!(!is_profile_dir(name), "{name}");
         }
+    }
+
+    #[test]
+    fn each_browser_accepts_only_its_own_kind_of_profile() {
+        let ok = |browser, profile: &str| validate(settings(Some(browser), profile, "dev")).is_ok();
+
+        assert!(ok(Browser::Opera, "Default"));
+        assert!(ok(Browser::OperaGx, "Default"));
+        assert!(!ok(Browser::Opera, "Profile 1"));
+        assert!(ok(Browser::Firefox, "x7y2abcd.default-release"));
+        for bad in [
+            "",
+            ".",
+            "..",
+            "../x",
+            "a/b",
+            r"a\b",
+            ".hidden",
+            "Profile 1 ",
+            &"a".repeat(65),
+        ] {
+            assert!(!ok(Browser::Firefox, bad), "{bad:?} should be refused");
+        }
+        assert!(!ok(Browser::Chrome, "x7y2abcd.default-release"));
+    }
+
+    #[test]
+    fn names_the_new_browsers() {
+        assert_eq!(Browser::ALL.len(), 7);
+        assert_eq!(Browser::OperaGx.label(), "Opera GX");
+        assert_eq!(
+            serde_json::to_string(&Browser::OperaGx).unwrap(),
+            "\"operagx\""
+        );
+        assert_eq!(Browser::Firefox.label(), "Mozilla Firefox");
     }
 
     #[test]

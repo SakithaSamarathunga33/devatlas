@@ -1,5 +1,5 @@
 //! Read-only access to Chromium-family browsers (Brave, Chrome, Edge, Vivaldi): the profiles
-//! found on this computer, and each profile's `Bookmarks` file.
+//! found on this computer, and each profile's bookmarks.
 
 use std::collections::HashMap;
 use std::io::ErrorKind;
@@ -8,6 +8,10 @@ use std::path::{Path, PathBuf};
 use devatlas_application::library::{BookmarkSource, RawBookmark};
 use devatlas_application::settings::is_profile_dir;
 use serde::Deserialize;
+
+/// A profile's bookmark files: `Bookmarks` holds local ones, and Chrome keeps a signed-in
+/// account's bookmarks in `AccountBookmarks` (same format; its encrypted copy is not read).
+const BOOKMARK_FILES: [&str; 2] = ["Bookmarks", "AccountBookmarks"];
 
 /// Offset between 1601-01-01 (Chromium's epoch) and 1970-01-01, in milliseconds.
 const CHROMIUM_EPOCH_OFFSET_MS: i64 = 11_644_473_600_000;
@@ -25,27 +29,49 @@ pub enum ChromiumBookmarksError {
     Format(#[from] serde_json::Error),
 }
 
-/// A bookmarks file. Only ever read; DevAtlas never writes to the browser profile.
+/// Bookmark files. Only ever read; DevAtlas never writes to the browser profile.
 #[derive(Debug, Clone)]
 pub struct ChromiumBookmarks {
-    path: PathBuf,
+    files: Vec<PathBuf>,
 }
 
 impl ChromiumBookmarks {
+    /// One bookmarks file.
     pub fn new(path: PathBuf) -> Self {
-        Self { path }
+        Self { files: vec![path] }
+    }
+
+    /// Every bookmark file in a profile folder, local and account.
+    pub fn for_profile(dir: PathBuf) -> Self {
+        Self {
+            files: BOOKMARK_FILES.iter().map(|name| dir.join(name)).collect(),
+        }
     }
 }
 
 impl BookmarkSource for ChromiumBookmarks {
     type Error = ChromiumBookmarksError;
 
+    /// The bookmarks of every file that exists; `NotFound` only when none does. The same link
+    /// in both files is merged later, by the library.
     fn bookmarks(&self) -> Result<Vec<RawBookmark>, ChromiumBookmarksError> {
-        let json = std::fs::read_to_string(&self.path).map_err(|error| match error.kind() {
-            ErrorKind::NotFound => ChromiumBookmarksError::NotFound,
-            _ => ChromiumBookmarksError::Io(error),
-        })?;
-        Ok(parse(&json)?)
+        let mut bookmarks = Vec::new();
+        let mut found = false;
+        for path in &self.files {
+            match std::fs::read_to_string(path) {
+                Ok(json) => {
+                    found = true;
+                    bookmarks.extend(parse(&json)?);
+                }
+                Err(error) if error.kind() == ErrorKind::NotFound => {}
+                Err(error) => return Err(ChromiumBookmarksError::Io(error)),
+            }
+        }
+        if found {
+            Ok(bookmarks)
+        } else {
+            Err(ChromiumBookmarksError::NotFound)
+        }
     }
 }
 
@@ -56,7 +82,8 @@ pub struct ChromiumProfile {
     pub id: String,
     /// The name the user gave it, or the directory name.
     pub name: String,
-    pub bookmarks: PathBuf,
+    /// The profile folder, read with [`ChromiumBookmarks::for_profile`].
+    pub dir: PathBuf,
 }
 
 #[derive(Deserialize)]
@@ -90,8 +117,13 @@ fn profile_names(user_data: &Path) -> HashMap<String, String> {
         .unwrap_or_default()
 }
 
-/// The profiles in a browser's user-data directory that have a bookmarks file, `Default`
-/// first. Empty when the browser isn't installed.
+/// Whether a profile folder has bookmarks, local or account.
+pub fn has_bookmarks(dir: &Path) -> bool {
+    BOOKMARK_FILES.iter().any(|name| dir.join(name).is_file())
+}
+
+/// The profiles in a browser's user-data directory that have bookmarks, local or account,
+/// `Default` first. Empty when the browser isn't installed.
 pub fn profiles(user_data: &Path) -> Vec<ChromiumProfile> {
     let Ok(entries) = std::fs::read_dir(user_data) else {
         return Vec::new();
@@ -101,11 +133,11 @@ pub fn profiles(user_data: &Path) -> Vec<ChromiumProfile> {
         .flatten()
         .filter_map(|entry| {
             let id = entry.file_name().into_string().ok()?;
-            let bookmarks = entry.path().join("Bookmarks");
-            (is_profile_dir(&id) && bookmarks.is_file()).then(|| ChromiumProfile {
+            let dir = entry.path();
+            (is_profile_dir(&id) && has_bookmarks(&dir)).then(|| ChromiumProfile {
                 name: names.get(&id).cloned().unwrap_or_else(|| id.clone()),
                 id,
-                bookmarks,
+                dir,
             })
         })
         .collect();
@@ -256,6 +288,53 @@ mod tests {
         dir
     }
 
+    /// A signed-in Chrome profile keeps its account's bookmarks in `AccountBookmarks`.
+    const ACCOUNT: &str = r#"{
+      "roots": {
+        "bookmark_bar": { "name": "Bookmarks bar", "type": "folder", "children": [
+          { "name": "W3Schools", "type": "url", "url": "https://www.w3schools.com/" }
+        ]},
+        "other": { "name": "Other bookmarks", "type": "folder", "children": [] },
+        "synced": { "name": "Mobile bookmarks", "type": "folder", "children": [] }
+      },
+      "version": 1
+    }"#;
+
+    #[test]
+    fn lists_a_profile_that_only_has_account_bookmarks() {
+        let dir = temp_profiles("account");
+        std::fs::write(dir.join("Profile 9").join("AccountBookmarks"), ACCOUNT).unwrap();
+
+        let ids: Vec<String> = profiles(&dir)
+            .into_iter()
+            .map(|profile| profile.id)
+            .collect();
+
+        assert_eq!(ids, ["Default", "Profile 2", "Profile 9"]);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn reads_local_and_account_bookmarks_together() {
+        let dir = temp_profiles("both");
+        std::fs::write(dir.join("Default").join("AccountBookmarks"), ACCOUNT).unwrap();
+
+        let titles: Vec<String> = ChromiumBookmarks::for_profile(dir.join("Default"))
+            .bookmarks()
+            .unwrap()
+            .into_iter()
+            .map(|bookmark| bookmark.title)
+            .collect();
+
+        assert_eq!(titles, ["Top", "Motion", "Uiverse", "W3Schools"]);
+        let only_account = ChromiumBookmarks::for_profile(dir.join("Profile 9"));
+        assert!(matches!(
+            only_account.bookmarks(),
+            Err(ChromiumBookmarksError::NotFound)
+        ));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     #[test]
     fn finds_profiles_with_bookmarks_and_their_friendly_names() {
         let dir = temp_profiles("names");
@@ -272,7 +351,7 @@ mod tests {
             .map(|profile| (profile.id.as_str(), profile.name.as_str()))
             .collect();
         assert_eq!(summary, [("Default", "Default"), ("Profile 2", "Work")]);
-        assert_eq!(found[1].bookmarks, dir.join("Profile 2").join("Bookmarks"));
+        assert_eq!(found[1].dir, dir.join("Profile 2"));
         std::fs::remove_dir_all(dir).unwrap();
     }
 

@@ -106,7 +106,7 @@ pub async fn import_file<R: Runtime>(
     };
 
     let _guard = store.lock.lock().await;
-    let selected = selection(&app, &store);
+    let selected = selection(&store);
     let added = library::import_links(
         &selected.bookmarks,
         &store.saved,
@@ -128,8 +128,7 @@ pub async fn import_file<R: Runtime>(
 
 /// Checks every link in the library for pages that are gone or have moved.
 #[tauri::command]
-pub async fn check_links<R: Runtime>(
-    app: AppHandle<R>,
+pub async fn check_links(
     store: State<'_, LibraryStore>,
     organizer: State<'_, Organizer>,
     previews: State<'_, Previews>,
@@ -138,7 +137,7 @@ pub async fn check_links<R: Runtime>(
     // The lock covers reading the library only; the network checks run without it.
     let links: Vec<(String, String)> = {
         let _guard = store.lock.lock().await;
-        let selected = selection(&app, &store);
+        let selected = selection(&store);
         library::load_library(
             &selected.bookmarks,
             &store.saved,
