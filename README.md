@@ -2,7 +2,13 @@
 
 <img src="docs/readme_images/devatlas-banner.png" alt="DevAtlas: Developer Resource Intelligence. Capture, organize, search, and rediscover the developer resources you rely on, all in one local-first desktop app." width="100%"/>
 
+# DevAtlas: a local-first bookmark manager for developers, with an MCP server for AI coding agents
+
 **Every developer resource you rely on, in one place your AI agents can read.**
+
+[Website](https://sakithasamarathunga33.github.io/devatlas/) ·
+[Download for Windows](https://github.com/SakithaSamarathunga33/devatlas/releases/latest) ·
+[Use with Claude Code and Cursor](#use-with-ai-coding-agents-mcp) · [FAQ](#faq)
 
 [![Latest release](https://img.shields.io/badge/download-latest%20release-00BFA6)](https://github.com/SakithaSamarathunga33/devatlas/releases/latest)
 [![CI](https://github.com/SakithaSamarathunga33/devatlas/actions/workflows/ci.yml/badge.svg)](https://github.com/SakithaSamarathunga33/devatlas/actions/workflows/ci.yml)
@@ -37,6 +43,7 @@ coding agents can answer from what you saved. No account, no cloud, nothing writ
 - [Security](#security)
 - [Troubleshooting](#troubleshooting)
 - [Roadmap](#roadmap)
+- [FAQ](#faq)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -446,6 +453,42 @@ Ideas, not commitments:
 - Project workspaces that group links by the project they're for
 - macOS and Linux builds (the architecture allows them; they are untested)
 - Optional sync between computers
+
+---
+
+## FAQ
+
+### What is DevAtlas?
+
+A free, open-source bookmark manager for developers. It brings your browser bookmarks, GitHub stars
+and saved links into one searchable desktop library on Windows, with collections, snippets,
+trending repos, developer news and a dead-link checker.
+
+### How do I let Claude Code or Cursor use my bookmarks?
+
+DevAtlas includes a read-only MCP (Model Context Protocol) server. Connect it with one command from
+**Settings → AI coding agents**, and Claude Code, Cursor, Windsurf or Codex can search your saved
+links and notes. See [Use with AI coding agents](#use-with-ai-coding-agents-mcp).
+
+### How do I organize my GitHub stars?
+
+Import up to 1,000 starred repositories of any GitHub user from Settings. They join your library,
+where you can tag them, add notes, group them into collections and see their latest release and
+star growth.
+
+### Which browsers does it read bookmarks from?
+
+Brave, Chrome (including signed-in account bookmarks), Edge, Vivaldi, Opera, Opera GX and Firefox.
+Bookmarks are only read, never changed.
+
+### Do I need an account? Is my data uploaded anywhere?
+
+No account and no cloud. Your library lives in a local SQLite database on your computer.
+
+### Does it run on macOS or Linux?
+
+Not yet. DevAtlas is built for Windows 10 and 11. The architecture allows macOS and Linux builds,
+and they are on the [roadmap](#roadmap).
 
 ---
 
