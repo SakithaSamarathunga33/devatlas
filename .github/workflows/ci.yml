@@ -85,18 +85,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Runs the frontend build (typecheck + Vite) and produces NSIS and MSI installers.
-      - run: pnpm build
-
-      # The custom setup wizard embeds the release exe that `pnpm build` just produced.
-      - run: pnpm --filter @devatlas/installer tauri build --no-bundle
+      # Builds DevAtlas (frontend typecheck + Vite, release exe), then DevAtlas Setup with that
+      # exe embedded: the one installer a release ships.
+      - run: pnpm build:installer
 
       - uses: actions/upload-artifact@v7
         with:
           name: devatlas-windows-installers
-          path: |
-            target/release/bundle/nsis/*.exe
-            target/release/bundle/msi/*.msi
-            target/release/devatlas-installer.exe
+          path: target/release/devatlas-installer.exe
           if-no-files-found: error
           retention-days: 7

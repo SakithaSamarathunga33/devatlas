@@ -56,7 +56,7 @@ jobs:
           fi
           mv dist/devatlas-installer.exe "dist/DevAtlas-Setup-${TAG}.exe"
           gh release create "$TAG" \
-            "dist/DevAtlas-Setup-${TAG}.exe" dist/bundle/nsis/*.exe dist/bundle/msi/*.msi \
+            "dist/DevAtlas-Setup-${TAG}.exe" \
             --target "$HEAD_SHA" \
             --title "DevAtlas ${TAG}" \
             --notes-file notes.md

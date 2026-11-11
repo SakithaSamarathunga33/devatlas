@@ -368,12 +368,12 @@ embedded until `pnpm build:installer` has run once.
 Every push to `main` that passes CI publishes a release. Nothing to tag by hand.
 
 1. `ci.yml` runs the frontend checks (Ubuntu), the Rust checks (Windows), then the Windows build,
-   which uploads the installers.
-2. When CI succeeds on a push, `release.yml` downloads those installers.
+   which uploads DevAtlas Setup.
+2. When CI succeeds on a push, `release.yml` downloads it.
 3. It names the release `v<version>-build.<CI run>` (the version comes from `Cargo.toml`).
 4. `scripts/release-notes.sh` writes the notes: every commit since the previous release, grouped
    into **New**, **Fixes** and **Other changes**, each with its message body.
-5. It publishes the GitHub release with the three installers attached. A re-run never duplicates a
+5. It publishes the GitHub release with DevAtlas Setup attached. A re-run never duplicates a
    release.
 
 Pushes that only change docs (Markdown files, `docs/`, `LICENSE`) skip CI and publish nothing.
@@ -383,8 +383,7 @@ Pull requests run every check but never release.
 
 Download from the [Releases](https://github.com/SakithaSamarathunga33/devatlas/releases) page:
 
-- `DevAtlas-Setup-<tag>.exe`: the setup wizard (recommended).
-- `DevAtlas_<version>_x64-setup.exe` and `DevAtlas_<version>_x64_en-US.msi`: standard installers.
+- `DevAtlas-Setup-<tag>.exe`: the setup wizard, the only installer a release ships.
 
 Run the new installer over the old one to update; your library is kept. There is no in-app
 updater, so check the Releases page.
