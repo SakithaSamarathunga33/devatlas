@@ -27,9 +27,11 @@ foundation only (milestone DEVATLAS-001):
   **For you** filter on News and New repos.
 - **Settings** also holds an optional GitHub token, a dead-link checker, and backup, export and
   import (including any browser's bookmarks file).
-- **AI coding agents**: run `devatlas-desktop --mcp` as an MCP server so Claude Code, Cursor and
-  others can search your library, read your notes ("why it's here"), and see which saved resources
-  match a project's dependencies. Read-only; Settings shows the setup command and weekly lookups.
+- **AI coding agents**: the installed app doubles as an MCP server (`DevAtlas.exe --mcp`), so
+  Claude Code, Cursor and others can search your library, read your notes ("why it's here"), and
+  see which saved resources match a project's dependencies. Read-only. **Settings → AI agents**
+  shows the `claude mcp add devatlas -s user …` command and the JSON for other agents, pointing at
+  the installed copy, plus how many lookups agents made this week.
 - **GitHub stars import**: bring in up to 1,000 repositories you starred, from Settings.
 - **Repos**: new GitHub repositories collecting the most stars today, this week, or this
   month, optionally by language, with one-click **Save** to the Library. Rows expand (click
@@ -74,27 +76,42 @@ TypeScript is pinned to 6.0.x because `typescript-eslint` does not yet support T
 ```text
 devatlas/
 ├── apps/
-│   └── desktop/               # Tauri 2 desktop app
-│       ├── public/            # Static assets (brand mark)
-│       ├── src/               # React frontend (feature-oriented)
-│       │   ├── app/           # Providers, router, layouts
-│       │   ├── components/    # layout/, shared/
-│       │   ├── features/      # dashboard/
-│       │   ├── hooks/ lib/ services/ stores/ types/ styles/
-│       │   └── test/          # Vitest setup
-│       └── src-tauri/         # Rust delivery layer: commands, capabilities, icons, config
+│   ├── desktop/               # Tauri 2 desktop app
+│   │   ├── public/            # Static assets (brand mark)
+│   │   ├── src/               # React frontend (feature-oriented)
+│   │   │   ├── app/           # Providers, router, layouts
+│   │   │   ├── components/    # layout/, shared/, charts/
+│   │   │   ├── features/      # dashboard, library, discovery, explorer, settings, …
+│   │   │   ├── hooks/ lib/ services/ stores/ types/ styles/ themes/
+│   │   │   └── test/          # Vitest setup
+│   │   └── src-tauri/         # Rust delivery layer: commands, MCP server, capabilities, config
+│   └── installer/             # DevAtlas Setup, the custom install wizard
 ├── crates/
 │   ├── domain/                # Core concepts — no infrastructure dependencies
 │   ├── application/           # Use cases and ports — depends on domain only
-│   └── storage/               # Persistence (empty until DEVATLAS-002)
+│   └── storage/               # SQLite, browser bookmarks, GitHub, project manifests
 ├── docs/                      # Architecture, database, security, decisions, development
-├── .github/workflows/ci.yml
+├── .github/workflows/         # ci.yml (checks + Windows build), release.yml (publishing)
+├── scripts/                   # release-notes.sh, used by the release workflow
 ├── Cargo.toml                 # Rust workspace
 └── package.json               # pnpm workspace root
 ```
 
 `packages/` is reserved in `pnpm-workspace.yaml` for shared contracts and configuration once they
 exist; no empty placeholder packages are committed.
+
+## Download
+
+Every push to `main` that passes CI publishes a
+[GitHub release](https://github.com/SakithaSamarathunga33/devatlas/releases) named
+`v<version>-build.<CI run>`, with notes listing the changes since the previous release (grouped
+into New, Fixes and Other changes from the commit messages). Each release has:
+
+- `DevAtlas-Setup-<tag>.exe`: the setup wizard (recommended).
+- `DevAtlas_<version>_x64-setup.exe` and `DevAtlas_<version>_x64_en-US.msi`: standard installers.
+
+The installers are not code-signed yet, so Windows SmartScreen warns before running them. Quit
+any AI agent using DevAtlas before updating, since it keeps `DevAtlas.exe` open.
 
 ## Prerequisites
 
@@ -166,12 +183,11 @@ then reports that no app is embedded until `pnpm build:installer` has run once.
 
 ## Current scope and known limitations
 
-- The Library mirrors Brave's `develop` folder (Default profile);
-  removing a Brave bookmark in DevAtlas hides it there without touching Brave. Categories come
-  from a built-in list of known sites.
-- No database or persistence yet, so DevAtlas cannot edit, tag, or store resources itself.
-- No browser extension, AI, sync, or accounts.
-- Dark theme only.
+- Browser bookmarks are read, never written: removing one in DevAtlas hides it there without
+  touching the browser. Categories come from a built-in list of known sites.
+- AI agents can read the library but not change it. There is no built-in AI assistant.
+- No browser extension, sync, or accounts.
+- Releases are unsigned, and the version number only changes when `Cargo.toml` is bumped.
 - Builds and CI target Windows; Linux and macOS are kept in mind architecturally but are untested.
 
 ## Documentation
