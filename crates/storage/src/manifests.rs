@@ -1,10 +1,11 @@
 //! Reads the dependencies a project declares: `package.json`, `Cargo.toml`, `go.mod`,
-//! `pyproject.toml` and `requirements.txt` in one folder. Only those files are opened, only
+//! `pyproject.toml` and `requirements.txt` in one folder, plus the `package.json` and
+//! `Cargo.toml` of the workspace members it declares. Only those files are opened, only
 //! dependency names leave this module, and a file that can't be parsed is skipped.
 
 use std::collections::BTreeSet;
 use std::io::ErrorKind;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use devatlas_application::agent::{Dependency, Ecosystem, ProjectManifests};
 
@@ -13,6 +14,8 @@ const MAX_MANIFEST_BYTES: u64 = 1024 * 1024;
 /// Bounds what one call returns; real projects stay well under this.
 const MAX_DEPENDENCIES: usize = 500;
 const MAX_NAME_LEN: usize = 100;
+/// Bounds how many workspace member folders one call opens.
+const MAX_MEMBERS: usize = 100;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ManifestError {
@@ -37,11 +40,25 @@ impl ProjectManifests for ManifestReader {
                 found.insert((ecosystem_order(ecosystem), name, ecosystem_name(ecosystem)));
             }
         };
-        if let Some(text) = read(&dir.join("package.json"))? {
-            add(npm(&text), Ecosystem::Npm);
+        let package = read(&dir.join("package.json"))?;
+        let pnpm = read(&dir.join("pnpm-workspace.yaml"))?;
+        let mut npm_members = package.as_deref().map(npm_workspaces).unwrap_or_default();
+        npm_members.extend(pnpm.as_deref().map(pnpm_workspaces).unwrap_or_default());
+        if let Some(text) = &package {
+            add(npm(text), Ecosystem::Npm);
+        }
+        for member in members(dir, &npm_members) {
+            if let Some(text) = read(&member.join("package.json"))? {
+                add(npm(&text), Ecosystem::Npm);
+            }
         }
         if let Some(text) = read(&dir.join("Cargo.toml"))? {
             add(cargo(&text), Ecosystem::Cargo);
+            for member in members(dir, &cargo_members(&text)) {
+                if let Some(text) = read(&member.join("Cargo.toml"))? {
+                    add(cargo(&text), Ecosystem::Cargo);
+                }
+            }
         }
         if let Some(text) = read(&dir.join("go.mod"))? {
             add(go(&text), Ecosystem::Go);
@@ -105,6 +122,121 @@ fn read(path: &Path) -> Result<Option<String>, ManifestError> {
         Err(error) if error.kind() == ErrorKind::InvalidData => Ok(None),
         Err(error) => Err(error.into()),
     }
+}
+
+/// The member folders that workspace `patterns` name, inside `dir` only. A pattern is a folder
+/// (`tools/cli`) or a folder's children (`apps/*`); exclusions and deeper globs are skipped.
+fn members(dir: &Path, patterns: &[String]) -> Vec<PathBuf> {
+    let Ok(root) = dir.canonicalize() else {
+        return Vec::new();
+    };
+    // A folder whose real location is inside the project: a link anywhere along the way
+    // (symlink or junction) could otherwise lead out of it.
+    let is_folder = |path: &Path| {
+        path.canonicalize()
+            .is_ok_and(|real| real.starts_with(&root) && real.is_dir())
+    };
+    let mut found = BTreeSet::new();
+    for pattern in patterns
+        .iter()
+        .take(MAX_MEMBERS)
+        .map(|p| p.trim().trim_end_matches('/'))
+    {
+        if found.len() >= MAX_MEMBERS {
+            break;
+        }
+        let (base, children) = match pattern.strip_suffix("/*") {
+            Some(base) => (base, true),
+            None => (pattern, false),
+        };
+        let relative = Path::new(base);
+        let inside = relative
+            .components()
+            .all(|part| matches!(part, Component::Normal(_) | Component::CurDir));
+        if base.is_empty() || pattern.starts_with('!') || base.contains('*') || !inside {
+            continue;
+        }
+        let path = dir.join(relative);
+        if !is_folder(&path) {
+            continue;
+        }
+        if !children {
+            found.insert(path);
+            continue;
+        }
+        let Ok(entries) = std::fs::read_dir(&path) else {
+            continue;
+        };
+        found.extend(
+            entries
+                .flatten()
+                .take(MAX_MEMBERS)
+                .map(|entry| entry.path())
+                .filter(|child| is_folder(child)),
+        );
+    }
+    found.into_iter().take(MAX_MEMBERS).collect()
+}
+
+/// `workspaces` in a package.json, as a list or as `{ "packages": [...] }` (Yarn).
+fn npm_workspaces(text: &str) -> Vec<String> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let list = json
+        .get("workspaces")
+        .map(|w| w.get("packages").unwrap_or(w));
+    string_list(list.and_then(serde_json::Value::as_array))
+}
+
+fn string_list(values: Option<&Vec<serde_json::Value>>) -> Vec<String> {
+    values
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The `packages:` list of a pnpm-workspace.yaml. ponytail: reads only the plain
+/// `- "pattern"` list form pnpm documents; a flow list (`[a, b]`) needs a YAML parser.
+fn pnpm_workspaces(text: &str) -> Vec<String> {
+    let mut in_packages = false;
+    let mut patterns = Vec::new();
+    for line in text.trim_start_matches('\u{FEFF}').lines() {
+        // Comments: whole-line, or trailing after a space.
+        let line = line.split(" #").next().unwrap_or(line);
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if !line.starts_with([' ', '\t', '-']) {
+            in_packages = trimmed == "packages:";
+        } else if let Some(item) = trimmed.strip_prefix('-').filter(|_| in_packages) {
+            patterns.push(item.trim().trim_matches(['"', '\'']).to_owned());
+        }
+    }
+    patterns
+}
+
+/// `members` of a Cargo `[workspace]`.
+fn cargo_members(text: &str) -> Vec<String> {
+    let Ok(manifest) = text.parse::<toml::Table>() else {
+        return Vec::new();
+    };
+    manifest
+        .get("workspace")
+        .and_then(|workspace| workspace.get("members"))
+        .and_then(toml::Value::as_array)
+        .map(|members| {
+            members
+                .iter()
+                .filter_map(|m| m.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn object_keys(value: Option<&serde_json::Value>) -> Vec<String> {
@@ -345,6 +477,87 @@ mod tests {
         let secret = dir.join("secret.txt");
         std::fs::write(&secret, "token-abc\n").unwrap();
         std::os::unix::fs::symlink(&secret, dir.join("requirements.txt")).unwrap();
+
+        assert!(names(&dir).is_empty());
+    }
+
+    #[test]
+    fn reads_the_workspace_members_a_root_declares() {
+        let dir = project(
+            "workspace",
+            &[
+                ("package.json", r#"{"workspaces":["tools/cli"]}"#),
+                (
+                    "pnpm-workspace.yaml",
+                    "\u{FEFF}packages: # members\n# apps first\n  - \"apps/*\" # web\n  - '!apps/skip'\n",
+                ),
+                ("Cargo.toml", "[workspace]\nmembers = [\"crates/*\"]\n"),
+            ],
+        );
+        for (member, file, text) in [
+            (
+                "apps/web",
+                "package.json",
+                r#"{"dependencies":{"react":"19"}}"#,
+            ),
+            (
+                "tools/cli",
+                "package.json",
+                r#"{"dependencies":{"commander":"14"}}"#,
+            ),
+            (
+                "crates/core",
+                "Cargo.toml",
+                "[dependencies]\nregex = \"1\"\n",
+            ),
+        ] {
+            std::fs::create_dir_all(dir.join(member)).unwrap();
+            std::fs::write(dir.join(member).join(file), text).unwrap();
+        }
+
+        assert_eq!(names(&dir), ["Npm:commander", "Npm:react", "Cargo:regex"]);
+    }
+
+    #[test]
+    fn workspace_members_stay_inside_the_folder() {
+        let root = project("escape", &[]);
+        let outside = root.join("outside");
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(
+            outside.join("package.json"),
+            r#"{"dependencies":{"leak":"1"}}"#,
+        )
+        .unwrap();
+        let dir = root.join("inner");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("package.json"),
+            r#"{"workspaces":["../outside", "/abs"]}"#,
+        )
+        .unwrap();
+
+        assert!(names(&dir).is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn workspace_members_never_pass_through_a_linked_folder() {
+        let root = project("middle-link", &[]);
+        let outside = root.join("outside/pkg");
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(
+            outside.join("package.json"),
+            r#"{"dependencies":{"leak":"1"}}"#,
+        )
+        .unwrap();
+        let dir = root.join("inner");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::os::unix::fs::symlink(root.join("outside"), dir.join("link")).unwrap();
+        std::fs::write(
+            dir.join("package.json"),
+            r#"{"workspaces":["link/pkg", "link/*"]}"#,
+        )
+        .unwrap();
 
         assert!(names(&dir).is_empty());
     }

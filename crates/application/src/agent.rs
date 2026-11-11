@@ -283,8 +283,40 @@ fn is_major_version(segment: &str) -> bool {
         .is_some_and(|digits| !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit()))
 }
 
-/// The names a dependency is written as in titles, tags and addresses.
-fn terms(dependency: &Dependency) -> Vec<String> {
+/// Last path parts too common to name one package on their own (`@tauri-apps/cli`).
+const GENERIC_NAMES: &[&str] = &[
+    "api",
+    "cli",
+    "core",
+    "types",
+    "utils",
+    "util",
+    "common",
+    "shared",
+    "plugin",
+    "plugins",
+    "client",
+    "server",
+    "sdk",
+    "config",
+    "runtime",
+    "compiler",
+    "components",
+    "icons",
+    "theme",
+    "lib",
+    "web",
+    "dom",
+    "test",
+    "testing",
+    "base",
+    "kit",
+    "app",
+];
+
+/// The names a dependency is written as in titles, tags and addresses. `siblings` is every
+/// dependency of the project: `@types/react` is about react, which is listed on its own.
+fn terms(dependency: &Dependency, siblings: &[Dependency]) -> Vec<String> {
     let full = dependency.name.to_lowercase();
     // `github.com/foo/bar/v2` is `bar`, and `gopkg.in/yaml.v3` is `yaml`.
     let name = match full.rsplit_once('/') {
@@ -297,7 +329,19 @@ fn terms(dependency: &Dependency) -> Vec<String> {
         _ => last,
     }
     .to_owned();
-    let mut terms = vec![name.trim_start_matches('@').to_owned(), last];
+    let full = name.trim_start_matches('@').to_owned();
+    let is_sibling = siblings.iter().any(|other| {
+        other.ecosystem == dependency.ecosystem && other.name.eq_ignore_ascii_case(&last)
+    });
+    let mut terms = vec![full.clone()];
+    if last == full || !(GENERIC_NAMES.contains(&last.as_str()) || is_sibling) {
+        terms.push(last);
+    } else if let Some((scope, _)) = name.strip_prefix('@').and_then(|n| n.split_once('/')) {
+        // `@tauri-apps/cli` is still about tauri-apps.
+        if !GENERIC_NAMES.contains(&scope) {
+            terms.push(scope.to_owned());
+        }
+    }
     terms.dedup();
     terms.retain(|term| term.len() >= MIN_TERM_LEN);
     terms
@@ -326,7 +370,7 @@ pub fn stack<M: ProjectManifests>(
     let saved = dependencies
         .iter()
         .filter_map(|dependency| {
-            let terms = terms(dependency);
+            let terms = terms(dependency, &dependencies);
             let mut resources: Vec<ResourceSummary> = summaries
                 .iter()
                 .filter(|summary| matches_dependency(summary, &terms))
@@ -597,5 +641,35 @@ mod tests {
         let stack = stack(&manifests, Path::new("."), &library(), &[]).unwrap();
 
         assert_eq!(ids(&stack.saved[0].resources), ["recharts.org"]);
+    }
+
+    #[test]
+    fn scoped_packages_skip_generic_and_sibling_last_names() {
+        let manifests = FakeManifests(vec![
+            dependency("@tauri-apps/cli", Ecosystem::Npm),
+            dependency("@types/react", Ecosystem::Npm),
+            dependency("react", Ecosystem::Npm),
+            dependency("github.com/acme/react", Ecosystem::Go),
+        ]);
+        let mut items = library();
+        items.push(item("cli.example", "Claude CLI tricks", &[], None));
+        items.push(item("github.com/tauri-apps/tauri", "Tauri", &[], None));
+
+        let stack = stack(&manifests, Path::new("."), &items, &[]).unwrap();
+
+        let matched: Vec<(&str, Vec<&str>)> = stack
+            .saved
+            .iter()
+            .map(|m| (m.dependency.name.as_str(), ids(&m.resources)))
+            .collect();
+        assert_eq!(
+            matched,
+            [
+                ("@tauri-apps/cli", vec!["github.com/tauri-apps/tauri"]),
+                ("react", vec!["motion.dev", "recharts.org"]),
+                // Another ecosystem's `react` is not this module's sibling.
+                ("github.com/acme/react", vec!["motion.dev", "recharts.org"]),
+            ]
+        );
     }
 }
