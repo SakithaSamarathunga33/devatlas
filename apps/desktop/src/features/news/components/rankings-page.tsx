@@ -7,7 +7,7 @@ export function RankingsPage() {
   return (
     <div className="w-full px-5 pt-5 pb-16 lg:px-8">
       <PageHeader
-        title="Language rankings"
+        title="Languages"
         description="How popular languages are this month, and how each has moved over the last year."
       />
       <div className="mt-4">

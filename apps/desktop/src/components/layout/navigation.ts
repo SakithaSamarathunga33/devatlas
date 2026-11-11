@@ -26,6 +26,7 @@ export const primaryNavigation: readonly NavigationItem[] = [
   {
     label: "Collections",
     icon: Layers,
+    to: "/collections",
     description: "Group resources into curated sets for a stack, a client, or an idea.",
   },
   {
@@ -34,7 +35,7 @@ export const primaryNavigation: readonly NavigationItem[] = [
     description: "Browse your library by ecosystem: React, Vue, Rust, Go, Python, and more.",
   },
   {
-    label: "Discovery",
+    label: "Repos",
     icon: Telescope,
     to: "/discovery",
     description: "Find new packages, releases, and design inspiration worth saving.",
@@ -46,7 +47,7 @@ export const primaryNavigation: readonly NavigationItem[] = [
     description: "Top developer stories and official language, framework, database and tool blogs.",
   },
   {
-    label: "Rankings",
+    label: "Languages",
     icon: Trophy,
     to: "/rankings",
     description: "How popular programming languages are (TIOBE and PYPL, monthly).",
@@ -54,10 +55,11 @@ export const primaryNavigation: readonly NavigationItem[] = [
   {
     label: "Projects",
     icon: FolderKanban,
+    to: "/projects",
     description: "Link resources to the projects that use them.",
   },
 ];
 
 export const secondaryNavigation: readonly NavigationItem[] = [
-  { label: "Settings", icon: Settings },
+  { label: "Settings", icon: Settings, to: "/settings" },
 ];

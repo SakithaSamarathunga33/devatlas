@@ -117,6 +117,147 @@ pub async fn repo_details<S: RepoSource>(
     source.repo(full_name).await.map_err(RepoError::Source)
 }
 
+/// How long a release check stays valid; GitHub allows 60 unauthenticated requests an hour.
+pub const RELEASE_CHECK_FRESH_MS: i64 = 6 * 60 * 60 * 1000;
+/// How far back star growth is measured.
+const STAR_WINDOW_DAYS: i64 = 7;
+
+/// A repository's newest published release.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoRelease {
+    pub tag: String,
+    pub name: Option<String>,
+    /// Always a `https://github.com/…` address.
+    pub url: String,
+    /// ISO-8601, as GitHub reports it.
+    pub published_at: String,
+}
+
+/// Stars gained over the last `days` days.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StarsGained {
+    pub count: i64,
+    pub days: i64,
+}
+
+/// What changed recently in a repository saved in the library.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoActivity {
+    pub latest_release: Option<RepoRelease>,
+    /// `None` until DevAtlas has an earlier star count to compare with.
+    pub stars_gained: Option<StarsGained>,
+}
+
+/// Port: looks up a repository's newest release. `None` when it has none.
+pub trait ReleaseSource: RepoSource {
+    fn latest_release(
+        &self,
+        full_name: &str,
+    ) -> impl Future<Output = Result<Option<RepoRelease>, Self::Error>> + Send;
+}
+
+/// Port: remembers release checks and daily star counts between runs.
+pub trait RepoHistoryStore {
+    type Error: std::error::Error;
+
+    /// When the release was last checked and what was found.
+    fn release_check(
+        &self,
+        full_name: &str,
+    ) -> impl Future<Output = Result<Option<(i64, Option<RepoRelease>)>, Self::Error>> + Send;
+    fn save_release_check(
+        &self,
+        full_name: &str,
+        checked_at: i64,
+        release: Option<&RepoRelease>,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    /// Records the star count for a day, replacing that day's earlier count.
+    fn record_stars(
+        &self,
+        full_name: &str,
+        day: i64,
+        stars: u64,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    /// The oldest recorded day on or after `earliest_day`, with its star count.
+    fn stars_since(
+        &self,
+        full_name: &str,
+        earliest_day: i64,
+    ) -> impl Future<Output = Result<Option<(i64, u64)>, Self::Error>> + Send;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RepoActivityError<S: std::error::Error, H: std::error::Error> {
+    #[error("\u{201c}{0}\u{201d} is not a GitHub repository name (owner/name).")]
+    InvalidName(String),
+    #[error(transparent)]
+    Source(S),
+    #[error("DevAtlas couldn't read its repository history.")]
+    Store(H),
+}
+
+/// A saved repository's newest release and recent star growth. Release checks are stored, so
+/// restarting DevAtlas doesn't spend GitHub's hourly request limit again.
+pub async fn repo_activity<S: ReleaseSource, H: RepoHistoryStore>(
+    source: &S,
+    history: &H,
+    full_name: &str,
+    now_ms: i64,
+) -> Result<RepoActivity, RepoActivityError<S::Error, H::Error>> {
+    let full_name = full_name.trim();
+    if !is_repo_name(full_name) {
+        return Err(RepoActivityError::InvalidName(full_name.to_owned()));
+    }
+    let key = full_name.to_ascii_lowercase();
+    let repo = source
+        .repo(full_name)
+        .await
+        .map_err(RepoActivityError::Source)?;
+
+    let today = now_ms.div_euclid(MS_PER_DAY);
+    let earlier = history
+        .stars_since(&key, today - STAR_WINDOW_DAYS)
+        .await
+        .map_err(RepoActivityError::Store)?
+        .filter(|(day, _)| *day < today);
+    history
+        .record_stars(&key, today, repo.stars)
+        .await
+        .map_err(RepoActivityError::Store)?;
+
+    let stored = history
+        .release_check(&key)
+        .await
+        .map_err(RepoActivityError::Store)?;
+    let latest_release = match stored {
+        Some((checked_at, release)) if now_ms - checked_at < RELEASE_CHECK_FRESH_MS => release,
+        stale => match source.latest_release(full_name).await {
+            Ok(release) => {
+                history
+                    .save_release_check(&key, now_ms, release.as_ref())
+                    .await
+                    .map_err(RepoActivityError::Store)?;
+                release
+            }
+            // Usually GitHub's rate limit (the source logs it): show what is already known
+            // rather than losing the star growth too.
+            Err(_) => stale.and_then(|(_, release)| release),
+        },
+    };
+
+    let as_signed = |stars: u64| i64::try_from(stars).unwrap_or(i64::MAX);
+    Ok(RepoActivity {
+        latest_release,
+        stars_gained: earlier.map(|(day, stars)| StarsGained {
+            count: as_signed(repo.stars).saturating_sub(as_signed(stars)),
+            days: today - day,
+        }),
+    })
+}
+
 /// GitHub's naming rules: owners are 1–39 letters, digits or hyphens; repository names are
 /// 1–100 letters, digits, `.`, `_` or `-`, and never `.` or `..`. Anything else could reach
 /// another API path, so it is refused before a request is built.
@@ -324,6 +465,240 @@ mod tests {
                 "{name} should be refused"
             );
         }
+    }
+
+    /// A repository with a fixed star count and one release; counts the release lookups.
+    struct FakeActivity {
+        stars: u64,
+        release: Option<RepoRelease>,
+        lookups: Mutex<u32>,
+    }
+
+    impl RepoSource for FakeActivity {
+        type Error = Infallible;
+
+        async fn repo(&self, full_name: &str) -> Result<GithubRepo, Infallible> {
+            let repo = FakeRepos.repo(full_name).await?;
+            Ok(GithubRepo {
+                stars: self.stars,
+                ..repo
+            })
+        }
+    }
+
+    impl ReleaseSource for FakeActivity {
+        async fn latest_release(&self, _: &str) -> Result<Option<RepoRelease>, Infallible> {
+            *self.lookups.lock().unwrap() += 1;
+            Ok(self.release.clone())
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeHistory {
+        check: Mutex<Option<(i64, Option<RepoRelease>)>>,
+        stars: Mutex<Vec<(i64, u64)>>,
+    }
+
+    impl RepoHistoryStore for FakeHistory {
+        type Error = Infallible;
+
+        async fn release_check(
+            &self,
+            _: &str,
+        ) -> Result<Option<(i64, Option<RepoRelease>)>, Infallible> {
+            Ok(self.check.lock().unwrap().clone())
+        }
+
+        async fn save_release_check(
+            &self,
+            _: &str,
+            checked_at: i64,
+            release: Option<&RepoRelease>,
+        ) -> Result<(), Infallible> {
+            *self.check.lock().unwrap() = Some((checked_at, release.cloned()));
+            Ok(())
+        }
+
+        async fn record_stars(&self, _: &str, day: i64, stars: u64) -> Result<(), Infallible> {
+            let mut rows = self.stars.lock().unwrap();
+            rows.retain(|(existing, _)| *existing != day);
+            rows.push((day, stars));
+            Ok(())
+        }
+
+        async fn stars_since(
+            &self,
+            _: &str,
+            earliest_day: i64,
+        ) -> Result<Option<(i64, u64)>, Infallible> {
+            let rows = self.stars.lock().unwrap();
+            Ok(rows
+                .iter()
+                .filter(|(day, _)| *day >= earliest_day)
+                .min_by_key(|(day, _)| *day)
+                .copied())
+        }
+    }
+
+    fn release() -> RepoRelease {
+        RepoRelease {
+            tag: "v1.2.0".to_owned(),
+            name: Some("Big one".to_owned()),
+            url: "https://github.com/a/b/releases/tag/v1.2.0".to_owned(),
+            published_at: "2026-11-09T10:00:00Z".to_owned(),
+        }
+    }
+
+    fn activity_source(stars: u64) -> FakeActivity {
+        FakeActivity {
+            stars,
+            release: Some(release()),
+            lookups: Mutex::new(0),
+        }
+    }
+
+    #[test]
+    fn reuses_a_recent_release_check_across_restarts() {
+        let (source, history) = (activity_source(5), FakeHistory::default());
+
+        let first = block_on(repo_activity(&source, &history, "a/b", NOW_MS)).unwrap();
+        let second = block_on(repo_activity(&source, &history, "A/B", NOW_MS + 1_000)).unwrap();
+
+        assert_eq!(first.latest_release, Some(release()));
+        assert_eq!(second.latest_release, Some(release()));
+        assert_eq!(*source.lookups.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn checks_again_once_the_release_check_is_stale() {
+        let (source, history) = (activity_source(5), FakeHistory::default());
+
+        block_on(repo_activity(&source, &history, "a/b", NOW_MS)).unwrap();
+        block_on(repo_activity(
+            &source,
+            &history,
+            "a/b",
+            NOW_MS + RELEASE_CHECK_FRESH_MS + 1,
+        ))
+        .unwrap();
+
+        assert_eq!(*source.lookups.lock().unwrap(), 2);
+    }
+
+    #[test]
+    fn remembers_that_a_repository_has_no_releases() {
+        let source = FakeActivity {
+            stars: 5,
+            release: None,
+            lookups: Mutex::new(0),
+        };
+        let history = FakeHistory::default();
+
+        block_on(repo_activity(&source, &history, "a/b", NOW_MS)).unwrap();
+        let again = block_on(repo_activity(&source, &history, "a/b", NOW_MS + 1)).unwrap();
+
+        assert_eq!(again.latest_release, None);
+        assert_eq!(*source.lookups.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn has_no_star_growth_on_the_first_day() {
+        let (source, history) = (activity_source(5), FakeHistory::default());
+
+        let activity = block_on(repo_activity(&source, &history, "a/b", NOW_MS)).unwrap();
+
+        assert_eq!(activity.stars_gained, None);
+    }
+
+    #[test]
+    fn measures_star_growth_from_the_oldest_check_in_the_last_week() {
+        let history = FakeHistory::default();
+        block_on(repo_activity(
+            &activity_source(100),
+            &history,
+            "a/b",
+            NOW_MS,
+        ))
+        .unwrap();
+
+        let later = NOW_MS + 3 * MS_PER_DAY;
+        let activity = block_on(repo_activity(&activity_source(160), &history, "a/b", later));
+
+        assert_eq!(
+            activity.unwrap().stars_gained,
+            Some(StarsGained { count: 60, days: 3 })
+        );
+    }
+
+    #[test]
+    fn ignores_star_checks_older_than_a_week() {
+        let history = FakeHistory::default();
+        block_on(repo_activity(
+            &activity_source(100),
+            &history,
+            "a/b",
+            NOW_MS,
+        ))
+        .unwrap();
+
+        let later = NOW_MS + 9 * MS_PER_DAY;
+        let activity = block_on(repo_activity(&activity_source(160), &history, "a/b", later));
+
+        assert_eq!(activity.unwrap().stars_gained, None);
+    }
+
+    /// Details work but the release lookup is rate-limited.
+    struct RateLimitedReleases;
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("rate limited")]
+    struct RateLimited;
+
+    impl RepoSource for RateLimitedReleases {
+        type Error = RateLimited;
+
+        async fn repo(&self, full_name: &str) -> Result<GithubRepo, RateLimited> {
+            let repo = FakeRepos.repo(full_name).await.map_err(|_| RateLimited)?;
+            Ok(GithubRepo { stars: 160, ..repo })
+        }
+    }
+
+    impl ReleaseSource for RateLimitedReleases {
+        async fn latest_release(&self, _: &str) -> Result<Option<RepoRelease>, RateLimited> {
+            Err(RateLimited)
+        }
+    }
+
+    #[test]
+    fn a_failed_release_lookup_keeps_star_growth_and_the_last_known_release() {
+        let history = FakeHistory::default();
+        block_on(repo_activity(
+            &activity_source(100),
+            &history,
+            "a/b",
+            NOW_MS,
+        ))
+        .unwrap();
+
+        let later = NOW_MS + 3 * MS_PER_DAY;
+        let activity = block_on(repo_activity(&RateLimitedReleases, &history, "a/b", later));
+
+        let activity = activity.unwrap();
+        assert_eq!(activity.latest_release, Some(release()));
+        assert_eq!(
+            activity.stars_gained,
+            Some(StarsGained { count: 60, days: 3 })
+        );
+    }
+
+    #[test]
+    fn activity_refuses_invalid_repository_names() {
+        let (source, history) = (activity_source(5), FakeHistory::default());
+
+        assert!(matches!(
+            block_on(repo_activity(&source, &history, "../evil", NOW_MS)),
+            Err(RepoActivityError::InvalidName(_))
+        ));
     }
 
     #[test]

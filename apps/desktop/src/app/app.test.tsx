@@ -20,7 +20,7 @@ const invokeMock = vi.mocked(invoke);
 
 const APP_INFO = { name: "DevAtlas", version: "0.1.0", platform: "windows" };
 const LIBRARY: LibrarySnapshot = {
-  source: { browser: "Brave", folder: "develop" },
+  source: { browser: "Brave", folder: "develop", warning: null },
   resources: [
     {
       id: "uiverse.io/elements",
@@ -31,6 +31,9 @@ const LIBRARY: LibrarySnapshot = {
       folder: "develop/components",
       addedAt: Date.now() - 60_000,
       isNew: true,
+      categoryOverride: null,
+      tags: [],
+      note: null,
       origin: "browser",
     },
   ],
@@ -82,7 +85,7 @@ describe("App", () => {
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("region", { name: "Coming soon" })).toHaveTextContent("Collections");
+    expect(screen.getByRole("region", { name: "Coming soon" })).toHaveTextContent("Explorer");
     expect(screen.getByRole("button", { name: "Minimize" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
     expect(await screen.findByText("DevAtlas 0.1.0 · Windows")).toBeInTheDocument();
@@ -132,6 +135,25 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("doesn't mark a primary page active on Settings, and can return to the dashboard", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("link", { name: "Settings" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
+
+    const dashboard = within(screen.getByRole("navigation", { name: "Primary" })).getByRole(
+      "button",
+      { name: "Dashboard" },
+    );
+    expect(dashboard).not.toHaveAttribute("aria-current");
+
+    fireEvent.click(dashboard);
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)$/ }),
+    ).toBeInTheDocument();
+  });
+
   it("shows real library numbers, collections and recent activity", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
@@ -146,19 +168,19 @@ describe("App", () => {
       "href",
       "/library?filter=new",
     );
-    const trending = await screen.findByRole("list", { name: "Trending this week" });
+    const trending = await screen.findByRole("list", { name: "New this week" });
     expect(within(trending).getByRole("link", { name: /tauri-apps/ })).toHaveAttribute(
       "href",
       "https://github.com/tauri-apps/tauri",
     );
-    expect(screen.getByRole("region", { name: "Trending on GitHub" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "New on GitHub" })).toBeInTheDocument();
     const news = await screen.findByRole("list", { name: "Top stories" });
     expect(within(news).getByRole("link", { name: /Rust 1.92 released/ })).toHaveAttribute(
       "href",
       `/news/view?url=${encodeURIComponent("https://blog.rust-lang.org/")}`,
     );
     expect(screen.getByText(/1 new to review/)).toBeInTheDocument();
-    const order = ["Top stories", "Trending on GitHub", "Latest saves"].map((name) =>
+    const order = ["Top stories", "New on GitHub", "Latest saves"].map((name) =>
       screen.getByRole("region", { name }),
     );
     // News first, then trending repos, then the user's resources.
@@ -168,7 +190,7 @@ describe("App", () => {
     expect(order[1]?.compareDocumentPosition(order[2] as Node)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    const collections = await screen.findByRole("region", { name: "Your collections" });
+    const collections = await screen.findByRole("region", { name: "Categories" });
     expect(await within(collections).findByRole("link", { name: /UI components/ })).toHaveAttribute(
       "href",
       "/library?filter=ui-components",

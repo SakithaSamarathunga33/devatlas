@@ -19,6 +19,17 @@ pub fn run() -> tauri::Result<()> {
             app.manage(commands::preview::Previews::new(cache_file)?);
             let data_dir = app.path().app_data_dir()?;
             app.manage(commands::library::LibraryStore::new(&data_dir));
+            commands::library::initialize_settings(app.handle());
+            // Dev builds get their own file: a work-in-progress migration must never touch
+            // the installed app's data.
+            let database = if cfg!(debug_assertions) {
+                "devatlas-dev.db"
+            } else {
+                "devatlas.db"
+            };
+            app.manage(tauri::async_runtime::block_on(
+                commands::organizer::Organizer::open(&data_dir.join(database)),
+            ));
             app.manage(commands::discovery::Discovery::new()?);
             app.manage(commands::news::News::new()?);
             Ok(())
@@ -27,6 +38,15 @@ pub fn run() -> tauri::Result<()> {
             commands::app_info::get_app_info,
             commands::discovery::list_trending_repos,
             commands::discovery::get_github_repo,
+            commands::discovery::get_repo_activity,
+            commands::organizer::update_resource,
+            commands::organizer::list_groups,
+            commands::organizer::create_group,
+            commands::organizer::update_group,
+            commands::organizer::delete_group,
+            commands::organizer::set_group_resources,
+            commands::settings::get_settings,
+            commands::settings::update_settings,
             commands::news::list_news,
             commands::news::list_top_stories,
             commands::news::list_language_rankings,

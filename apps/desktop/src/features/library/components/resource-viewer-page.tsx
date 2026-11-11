@@ -24,9 +24,7 @@ export function ResourceViewerPage() {
     return (
       <div className="mx-auto max-w-xl px-6 pt-16 text-sm text-muted-foreground">
         <p>
-          {library.isError
-            ? library.error.message
-            : "This resource is no longer in your Brave develop folder."}
+          {library.isError ? library.error.message : "This resource is no longer in your library."}
         </p>
         <Link to="/library" className="mt-4 inline-flex items-center gap-1.5 text-primary">
           <ArrowLeft className="size-4" aria-hidden />

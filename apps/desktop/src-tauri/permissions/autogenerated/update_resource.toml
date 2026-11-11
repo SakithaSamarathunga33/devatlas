@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-update-resource"
+description = "Enables the update_resource command without any pre-configured scope."
+commands.allow = ["update_resource"]
+
+[[permission]]
+identifier = "deny-update-resource"
+description = "Denies the update_resource command without any pre-configured scope."
+commands.deny = ["update_resource"]

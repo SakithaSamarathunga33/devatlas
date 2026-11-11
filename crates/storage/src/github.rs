@@ -9,7 +9,9 @@ use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-use devatlas_application::discovery::{GithubRepo, RepoSource, TrendingQuery, TrendingSource};
+use devatlas_application::discovery::{
+    GithubRepo, ReleaseSource, RepoRelease, RepoSource, TrendingQuery, TrendingSource,
+};
 use reqwest::StatusCode;
 use reqwest::header::ACCEPT;
 use serde::Deserialize;
@@ -150,6 +152,21 @@ impl RepoSource for GithubApi {
     }
 }
 
+impl ReleaseSource for GithubApi {
+    /// Not cached here: the caller stores each check, so it survives restarts.
+    async fn latest_release(&self, full_name: &str) -> Result<Option<RepoRelease>, GithubError> {
+        match self.get(release_url(full_name)?).await {
+            // No release yet, or the repository moved (redirects are not followed).
+            Err(GithubError::Status(404 | 301 | 302 | 307 | 308)) => Ok(None),
+            Err(error) => {
+                tracing::warn!(%error, %full_name, "could not check the latest release");
+                Err(error)
+            }
+            Ok(body) => Ok(parse_release(&body)?),
+        }
+    }
+}
+
 /// `https://api.github.com/repos/{owner}/{name}`. The application layer has validated the
 /// name; the parts are still added as encoded path segments, never pasted into the URL.
 fn repo_url(full_name: &str) -> Result<Url, GithubError> {
@@ -159,6 +176,40 @@ fn repo_url(full_name: &str) -> Result<Url, GithubError> {
         segments.clear().extend(["repos", owner, name]);
     }
     Ok(url)
+}
+
+fn release_url(full_name: &str) -> Result<Url, GithubError> {
+    let mut url = repo_url(full_name)?;
+    if let Ok(mut segments) = url.path_segments_mut() {
+        segments.extend(["releases", "latest"]);
+    }
+    Ok(url)
+}
+
+#[derive(Deserialize)]
+struct ApiRelease {
+    tag_name: String,
+    name: Option<String>,
+    html_url: String,
+    published_at: Option<String>,
+}
+
+/// One API release, or `None` when unpublished or its link does not point at GitHub: this is
+/// external data, and the UI opens these links.
+fn parse_release(body: &[u8]) -> Result<Option<RepoRelease>, serde_json::Error> {
+    let release: ApiRelease = serde_json::from_slice(body)?;
+    if !release.html_url.starts_with("https://github.com/") {
+        return Ok(None);
+    }
+    Ok(release.published_at.map(|published_at| RepoRelease {
+        tag: release.tag_name,
+        name: release
+            .name
+            .map(|name| name.trim().to_owned())
+            .filter(|name| !name.is_empty()),
+        url: release.html_url,
+        published_at,
+    }))
 }
 
 /// The `q` parameter. The application layer has already restricted `language` to
@@ -335,6 +386,44 @@ mod tests {
         assert_eq!(repo.language.as_deref(), Some("Python"));
         assert_eq!(repo.stars, 40000);
         assert!(parse_repo(off_github).unwrap().is_none());
+    }
+
+    #[test]
+    fn builds_release_urls_from_encoded_segments() {
+        assert_eq!(
+            release_url("vercel/next.js").unwrap().as_str(),
+            "https://api.github.com/repos/vercel/next.js/releases/latest"
+        );
+    }
+
+    #[test]
+    fn parses_a_release_and_drops_unsafe_or_unpublished_ones() {
+        let body = br#"{
+          "tag_name": "v1.2.0", "name": "  Big one  ",
+          "html_url": "https://github.com/a/b/releases/tag/v1.2.0",
+          "published_at": "2026-11-09T10:00:00Z"
+        }"#;
+        let unnamed = br#"{
+          "tag_name": "v2", "name": "   ",
+          "html_url": "https://github.com/a/b/releases/tag/v2",
+          "published_at": "2026-11-09T10:00:00Z"
+        }"#;
+        let off_github = br#"{
+          "tag_name": "v1", "name": null, "html_url": "javascript:alert(1)",
+          "published_at": "2026-11-09T10:00:00Z"
+        }"#;
+        let unpublished = br#"{
+          "tag_name": "v1", "name": null,
+          "html_url": "https://github.com/a/b/releases/tag/v1", "published_at": null
+        }"#;
+
+        let release = parse_release(body).unwrap().unwrap();
+
+        assert_eq!(release.tag, "v1.2.0");
+        assert_eq!(release.name.as_deref(), Some("Big one"));
+        assert_eq!(parse_release(unnamed).unwrap().unwrap().name, None);
+        assert!(parse_release(off_github).unwrap().is_none());
+        assert!(parse_release(unpublished).unwrap().is_none());
     }
 
     #[test]

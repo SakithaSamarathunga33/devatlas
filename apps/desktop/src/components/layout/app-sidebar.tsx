@@ -90,7 +90,8 @@ function PageNavigation({ collapsed }: { collapsed: boolean }) {
           icon: <Icon aria-hidden />,
         };
       })}
-      activeIndex={Math.max(0, active)}
+      // -1 on Settings, which lives outside this list: no page is active.
+      activeIndex={active}
       onChange={(index) => {
         const page = pages[index];
         if (page !== undefined && !isActive(page, pathname)) void navigate(page.to);

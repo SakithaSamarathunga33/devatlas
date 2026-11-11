@@ -38,7 +38,7 @@ const BOARD_LABELS: Record<StarBoardView, string> = {
 type Section = "trending" | "stars" | "saved";
 
 const SEARCH_LABELS: Record<Section, string> = {
-  trending: "Search trending repositories",
+  trending: "Search new repositories",
   stars: "Search Star History repositories",
   saved: "Search saved repositories",
 };
@@ -92,7 +92,7 @@ export function DiscoveryPage() {
   return (
     <div className="w-full px-5 pt-5 pb-16 lg:px-8">
       <PageHeader
-        title="Discovery"
+        title="Repos"
         description={
           {
             trending: `New GitHub repositories collecting the most stars ${PERIOD_LABELS[period].phrase}.`,
@@ -114,7 +114,7 @@ export function DiscoveryPage() {
             }}
           >
             <Flame aria-hidden />
-            Trending
+            New
           </SectionButton>
           <SectionButton
             active={section === "stars"}
@@ -258,7 +258,7 @@ function TrendingList({ period, language, search, isSaved }: TrendingListProps) 
 
   if (repos.isPending) return <RepoListSkeleton label="Loading trending repositories" />;
   if (repos.isError) {
-    return <RepoListError title="Trending repositories unavailable" query={repos} />;
+    return <RepoListError title="New repositories unavailable" query={repos} />;
   }
   if (repos.data.length === 0) {
     return (
@@ -278,12 +278,12 @@ function TrendingList({ period, language, search, isSaved }: TrendingListProps) 
   if (ranked.length === 0) {
     return (
       <p className="mt-8 text-sm text-muted-foreground">
-        No trending repositories match &ldquo;{search}&rdquo;.
+        No new repositories match &ldquo;{search}&rdquo;.
       </p>
     );
   }
   return (
-    <ol aria-label="Trending repositories" className={cn("mt-4", REPO_LIST)}>
+    <ol aria-label="New repositories" className={cn("mt-4", REPO_LIST)}>
       {ranked.map(({ repo, rank }) => (
         <li key={repo.fullName}>
           <RepoRow

@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "@/app/providers/app-providers";
 import type { LibrarySnapshot } from "@/types/library.types";
+import type { Group } from "@/types/organizer.types";
 
 import { LibraryPage } from "./library-page";
 
@@ -13,7 +14,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true })
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resolve()) }));
 
 const SNAPSHOT: LibrarySnapshot = {
-  source: { browser: "Brave", folder: "develop" },
+  source: { browser: "Brave", folder: "develop", warning: null },
   resources: [
     {
       id: "motion.dev/docs",
@@ -24,6 +25,9 @@ const SNAPSHOT: LibrarySnapshot = {
       folder: "develop/components",
       addedAt: 1_755_526_400_000,
       isNew: false,
+      categoryOverride: null,
+      tags: [],
+      note: null,
       origin: "browser",
     },
     {
@@ -35,6 +39,9 @@ const SNAPSHOT: LibrarySnapshot = {
       folder: "develop/components",
       addedAt: null,
       isNew: true,
+      categoryOverride: null,
+      tags: [],
+      note: null,
       origin: "browser",
     },
     {
@@ -46,6 +53,9 @@ const SNAPSHOT: LibrarySnapshot = {
       folder: "develop/components",
       addedAt: null,
       isNew: false,
+      categoryOverride: null,
+      tags: [],
+      note: null,
       origin: "browser",
     },
   ],
@@ -62,6 +72,25 @@ const AWWWARDS = {
   origin: "devatlas",
 } as const;
 
+const GROUPS: Group[] = [
+  {
+    id: "c1",
+    kind: "collection",
+    name: "Client work",
+    description: null,
+    resourceIds: [],
+    createdAt: 1,
+  },
+  {
+    id: "p1",
+    kind: "project",
+    name: "Website",
+    description: null,
+    resourceIds: ["motion.dev/docs"],
+    createdAt: 2,
+  },
+];
+
 async function renderLibrary(
   snapshot: LibrarySnapshot = SNAPSHOT,
   addLink: () => Promise<unknown> = () => Promise.resolve(AWWWARDS),
@@ -70,6 +99,8 @@ async function renderLibrary(
     if (command === "list_library") return Promise.resolve(snapshot);
     if (command === "add_link") return addLink();
     if (command === "remove_link") return Promise.resolve(true);
+    if (command === "list_groups") return Promise.resolve(GROUPS);
+    if (command === "update_resource") return Promise.resolve(null);
     const { url } = args as { url: string };
     return Promise.resolve({ title: null, image: `${url}/og.png`, icon: null });
   });
@@ -80,7 +111,9 @@ async function renderLibrary(
       </MemoryRouter>
     </AppProviders>,
   );
-  await screen.findByRole("region", { name: "UI components" });
+  if (snapshot.resources.some((resource) => resource.category === "ui-components")) {
+    await screen.findByRole("region", { name: "UI components" });
+  }
   return view;
 }
 
@@ -138,7 +171,10 @@ describe("LibraryPage", () => {
   it("lets you remove any resource, including Brave bookmarks", async () => {
     await renderLibrary({
       ...SNAPSHOT,
-      resources: [...SNAPSHOT.resources, { ...AWWWARDS, isNew: true }],
+      resources: [
+        ...SNAPSHOT.resources,
+        { ...AWWWARDS, isNew: true, categoryOverride: null, tags: [], note: null },
+      ],
     });
 
     expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(4);
@@ -204,6 +240,106 @@ describe("LibraryPage", () => {
     });
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByText("uiverse.io")).toBeInTheDocument();
+  });
+
+  it("edits a link's category, tags, note and groups", async () => {
+    await renderLibrary();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Docs | Motion" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit link" });
+    expect(await within(dialog).findByRole("checkbox", { name: "Website" })).toBeChecked();
+    expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveValue("");
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Category" }), {
+      target: { value: "icons" },
+    });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Tags" }), {
+      target: { value: "React, css , " },
+    });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Note" }), {
+      target: { value: "Good docs" },
+    });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Client work" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await vi.waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("update_resource", {
+        id: "motion.dev/docs",
+        edit: {
+          category: "icons",
+          tags: ["React", "css"],
+          note: "Good docs",
+          groupIds: ["c1", "p1"],
+        },
+      });
+    });
+    await vi.waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("opens the editor with what was saved before", async () => {
+    const [first, ...rest] = SNAPSHOT.resources;
+    if (first === undefined) throw new Error("fixture");
+    await renderLibrary({
+      ...SNAPSHOT,
+      resources: [{ ...first, categoryOverride: "icons", tags: ["a", "b"], note: "Hi" }, ...rest],
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Docs | Motion" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit link" });
+
+    expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveValue("icons");
+    expect(within(dialog).getByRole("textbox", { name: "Tags" })).toHaveValue("a, b");
+    expect(within(dialog).getByRole("textbox", { name: "Note" })).toHaveValue("Hi");
+  });
+
+  it("shows tags on the card and finds links by tag or note", async () => {
+    const [first, ...rest] = SNAPSHOT.resources;
+    if (first === undefined) throw new Error("fixture");
+    await renderLibrary({
+      ...SNAPSHOT,
+      resources: [{ ...first, tags: ["springy"], note: "Lovely easing" }, ...rest],
+    });
+    expect(await screen.findByText("springy")).toBeInTheDocument();
+    const search = screen.getByRole("searchbox", { name: "Search library" });
+
+    fireEvent.change(search, { target: { value: "springy" } });
+    expect(
+      within(screen.getByRole("region", { name: "Animation" })).getAllByRole("heading", {
+        level: 3,
+      }),
+    ).toHaveLength(1);
+    expect(screen.queryByRole("region", { name: "UI components" })).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "lovely" } });
+    expect(screen.queryByRole("region", { name: "UI components" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Animation" })).toBeInTheDocument();
+  });
+
+  it("describes a library with no browser selected", async () => {
+    await renderLibrary({ source: { browser: "", folder: "", warning: null }, resources: [] });
+
+    expect(await screen.findByText(/No links yet/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  });
+
+  it("summarizes links saved without a browser", async () => {
+    await renderLibrary({
+      source: { browser: "", folder: "", warning: null },
+      resources: [{ ...AWWWARDS, isNew: false, categoryOverride: null, tags: [], note: null }],
+    });
+
+    expect(await screen.findByText("1 developer resource, added in DevAtlas.")).toBeInTheDocument();
+  });
+
+  it("still shows saved links when the browser can't be read, and says why", async () => {
+    await renderLibrary({
+      source: { browser: "Brave", folder: "develop", warning: "Bookmarks were not found." },
+      resources: [{ ...AWWWARDS, isNew: false, categoryOverride: null, tags: [], note: null }],
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Bookmarks were not found.");
+    expect(screen.getByRole("link", { name: /Best Portfolio Websites/ })).toBeInTheDocument();
   });
 
   it("switches between the grid and a compact list", async () => {

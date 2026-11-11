@@ -13,21 +13,24 @@ foundation only (milestone DEVATLAS-001):
 - A Tauri 2 desktop shell with a React 19 + TypeScript frontend.
 - A layered Rust workspace (`domain`, `application`, `storage`).
 - One end-to-end Rust ↔ frontend integration: the `get_app_info` command, shown on the dashboard.
-- A **Library** read live (read-only) from your Brave bookmarks: everything in the bookmarks-bar
-  folder `develop` (including subfolders) is cleaned, de-duplicated, and sorted into UI
-  components, design inspiration, animation, icons, tools, and cloud consoles. Cards show each
-  site's preview image, sites open inside DevAtlas, and links you save in Brave appear within a
-  few seconds with a **New** tag (until you open them, or for 7 days). You can also paste a link
-  into **Add link** on the Library page: DevAtlas fetches its title and preview, files it under
-  the right category, and keeps it in its own data folder (Brave is never written to).
-- **Discovery**: new GitHub repositories collecting the most stars today, this week, or this
+- A **Library** that can read one bookmark folder live (read-only) from Brave, Chrome, Edge or
+  Vivaldi, chosen in **Settings**, or no browser at all. Links are cleaned, de-duplicated, and
+  sorted into UI components, design inspiration, animation, icons, tools, and cloud consoles.
+  Cards show each site's preview image, sites open inside DevAtlas, and links saved in the browser
+  appear within a few seconds with a **New** tag (until you open them, or for 7 days). You can
+  also paste a link into **Add link** on the Library page: DevAtlas fetches its title and preview,
+  files it under the right category, and keeps it in its own data folder (the browser is never
+  written to). Each link's **Edit** button changes its category and adds tags and a note.
+- **Collections** and **Projects**: named groups of links, stored in a local SQLite database.
+- **Repos**: new GitHub repositories collecting the most stars today, this week, or this
   month, optionally by language, with one-click **Save** to the Library. Rows expand (click
   again to collapse) to show each repository's **Star history** chart from
   [star-history.com](https://www.star-history.com). **Star History** shows that site's
   rankings of repositories of any age: Weekly (biggest star gainers), All-time, Random and
   Pyramid (how stars are distributed). **Saved repos** lists the GitHub
-  repositories in your library as cards or rows, with search, language and sort filters (their
-  details come from GitHub's API and are cached for an hour). The dashboard shows this week's
+  repositories in your library as cards or rows, with search, language and sort filters, their
+  latest release and recent star growth (details come from GitHub's API and are cached for an
+  hour; release checks are stored for six). The dashboard shows this week's
   top five. GitHub has no API for its Trending page, so this uses the official Search API
   (repositories created in the period, most stars first), cached for 15 minutes to respect its
   rate limit.
@@ -35,12 +38,12 @@ foundation only (milestone DEVATLAS-001):
   posts from 35 official blogs, grouped into languages, frameworks, databases, and tools &
   platforms, each with its logo (from Simple Icons). Feeds are read in Rust from a fixed
   allow-list and cached for 30 minutes.
-- **Rankings**: how popular programming languages are, from the two indexes that update
+- **Languages**: how popular programming languages are, from the two indexes that update
   monthly (TIOBE and PYPL), side by side, with each language's movement over the last year.
 - Linting, formatting, tests, and CI.
 
-Resource management, search, discovery, the browser extension, AI features, and sync are **not
-implemented yet**. Navigation entries for them are visible but disabled and marked "Soon".
+Explorer, full-text search, AI features, and sync are **not implemented yet**. Explorer's
+navigation entry is visible but disabled and marked "Soon".
 
 ## Technology stack
 
@@ -54,9 +57,8 @@ implemented yet**. Navigation entries for them are visible but disabled and mark
 | Forms (upcoming) | React Hook Form + @hookform/resolvers                                                              |
 | Charts           | Bklit UI (area chart; d3-scale, d3-shape)                                                          |
 | Other            | React Router, Sonner (toasts), date-fns                                                            |
-| Rust crates      | serde, tracing, tracing-subscriber                                                                 |
+| Rust crates      | serde, tracing, tracing-subscriber, SQLx (SQLite)                                                  |
 | Tooling          | pnpm 10 workspaces, Cargo workspace, ESLint, Prettier, Vitest, rustfmt, Clippy                     |
-| Planned          | SQLite + SQLx (DEVATLAS-002), WXT browser extension (later milestone)                              |
 
 TypeScript is pinned to 6.0.x because `typescript-eslint` does not yet support TypeScript 7.
 

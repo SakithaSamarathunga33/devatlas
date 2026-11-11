@@ -1,4 +1,4 @@
-//! Small JSON files in the app data directory (until SQLite lands in DEVATLAS-002).
+//! Small JSON files in the app data directory: saved links, library memory and settings.
 
 use std::io::ErrorKind;
 use std::path::Path;

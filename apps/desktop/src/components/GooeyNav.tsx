@@ -380,6 +380,8 @@ const GooeyNav = ({
 }: GooeyNavProps) => {
   const [innerIndex, setInnerIndex] = useState(initialActiveIndex);
   const current = Math.min(Math.max(0, activeIndex ?? innerIndex), Math.max(0, items.length - 1));
+  // DevAtlas: -1 means no item is active (the current page lives outside this nav).
+  const noneActive = activeIndex === -1;
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -409,7 +411,7 @@ const GooeyNav = ({
 
   const select = (index: number) => {
     const item = items[index];
-    if (index === current || !item) return;
+    if ((index === current && !noneActive) || !item) return;
     if (activeIndex === undefined) setInnerIndex(index);
     onChange?.(index, item);
   };
@@ -960,7 +962,7 @@ const GooeyNav = ({
         "aria-label": item.ariaLabel,
         ...(mode === "toggle"
           ? { "aria-pressed": index === current }
-          : { "aria-current": index === current ? ("page" as const) : undefined }),
+          : { "aria-current": index === current && !noneActive ? ("page" as const) : undefined }),
         onClick: (event: MouseEvent) => {
           if (!item.href || item.href === "#") event.preventDefault();
           select(index);
@@ -973,7 +975,7 @@ const GooeyNav = ({
           role={mode === "toggle" ? "none" : undefined}
           className={vertical ? "group flex w-full" : "group flex"}
           data-gooey-index={index}
-          data-active={index === current ? "" : undefined}
+          data-active={index === current && !noneActive ? "" : undefined}
         >
           {item.href ? (
             <a href={item.href} {...shared}>
@@ -1009,18 +1011,22 @@ const GooeyNav = ({
       <div ref={stageRef} className={vertical ? "relative w-full" : "relative max-w-full"}>
         <canvas
           ref={canvasRef}
-          className="pointer-events-none absolute top-0 left-0"
+          className={`pointer-events-none absolute top-0 left-0${noneActive ? " opacity-0" : ""}`}
           aria-hidden="true"
         />
         <span
           ref={fallbackRef}
-          className="pointer-events-none absolute top-0 left-0 hidden rounded-full bg-[var(--gn-pill)]"
+          className={`pointer-events-none absolute top-0 left-0 hidden rounded-full bg-[var(--gn-pill)]${noneActive ? " opacity-0" : ""}`}
           aria-hidden="true"
         />
         <ul ref={listRef} role={mode === "toggle" ? "none" : undefined} className={listClass}>
           {labels(true)}
         </ul>
-        <ul ref={overlayRef} className={overlayClass} aria-hidden="true">
+        <ul
+          ref={overlayRef}
+          className={`${overlayClass}${noneActive ? " opacity-0" : ""}`}
+          aria-hidden="true"
+        >
           {labels(false)}
         </ul>
       </div>

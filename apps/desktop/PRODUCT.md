@@ -37,13 +37,14 @@ allow-list (GitHub Search API, Hacker News, 35 official blogs, TIOBE/PYPL).
 
 ## Capabilities and Constraints
 
-- Shipped: Library (Brave `develop` bookmarks + links added in-app, categories, "New" tag for 7
-  days, in-app site viewer), Discovery (GitHub repos gaining stars today/week/month, by language,
-  Save to Library, star history, Saved repos), News (Hacker News front page + official blogs),
-  Rankings (TIOBE and PYPL side by side).
-- Planned, not built (navigation shows them as "Soon"): Collections, Explorer, Projects, Settings,
-  search, browser extension, AI features, sync.
-- Brave is never written to. GitHub data is cached (15 min trending, 1 h repo details); feeds 30 min.
+- Shipped: Library (a chosen browser's bookmark folder + links added in-app, editable categories,
+  tags and notes, "New" tag for 7 days, in-app site viewer), Collections and Projects (named groups
+  of links), Repos (new GitHub repos by period and language, Star History rankings, Save to
+  Library, star history, Saved repos with latest release and star growth), News (Hacker News front
+  page + official blogs), Languages (TIOBE and PYPL side by side), Settings (bookmark source).
+- Planned, not built (navigation shows it as "Soon"): Explorer. Also unbuilt: full-text search, AI
+  features, sync. A browser extension was considered and dropped: links can be added in the app.
+- Browsers are never written to. GitHub data is cached (15 min trending, 1 h repo details); feeds 30 min.
 - Windows is the only tested platform.
 
 ## Brand Commitments

@@ -1,8 +1,9 @@
-use devatlas_application::discovery::{self, GithubRepo, TrendingPeriod};
+use devatlas_application::discovery::{self, GithubRepo, RepoActivity, TrendingPeriod};
 use devatlas_storage::github::{GithubApi, GithubError};
 use tauri::State;
 
 use super::library::now_ms;
+use super::organizer::Organizer;
 
 /// The GitHub API client and its caches, created once at startup.
 pub struct Discovery {
@@ -44,4 +45,24 @@ pub async fn get_github_repo(
             tracing::debug!(%error, %full_name, "repository details unavailable");
             error.to_string()
         })
+}
+
+/// A saved repository's newest release and recent star growth.
+#[tauri::command]
+pub async fn get_repo_activity(
+    full_name: String,
+    discovery: State<'_, Discovery>,
+    organizer: State<'_, Organizer>,
+) -> Result<RepoActivity, String> {
+    discovery::repo_activity(
+        &discovery.github,
+        organizer.database()?,
+        &full_name,
+        now_ms(),
+    )
+    .await
+    .map_err(|error| {
+        tracing::debug!(?error, %full_name, "repository activity unavailable");
+        error.to_string()
+    })
 }

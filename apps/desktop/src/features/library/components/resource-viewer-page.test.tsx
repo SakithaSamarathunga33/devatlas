@@ -14,7 +14,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(() => Promise.resolve(vi
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resolve()) }));
 
 const SNAPSHOT: LibrarySnapshot = {
-  source: { browser: "Brave", folder: "develop" },
+  source: { browser: "Brave", folder: "develop", warning: null },
   resources: [
     {
       id: "motion.dev/docs",
@@ -25,6 +25,9 @@ const SNAPSHOT: LibrarySnapshot = {
       folder: "develop",
       addedAt: null,
       isNew: false,
+      categoryOverride: null,
+      tags: [],
+      note: null,
       origin: "browser",
     },
   ],
@@ -85,7 +88,7 @@ describe("ResourceViewerPage", () => {
     renderViewer("/library/gone.example");
 
     expect(
-      await screen.findByText("This resource is no longer in your Brave develop folder."),
+      await screen.findByText("This resource is no longer in your library."),
     ).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith("viewer_open", expect.anything());
   });

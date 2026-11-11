@@ -19,6 +19,9 @@ function resource(addedAt: number | null, isNew = false): Resource {
     addedAt,
     isNew,
     origin: "browser",
+    categoryOverride: null,
+    tags: [],
+    note: null,
   };
 }
 
@@ -41,6 +44,6 @@ describe("librarySummary", () => {
   });
 
   it("tells an empty library how to start", () => {
-    expect(librarySummary([], NOW)).toBe("Save links in Brave › develop or with Add link");
+    expect(librarySummary([], NOW)).toBe("Save your first link with Add link");
   });
 });

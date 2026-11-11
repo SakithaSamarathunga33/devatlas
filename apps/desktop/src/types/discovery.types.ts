@@ -22,6 +22,21 @@ export type GithubRepo = z.infer<typeof githubRepoSchema>;
 
 export const githubReposSchema = z.array(githubRepoSchema);
 
+/** IPC contract for `get_repo_activity`; mirrors
+ * `devatlas_application::discovery::RepoActivity`. */
+export const repoActivitySchema = z.object({
+  latestRelease: z
+    .object({
+      tag: z.string().min(1),
+      name: z.string().nullable(),
+      url: z.url().startsWith("https://github.com/"),
+      publishedAt: z.iso.datetime({ offset: true }),
+    })
+    .nullable(),
+  starsGained: z.object({ count: z.number().int(), days: z.number().int() }).nullable(),
+});
+export type RepoActivity = z.infer<typeof repoActivitySchema>;
+
 const starRepoSchema = z.object({
   fullName: z.string().regex(/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/),
   stars: z.number().int().nonnegative(),

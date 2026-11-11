@@ -54,13 +54,16 @@ function resource(id: string, url: string, addedAt: number | null): Resource {
     folder: "develop",
     addedAt,
     isNew: false,
+    categoryOverride: null,
+    tags: [],
+    note: null,
     origin: "browser",
   };
 }
 
 /** Tauri and Next.js are saved; GitHub's Trending page is a link, not a repository. */
 const LIBRARY: LibrarySnapshot = {
-  source: { browser: "Brave", folder: "develop" },
+  source: { browser: "Brave", folder: "develop", warning: null },
   resources: [
     resource("github.com/tauri-apps/tauri", TAURI.url, 1_000),
     resource("github.com/vercel/next.js", NEXT.url, 2_000),
@@ -72,10 +75,12 @@ function renderDiscovery(
   trending: () => Promise<unknown> = () => Promise.resolve([TAURI, ZED]),
   entry = "/discovery",
   starBoards: () => Promise<unknown> = () => Promise.reject(new Error("no boards")),
+  activity: () => Promise<unknown> = () => Promise.reject(new Error("no activity")),
 ) {
   vi.mocked(invoke).mockImplementation((command, args) => {
     if (command === "list_trending_repos") return trending();
     if (command === "get_star_boards") return starBoards();
+    if (command === "get_repo_activity") return activity();
     if (command === "list_library") return Promise.resolve(LIBRARY);
     if (command === "get_github_repo") {
       const { fullName } = args as { fullName: string };
@@ -107,7 +112,7 @@ describe("DiscoveryPage — trending", () => {
   it("ranks this week's most-starred new repositories", async () => {
     renderDiscovery();
 
-    const list = await screen.findByRole("list", { name: "Trending repositories" });
+    const list = await screen.findByRole("list", { name: "New repositories" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(2);
     const tauri = rowOf(/^tauri-apps\s*\/\s*tauri$/);
     expect(within(tauri).getByRole("link", { name: /tauri-apps/ })).toHaveAttribute(
@@ -142,7 +147,7 @@ describe("DiscoveryPage — trending", () => {
 
   it("expands a row when clicked and collapses it on the next click", async () => {
     renderDiscovery();
-    await screen.findByRole("list", { name: "Trending repositories" });
+    await screen.findByRole("list", { name: "New repositories" });
     const chart = { name: "Star history chart for tauri-apps/tauri: stars over time" };
     expect(screen.queryByRole("img", chart)).not.toBeInTheDocument();
 
@@ -173,20 +178,20 @@ describe("DiscoveryPage — trending", () => {
 
   it("searches the list while keeping GitHub's ranks", async () => {
     renderDiscovery();
-    await screen.findByRole("list", { name: "Trending repositories" });
+    await screen.findByRole("list", { name: "New repositories" });
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search trending repositories" }), {
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search new repositories" }), {
       target: { value: "zed" },
     });
 
-    const list = screen.getByRole("list", { name: "Trending repositories" });
+    const list = screen.getByRole("list", { name: "New repositories" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(1);
     expect(rowOf(/^zed-industries\s*\/\s*zed$/)).toHaveTextContent(/^2/);
   });
 
   it("filters by period and language", async () => {
     renderDiscovery();
-    await screen.findByRole("list", { name: "Trending repositories" });
+    await screen.findByRole("list", { name: "New repositories" });
 
     fireEvent.click(screen.getByRole("button", { name: "This month" }));
     expect(screen.getByRole("button", { name: "This month" })).toHaveAttribute(
@@ -211,7 +216,7 @@ describe("DiscoveryPage — trending", () => {
     );
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Trending repositories unavailable");
+    expect(alert).toHaveTextContent("New repositories unavailable");
     expect(alert).toHaveTextContent("GitHub's request limit was reached.");
     expect(within(alert).getByRole("button", { name: "Try again" })).toBeEnabled();
   });
@@ -454,6 +459,50 @@ describe("DiscoveryPage — saved repositories", () => {
     expect(
       within(saved).getByRole("button", { name: "Show details for vercel/next.js" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows each saved repository's latest release and star growth", async () => {
+    renderDiscovery(undefined, "/discovery?view=saved", undefined, () =>
+      Promise.resolve({
+        latestRelease: {
+          tag: "v2.0.0",
+          name: "Two",
+          url: "https://github.com/tauri-apps/tauri/releases/tag/v2.0.0",
+          publishedAt: new Date(Date.now() - 2 * DAY_MS).toISOString(),
+        },
+        starsGained: { count: 120, days: 3 },
+      }),
+    );
+
+    const row = await vi.waitFor(() => rowOf(/^tauri-apps\s*\/\s*tauri$/));
+    const release = await within(row).findByRole("link", { name: /v2\.0\.0/ });
+    expect(release).toHaveAttribute(
+      "href",
+      "https://github.com/tauri-apps/tauri/releases/tag/v2.0.0",
+    );
+    expect(row).toHaveTextContent("New release");
+    expect(row).toHaveTextContent("2 days ago");
+    expect(row).toHaveTextContent("+120 stars in 3 days");
+    expect(invoke).toHaveBeenCalledWith("get_repo_activity", { fullName: "tauri-apps/tauri" });
+  });
+
+  it("doesn't call an old release new, and shows nothing without activity", async () => {
+    renderDiscovery(undefined, "/discovery?view=saved", undefined, () =>
+      Promise.resolve({
+        latestRelease: {
+          tag: "v1.0.0",
+          name: null,
+          url: "https://github.com/tauri-apps/tauri/releases/tag/v1.0.0",
+          publishedAt: new Date(Date.now() - 40 * DAY_MS).toISOString(),
+        },
+        starsGained: null,
+      }),
+    );
+
+    const row = await vi.waitFor(() => rowOf(/^tauri-apps\s*\/\s*tauri$/));
+    await within(row).findByRole("link", { name: /v1\.0\.0/ });
+    expect(row).not.toHaveTextContent("New release");
+    expect(row).not.toHaveTextContent("stars in");
   });
 
   it("removes a saved repository from the library", async () => {

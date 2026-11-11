@@ -2,8 +2,10 @@ import { invokeCommand } from "@/services/ipc";
 import {
   githubRepoSchema,
   githubReposSchema,
+  repoActivitySchema,
   starBoardsSchema,
   type GithubRepo,
+  type RepoActivity,
   type StarBoards,
   type TrendingPeriod,
 } from "@/types/discovery.types";
@@ -19,6 +21,11 @@ export function listTrendingRepos(
   language: string | null,
 ): Promise<GithubRepo[]> {
   return invokeCommand("list_trending_repos", githubReposSchema, { period, language });
+}
+
+/** A saved repository's newest release and recent star growth. */
+export function getRepoActivity(fullName: string): Promise<RepoActivity> {
+  return invokeCommand("get_repo_activity", repoActivitySchema, { fullName });
 }
 
 /** star-history.com's repository rankings (read in Rust). */

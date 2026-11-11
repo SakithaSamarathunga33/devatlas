@@ -60,7 +60,7 @@ export function DashboardPage() {
   const library = useLibrary();
   const resources = library.data?.resources ?? [];
   const status = library.isPending
-    ? "Reading your Brave bookmarks…"
+    ? "Reading your library…"
     : library.isError
       ? library.error.message
       : null;
@@ -75,7 +75,7 @@ export function DashboardPage() {
         <Section title="Top stories" icon={Flame} viewAll="/news">
           <NewsPreview />
         </Section>
-        <Section title="Trending on GitHub" icon={GithubMark} viewAll="/discovery">
+        <Section title="New on GitHub" icon={GithubMark} viewAll="/discovery">
           <TrendingPreview />
         </Section>
       </div>
@@ -84,7 +84,7 @@ export function DashboardPage() {
         <SidePanel title="Latest saves" icon={Bookmark} viewAll="/library">
           {status ?? <LatestSaves resources={resources} />}
         </SidePanel>
-        <SidePanel title="Your collections" icon={FolderOpen} viewAll="/library">
+        <SidePanel title="Categories" icon={FolderOpen} viewAll="/library">
           {status ?? <Collections resources={resources} />}
         </SidePanel>
       </div>
@@ -262,7 +262,7 @@ function LibraryOverview({ resources }: { resources: readonly Resource[] }) {
 function LatestSaves({ resources }: { resources: readonly Resource[] }) {
   const latest = newestFirst(resources).slice(0, LATEST_SHOWN);
   if (latest.length === 0) {
-    return <p className="px-2 pb-2">Save links in Brave › develop or with Add link.</p>;
+    return <p className="px-2 pb-2">Save your first link with Add link.</p>;
   }
   return (
     <ul className="flex flex-col">

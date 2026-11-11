@@ -5,6 +5,13 @@ import { DashboardPage } from "@/features/dashboard";
 import { DiscoveryPage } from "@/features/discovery";
 import { LibraryPage, ResourceViewerPage } from "@/features/library";
 import { NewsPage, NewsViewerPage, RankingsPage } from "@/features/news";
+import {
+  CollectionDetailPage,
+  CollectionsPage,
+  ProjectDetailPage,
+  ProjectsPage,
+} from "@/features/organizer";
+import { SettingsPage } from "@/features/settings";
 import type { RouteHandle } from "@/hooks/use-page-title";
 
 export const routes: RouteObject[] = [
@@ -30,7 +37,7 @@ export const routes: RouteObject[] = [
       {
         path: "discovery",
         Component: DiscoveryPage,
-        handle: { title: "Discovery" } satisfies RouteHandle,
+        handle: { title: "Repos" } satisfies RouteHandle,
       },
       {
         path: "news",
@@ -45,7 +52,32 @@ export const routes: RouteObject[] = [
       {
         path: "rankings",
         Component: RankingsPage,
-        handle: { title: "Rankings" } satisfies RouteHandle,
+        handle: { title: "Languages" } satisfies RouteHandle,
+      },
+      {
+        path: "collections",
+        Component: CollectionsPage,
+        handle: { title: "Collections" } satisfies RouteHandle,
+      },
+      {
+        path: "collections/:groupId",
+        Component: CollectionDetailPage,
+        handle: { title: "Collections" } satisfies RouteHandle,
+      },
+      {
+        path: "projects",
+        Component: ProjectsPage,
+        handle: { title: "Projects" } satisfies RouteHandle,
+      },
+      {
+        path: "projects/:groupId",
+        Component: ProjectDetailPage,
+        handle: { title: "Projects" } satisfies RouteHandle,
+      },
+      {
+        path: "settings",
+        Component: SettingsPage,
+        handle: { title: "Settings" } satisfies RouteHandle,
       },
       // Unknown paths return to the dashboard.
       { path: "*", loader: () => redirect("/") },

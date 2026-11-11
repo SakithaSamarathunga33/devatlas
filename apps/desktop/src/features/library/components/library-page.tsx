@@ -1,6 +1,6 @@
 import { CircleAlert, LayoutGrid, List, Plus, RotateCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { GooeyFilter } from "@/components/shared/gooey-filter";
 import { PageHeader } from "@/components/shared/page-header";
@@ -29,6 +29,10 @@ function parseFilter(value: string | null): CategoryFilter {
 }
 
 function librarySummary({ source, resources }: LibrarySnapshot): string {
+  if (source.browser === "") {
+    const noun = resources.length === 1 ? "resource" : "resources";
+    return `${String(resources.length)} developer ${noun}, added in DevAtlas.`;
+  }
   const fromBrowser = resources.filter((resource) => resource.origin === "browser").length;
   const added = resources.length - fromBrowser;
   const browserPart = `${String(fromBrowser)} from ${source.browser} › ${source.folder}`;
@@ -62,9 +66,7 @@ export function LibraryPage() {
       <PageHeader
         title="Library"
         description={
-          query.isSuccess
-            ? librarySummary(query.data)
-            : "Your developer bookmarks, read live from Brave."
+          query.isSuccess ? librarySummary(query.data) : "Your developer links, in one place."
         }
       >
         <div className="flex max-w-xl min-w-0 flex-1 basis-80 items-center gap-2">
@@ -148,6 +150,18 @@ export function LibraryPage() {
         </div>
       )}
 
+      {query.isSuccess && query.data.source.warning !== null && (
+        <p role="alert" className="mt-4 flex items-center gap-2 text-sm text-destructive">
+          <CircleAlert className="size-4 shrink-0" aria-hidden />
+          <span>
+            {query.data.source.warning}{" "}
+            <Link to="/settings" className="underline underline-offset-4">
+              Open Settings
+            </Link>
+          </span>
+        </p>
+      )}
+
       {query.isSuccess && (
         <LibraryBrowser
           snapshot={query.data}
@@ -179,7 +193,17 @@ function LibraryBrowser({
   view,
 }: LibraryBrowserProps) {
   if (snapshot.resources.length === 0) {
-    return (
+    // The warning above already says why there is nothing.
+    if (snapshot.source.warning !== null) return null;
+    return snapshot.source.browser === "" ? (
+      <p className="mt-10 text-sm text-muted-foreground">
+        No links yet. Add one with Add link, or choose a browser to read bookmarks from in{" "}
+        <Link to="/settings" className="text-primary underline-offset-4 hover:underline">
+          Settings
+        </Link>
+        .
+      </p>
+    ) : (
       <p className="mt-10 text-sm text-muted-foreground">
         No bookmarks found in {snapshot.source.browser} › {snapshot.source.folder}. Save links into
         that folder and they appear here.
@@ -193,7 +217,10 @@ function LibraryBrowser({
     (resource) =>
       (category === "all" ||
         (category === "new" ? resource.isNew : resource.category === category)) &&
-      (term === "" || resource.title.toLowerCase().includes(term) || resource.host.includes(term)),
+      (term === "" ||
+        [resource.title, resource.host, resource.note ?? "", ...resource.tags].some((text) =>
+          text.toLowerCase().includes(term),
+        )),
   );
   const groups = resourceCategories
     .map((group) => ({
@@ -294,7 +321,7 @@ function ViewButton({ label, active, onSelect, children }: ViewButtonProps) {
 function LibrarySkeleton() {
   return (
     <div role="status" aria-busy="true" className="mt-9">
-      <span className="sr-only">Reading your Brave bookmarks</span>
+      <span className="sr-only">Reading your library</span>
       <Skeleton className="h-5 w-40" />
       <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
         {Array.from({ length: 6 }, (_, index) => (

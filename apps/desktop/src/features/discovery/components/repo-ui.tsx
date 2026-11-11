@@ -290,6 +290,8 @@ interface RepoRowProps {
   marker?: ReactNode;
   /** Shown before the actions when there are no GitHub details, such as star counts. */
   metric?: ReactNode;
+  /** Shown under the description, such as the latest release. */
+  activity?: ReactNode;
   /** The row's main action, such as Save or Remove. */
   action: ReactNode;
 }
@@ -304,6 +306,7 @@ export function RepoRow({
   rank,
   marker,
   metric,
+  activity,
   action,
 }: RepoRowProps) {
   const [expanded, setExpanded] = useState(false);
@@ -355,6 +358,7 @@ export function RepoRow({
               {description}
             </p>
           )}
+          {activity}
           {details !== undefined && (
             <RepoMeta details={details} layout="inline" className="mt-2 xl:hidden" />
           )}
@@ -450,6 +454,7 @@ export function RepoCard({
   details,
   note,
   savedAt,
+  activity,
   action,
 }: Omit<RepoRowProps, "rank"> & { savedAt: number | null }) {
   const description = details?.description ?? note;
@@ -475,6 +480,7 @@ export function RepoCard({
       <p className="mt-3 line-clamp-3 flex-1 text-sm text-muted-foreground">
         {description ?? "No description."}
       </p>
+      {activity}
       {details !== undefined && (
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
           {details.language !== null && <LanguagePill language={details.language} />}

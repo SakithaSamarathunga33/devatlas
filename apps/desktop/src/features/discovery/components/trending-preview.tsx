@@ -35,7 +35,7 @@ export function TrendingPreview() {
 
   return (
     <ol
-      aria-label="Trending this week"
+      aria-label="New this week"
       className="divide-y divide-border rounded-xl border border-border bg-card"
     >
       {repos.data.slice(0, SHOWN).map((repo, index) => (

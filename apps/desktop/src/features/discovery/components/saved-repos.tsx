@@ -6,6 +6,7 @@ import { selectClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 
 import { useSavedRepos, type SavedRepo } from "../hooks/use-saved-repos";
+import { RepoActivityLine } from "./repo-activity";
 import { REPO_LIST, RemoveRepoButton, RepoCard, RepoRow } from "./repo-ui";
 
 const SORTS = {
@@ -71,8 +72,8 @@ export function SavedRepos({ search }: { search: string }) {
   if (repos.length === 0) {
     return (
       <p className="mt-8 max-w-[65ch] text-sm text-muted-foreground">
-        No GitHub repositories saved yet. Press Save on a trending repository, or save a github.com
-        repository link in Brave › develop or with Add link in the Library.
+        No GitHub repositories saved yet. Press Save on a repository here, or add a github.com
+        repository link with Add link in the Library.
       </p>
     );
   }
@@ -173,6 +174,7 @@ export function SavedRepos({ search }: { search: string }) {
                 details={repo.details}
                 note={detailsNote(repo)}
                 savedAt={repo.resource.addedAt}
+                activity={<RepoActivityLine fullName={repo.fullName} />}
                 action={<RemoveRepoButton resource={repo.resource} fullName={repo.fullName} />}
               />
             </li>
@@ -187,6 +189,7 @@ export function SavedRepos({ search }: { search: string }) {
                 url={repo.resource.url}
                 details={repo.details}
                 note={detailsNote(repo)}
+                activity={<RepoActivityLine fullName={repo.fullName} />}
                 action={<RemoveRepoButton resource={repo.resource} fullName={repo.fullName} />}
               />
             </li>

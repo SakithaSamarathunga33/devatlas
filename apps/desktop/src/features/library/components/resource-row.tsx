@@ -1,5 +1,6 @@
 import { format } from "date-fns";
-import { ExternalLink, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 
 import { useResourcePreview } from "@/hooks/use-resource-preview";
@@ -8,7 +9,8 @@ import { cn } from "@/lib/utils";
 import type { Resource } from "@/types/library.types";
 
 import { useResourceActions, viewerPath } from "../hooks/use-resource-actions";
-import { SiteIcon } from "./resource-card";
+import { EditResourceDialog } from "./edit-resource-dialog";
+import { ResourceTags, SiteIcon } from "./resource-card";
 
 const rowAction =
   "rounded-md p-2 text-muted-foreground opacity-0 transition-opacity outline-none group-hover/row:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4";
@@ -18,6 +20,7 @@ export function ResourceRow({ resource }: { resource: Resource }) {
   const preview = useResourcePreview(resource.url);
   const { label, tint } = CATEGORY_META[resource.category];
   const { openExternally, remove } = useResourceActions(resource);
+  const [editing, setEditing] = useState(false);
 
   return (
     <article className="group/row flex items-center gap-2 rounded-xl pr-2 transition-colors hover:bg-accent/60">
@@ -43,6 +46,7 @@ export function ResourceRow({ resource }: { resource: Resource }) {
           <span className="block truncate font-mono text-xs text-muted-foreground">
             {resource.host}
           </span>
+          {resource.tags.length > 0 && <ResourceTags tags={resource.tags} className="mt-1" />}
         </span>
         <span className="hidden w-36 shrink-0 truncate text-xs text-muted-foreground md:block">
           {label}
@@ -51,6 +55,17 @@ export function ResourceRow({ resource }: { resource: Resource }) {
           {resource.addedAt === null ? "" : format(resource.addedAt, "MMM yyyy")}
         </span>
       </Link>
+      <button
+        type="button"
+        onClick={() => {
+          setEditing(true);
+        }}
+        aria-label={`Edit ${resource.title}`}
+        title="Edit category, tags and notes"
+        className={rowAction}
+      >
+        <Pencil aria-hidden />
+      </button>
       <button
         type="button"
         onClick={remove}
@@ -69,6 +84,14 @@ export function ResourceRow({ resource }: { resource: Resource }) {
       >
         <ExternalLink aria-hidden />
       </button>
+      {editing && (
+        <EditResourceDialog
+          resource={resource}
+          onClose={() => {
+            setEditing(false);
+          }}
+        />
+      )}
     </article>
   );
 }

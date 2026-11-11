@@ -2,9 +2,10 @@
 //! DevAtlas, add and remove saved links, and remember which resources the user has seen so
 //! new ones can be highlighted.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::convert::Infallible;
 
-use devatlas_domain::resource::{Resource, normalize_url};
+use devatlas_domain::resource::{Resource, ResourceCategory, normalize_url};
 use serde::{Deserialize, Serialize};
 
 use crate::preview::{self, PreviewCache, PreviewSource};
@@ -28,6 +29,15 @@ pub trait BookmarkSource {
     type Error: std::error::Error;
 
     fn bookmarks(&self) -> Result<Vec<RawBookmark>, Self::Error>;
+}
+
+/// Bookmarks already read, so a browser that can't be read doesn't fail the whole library.
+impl BookmarkSource for Vec<RawBookmark> {
+    type Error = Infallible;
+
+    fn bookmarks(&self) -> Result<Vec<RawBookmark>, Infallible> {
+        Ok(self.clone())
+    }
 }
 
 /// A link the user saved directly in DevAtlas.
@@ -76,17 +86,24 @@ pub trait LibraryMemoryStore {
 /// Where the library was read from, shown to the user.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LibrarySource {
+    /// Empty when no browser is selected.
     pub browser: String,
     pub folder: String,
+    /// Why the browser's bookmarks couldn't be read, if they couldn't.
+    pub warning: Option<String>,
 }
 
-/// A resource plus whether it is new to the user.
+/// A resource plus what DevAtlas knows about it beyond the link itself.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryItem {
     #[serde(flatten)]
     pub resource: Resource,
     pub is_new: bool,
+    /// The category the user chose; `None` when `resource.category` is automatic.
+    pub category_override: Option<ResourceCategory>,
+    pub tags: Vec<String>,
+    pub note: Option<String>,
 }
 
 /// The developer library as currently found.
@@ -109,6 +126,16 @@ pub enum LibraryError<B: std::error::Error, L: std::error::Error, M: std::error:
 /// Result of [`load_library`], with each port's error type.
 pub type LoadResult<B, L, M> = Result<
     LibrarySnapshot,
+    LibraryError<
+        <B as BookmarkSource>::Error,
+        <L as SavedLinkStore>::Error,
+        <M as LibraryMemoryStore>::Error,
+    >,
+>;
+
+/// Result of [`rebaseline`], with each port's error type.
+pub type RebaselineResult<B, L, M> = Result<
+    (),
     LibraryError<
         <B as BookmarkSource>::Error,
         <L as SavedLinkStore>::Error,
@@ -159,13 +186,16 @@ where
     M: LibraryMemoryStore,
 {
     let mut resources = browser_resources(source, folder).map_err(LibraryError::Source)?;
+    // No bookmarks is more likely an unreadable or switched browser than an emptied folder.
+    let browser_found = !resources.is_empty();
     let saved_links = saved.load().map_err(LibraryError::Saved)?;
     let mut seen: HashSet<String> = resources.iter().map(|r| r.id.clone()).collect();
     resources
         .extend(saved_resources(&saved_links).filter(|resource| seen.insert(resource.id.clone())));
     resources.sort_by_key(|resource| resource.title.to_lowercase());
 
-    let known = remember(memory, &resources, now_ms).map_err(LibraryError::Memory)?;
+    let known =
+        remember(memory, &resources, browser_found, now_ms).map_err(LibraryError::Memory)?;
     let resources = resources
         .into_iter()
         .filter(|resource| !known.get(&resource.id).is_some_and(|entry| entry.hidden))
@@ -173,7 +203,13 @@ where
             let is_new = known
                 .get(&resource.id)
                 .is_some_and(|entry| !entry.opened && now_ms - entry.first_seen < NEW_FOR_MS);
-            LibraryItem { resource, is_new }
+            LibraryItem {
+                resource,
+                is_new,
+                category_override: None,
+                tags: Vec::new(),
+                note: None,
+            }
         })
         .collect();
 
@@ -181,9 +217,52 @@ where
         source: LibrarySource {
             browser: browser.to_owned(),
             folder: folder.to_owned(),
+            warning: None,
         },
         resources,
     })
+}
+
+/// The top-level bookmark folders that hold links, for choosing one. Empty when the source
+/// can't be read.
+pub fn top_level_folders<B: BookmarkSource>(source: &B) -> Vec<String> {
+    let folders: BTreeSet<String> = source
+        .bookmarks()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|bookmark| bookmark.folder_path.into_iter().next())
+        .collect();
+    folders.into_iter().collect()
+}
+
+/// Accepts a newly selected source: links not seen before count as seen, so switching browser
+/// doesn't flag the whole library as new. Links already marked new stay new.
+pub fn rebaseline<B, L, M>(
+    source: &B,
+    saved: &L,
+    memory: &M,
+    folder: &str,
+    now_ms: i64,
+) -> RebaselineResult<B, L, M>
+where
+    B: BookmarkSource,
+    L: SavedLinkStore,
+    M: LibraryMemoryStore,
+{
+    let links = saved.load().map_err(LibraryError::Saved)?;
+    let browser = browser_resources(source, folder).map_err(LibraryError::Source)?;
+    let mut known = memory
+        .load()
+        .map_err(LibraryError::Memory)?
+        .unwrap_or_default();
+    for resource in browser.iter().cloned().chain(saved_resources(&links)) {
+        known.entry(resource.id).or_insert(ResourceMemory {
+            first_seen: now_ms,
+            opened: true,
+            hidden: false,
+        });
+    }
+    memory.save(&known).map_err(LibraryError::Memory)
 }
 
 /// Saves a link in DevAtlas after fetching its title (and warming the preview cache).
@@ -274,15 +353,19 @@ where
         })
         .cloned()
         .collect();
-    if kept.len() != links.len() {
-        saved.save(&kept).map_err(RemoveLinkError::Store)?;
-        return Ok(true);
-    }
-
     let mut known = memory
         .load()
         .map_err(RemoveLinkError::Memory)?
         .unwrap_or_default();
+    if kept.len() != links.len() {
+        saved.save(&kept).map_err(RemoveLinkError::Store)?;
+        // Forgotten, so adding it again marks it new.
+        if known.remove(id).is_some() {
+            memory.save(&known).map_err(RemoveLinkError::Memory)?;
+        }
+        return Ok(true);
+    }
+
     let Some(entry) = known.get_mut(id).filter(|entry| !entry.hidden) else {
         return Ok(false);
     };
@@ -317,6 +400,7 @@ fn with_scheme(raw: &str) -> String {
 fn remember<M: LibraryMemoryStore>(
     memory: &M,
     resources: &[Resource],
+    browser_found: bool,
     now_ms: i64,
 ) -> Result<LibraryMemory, M::Error> {
     let stored = memory.load()?;
@@ -334,12 +418,12 @@ fn remember<M: LibraryMemoryStore>(
             }
         });
     }
-    // Forget removed links so re-adding one marks it new again. An empty library is more
-    // likely a renamed or unreadable folder, so it never wipes the memory.
-    if !resources.is_empty() {
+    // Forget removed links so re-adding one marks it new again, but never when the browser
+    // returned nothing. Hidden links stay remembered, or switching browser would restore them.
+    if browser_found {
         let current: HashSet<&str> = resources.iter().map(|r| r.id.as_str()).collect();
         let before = known.len();
-        known.retain(|id, _| current.contains(id.as_str()));
+        known.retain(|id, entry| entry.hidden || current.contains(id.as_str()));
         changed |= known.len() != before;
     }
     if changed {
@@ -383,7 +467,6 @@ fn saved_resources(links: &[SavedLink]) -> impl Iterator<Item = Resource> + '_ {
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
-    use std::convert::Infallible;
     use std::pin::pin;
     use std::sync::Mutex;
     use std::task::{Context, Poll, Waker};
@@ -586,6 +669,7 @@ mod tests {
             LibrarySource {
                 browser: "Brave".to_owned(),
                 folder: "develop".to_owned(),
+                warning: None,
             }
         );
     }
@@ -852,6 +936,107 @@ mod tests {
             add_remembering(&source, &saved, &memory, None, "https://motion.dev"),
             Err(AddLinkError::AlreadySaved(_))
         ));
+    }
+
+    #[test]
+    fn switching_browsers_keeps_removed_links_hidden() {
+        let motion = bookmark("Motion", "https://motion.dev/", &["develop"]);
+        let uiverse = bookmark("Uiverse", "https://uiverse.io/", &["develop"]);
+        let source = FakeSource::new(vec![motion.clone(), uiverse.clone()]);
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+        load_with(&source, &saved, &memory, 0);
+        remove_link(&saved, &memory, "motion.dev").unwrap();
+
+        *source.0.borrow_mut() = vec![uiverse.clone()];
+        load_with(&source, &saved, &memory, 1);
+        *source.0.borrow_mut() = vec![motion, uiverse];
+
+        assert_eq!(titles(&load_with(&source, &saved, &memory, 2)), ["Uiverse"]);
+    }
+
+    #[test]
+    fn an_unreadable_browser_does_not_forget_links_when_saved_links_exist() {
+        let source = FakeSource::new(vec![bookmark(
+            "Motion",
+            "https://motion.dev/",
+            &["develop"],
+        )]);
+        let saved = FakeSaved(RefCell::new(vec![SavedLink {
+            url: "https://awwwards.com/".to_owned(),
+            title: "Awwwards".to_owned(),
+            added_at: 0,
+        }]));
+        let memory = FakeMemory::default();
+        load_with(&source, &saved, &memory, 0);
+
+        *source.0.borrow_mut() = vec![];
+        load_with(&source, &saved, &memory, 1);
+        source.add(bookmark("Motion", "https://motion.dev/", &["develop"]));
+
+        assert!(new_titles(&load_with(&source, &saved, &memory, 2)).is_empty());
+    }
+
+    #[test]
+    fn removing_a_saved_link_forgets_it_even_without_a_browser() {
+        let source = FakeSource::new(vec![]);
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+        load_with(&source, &saved, &memory, 0);
+        add_remembering(&source, &saved, &memory, Some("A"), "https://a.example/").unwrap();
+        load_with(&source, &saved, &memory, 1);
+
+        remove_link(&saved, &memory, "a.example").unwrap();
+        add_remembering(&source, &saved, &memory, Some("A"), "https://a.example/").unwrap();
+
+        assert_eq!(new_titles(&load_with(&source, &saved, &memory, 2)), ["A"]);
+    }
+
+    #[test]
+    fn rebaseline_accepts_a_new_source_without_clearing_real_new_marks() {
+        let source = FakeSource::new(vec![]);
+        let (saved, memory) = (FakeSaved::default(), FakeMemory::default());
+        load_with(&source, &saved, &memory, 0);
+        source.add(bookmark("Motion", "https://motion.dev/", &["develop"]));
+        assert_eq!(
+            new_titles(&load_with(&source, &saved, &memory, 1)),
+            ["Motion"]
+        );
+
+        source.add(bookmark("Uiverse", "https://uiverse.io/", &["develop"]));
+        rebaseline(&source, &saved, &memory, "develop", 2).unwrap();
+
+        assert_eq!(
+            new_titles(&load_with(&source, &saved, &memory, 3)),
+            ["Motion"]
+        );
+    }
+
+    #[test]
+    fn lists_each_top_level_folder_once_sorted() {
+        let source = FakeSource::new(vec![
+            bookmark("A", "https://a.example/", &["work", "deep"]),
+            bookmark("B", "https://b.example/", &["develop"]),
+            bookmark("C", "https://c.example/", &["work"]),
+            bookmark("Loose", "https://d.example/", &[]),
+        ]);
+
+        assert_eq!(top_level_folders(&source), ["develop", "work"]);
+    }
+
+    #[test]
+    fn already_read_bookmarks_can_be_a_source() {
+        let read = vec![bookmark("Motion", "https://motion.dev/", &["develop"])];
+
+        let library = load_library(
+            &read,
+            &FakeSaved::default(),
+            &FakeMemory::default(),
+            "Chrome",
+            "develop",
+            0,
+        )
+        .unwrap();
+
+        assert_eq!(titles(&library), ["Motion"]);
     }
 
     #[test]

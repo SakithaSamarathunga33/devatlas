@@ -1,6 +1,8 @@
-# Database design (planned)
+# Database design
 
-> Status: **planned for DEVATLAS-002.** No database, migrations, or tables exist yet.
+> Status: **in use** for annotations, collections, projects and repository history; see
+> `crates/storage/migrations`. Links themselves still live in browser bookmarks and
+> `saved-links.json`, so resource ids carry no foreign key.
 
 ## Approach
 
@@ -8,7 +10,8 @@ DevAtlas is SQLite-first: one embedded database file per user, owned by the Rust
 
 - **Engine:** SQLite, accessed through SQLx from `crates/storage` only.
 - **Location:** `devatlas.db` in the app-data directory resolved by Tauri's path API (see
-  [system design](../architecture/system-design.md#application-data-layout-planned)).
+  [system design](../architecture/system-design.md#application-data-layout-planned)). Debug builds
+  use `devatlas-dev.db`, so a work-in-progress migration never touches installed data.
 - **Access path:** UI → command → application use case → repository port → SQLx implementation.
   The frontend never touches the database.
 - **Migrations:** versioned SQL files committed to the repository and applied at startup by the

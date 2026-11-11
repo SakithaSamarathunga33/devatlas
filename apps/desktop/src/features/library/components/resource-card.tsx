@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { ExternalLink, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { Resource } from "@/types/library.types";
 
 import { useResourceActions, viewerPath } from "../hooks/use-resource-actions";
+import { EditResourceDialog } from "./edit-resource-dialog";
 
 const cardAction =
   "rounded-full bg-black/55 p-2 text-white/90 opacity-0 backdrop-blur transition-opacity outline-none group-hover/card:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring";
@@ -26,6 +27,7 @@ export function ResourceCard({ resource }: { resource: Resource }) {
   const preview = useResourcePreview(resource.url);
   const tint = CATEGORY_META[resource.category].tint;
   const { openExternally, remove } = useResourceActions(resource);
+  const [editing, setEditing] = useState(false);
 
   return (
     <article className="group/card relative h-full rounded-xl border border-border bg-card transition-[border-color,box-shadow] duration-150 hover:border-foreground/15 hover:shadow-[0_10px_24px_-14px_rgb(0_0_0/0.7)]">
@@ -76,11 +78,23 @@ export function ResourceCard({ resource }: { resource: Resource }) {
                 </span>
               )}
             </p>
+            {resource.tags.length > 0 && <ResourceTags tags={resource.tags} className="mt-2" />}
           </div>
         </div>
       </Link>
 
       <div className="absolute top-2.5 right-2.5 flex gap-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(true);
+          }}
+          aria-label={`Edit ${resource.title}`}
+          title="Edit category, tags and notes"
+          className={cardAction}
+        >
+          <Pencil className="size-3.5" aria-hidden />
+        </button>
         <button
           type="button"
           onClick={remove}
@@ -100,7 +114,31 @@ export function ResourceCard({ resource }: { resource: Resource }) {
           <ExternalLink className="size-3.5" aria-hidden />
         </button>
       </div>
+      {editing && (
+        <EditResourceDialog
+          resource={resource}
+          onClose={() => {
+            setEditing(false);
+          }}
+        />
+      )}
     </article>
+  );
+}
+
+/** A link's tags, as small chips. */
+export function ResourceTags({ tags, className }: { tags: readonly string[]; className?: string }) {
+  return (
+    <span className={cn("flex flex-wrap gap-1", className)}>
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="rounded-full bg-secondary px-2 py-px text-xs text-muted-foreground"
+        >
+          {tag}
+        </span>
+      ))}
+    </span>
   );
 }
 

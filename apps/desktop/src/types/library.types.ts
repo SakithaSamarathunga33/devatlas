@@ -23,19 +23,34 @@ export const resourceSchema = z.object({
   category: resourceCategorySchema,
   folder: z.string(),
   addedAt: z.number().int().nullable(),
-  /** `browser`: a Brave bookmark (managed in Brave). `devatlas`: saved in DevAtlas. */
+  /** `browser`: a browser bookmark (managed there). `devatlas`: saved in DevAtlas. */
   origin: z.enum(["browser", "devatlas"]),
   /** Found since an earlier run and not opened yet (cleared after a week). */
   isNew: z.boolean(),
+  /** The category the user chose; `null` when `category` is automatic. */
+  categoryOverride: resourceCategorySchema.nullable(),
+  tags: z.array(z.string()),
+  note: z.string().nullable(),
 });
 export type Resource = z.infer<typeof resourceSchema>;
 
-/** IPC contract for `add_link`: the saved resource (it is new by definition). */
-export const savedResourceSchema = resourceSchema.omit({ isNew: true });
+/** IPC contract for `add_link`: the saved resource, before anything is added to it. */
+export const savedResourceSchema = resourceSchema.omit({
+  isNew: true,
+  categoryOverride: true,
+  tags: true,
+  note: true,
+});
 
 /** IPC contract for the Rust `list_library` command. */
 export const librarySnapshotSchema = z.object({
-  source: z.object({ browser: z.string(), folder: z.string() }),
+  source: z.object({
+    /** Empty when no browser is selected. */
+    browser: z.string(),
+    folder: z.string(),
+    /** Why the browser's bookmarks couldn't be read, if they couldn't. */
+    warning: z.string().nullable(),
+  }),
   resources: z.array(resourceSchema),
 });
 export type LibrarySnapshot = z.infer<typeof librarySnapshotSchema>;

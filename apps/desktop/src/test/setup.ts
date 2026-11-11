@@ -27,6 +27,15 @@ vi.stubGlobal(
   })),
 );
 
+// jsdom has <dialog> but not its modal methods.
+HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+  this.open = false;
+  this.dispatchEvent(new Event("close"));
+};
+
 afterEach(() => {
   // Sonner keeps toasts in a module-level store, so they would leak into the next test.
   toast.dismiss();

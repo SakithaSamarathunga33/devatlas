@@ -1,10 +1,10 @@
 //! Developer resources: links worth keeping, classified by what they are.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 /// What kind of developer resource a link points to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ResourceCategory {
     UiComponents,
@@ -17,7 +17,8 @@ pub enum ResourceCategory {
 }
 
 /// Known hosts per category; a rule matches the host itself or any of its subdomains.
-// ponytail: static host table; replace with user-editable rules once resources are persisted.
+// ponytail: static host table; a link's category can be overridden individually, but there are
+// no user-defined host rules.
 const HOST_RULES: &[(&str, ResourceCategory)] = &[
     // UI component libraries
     ("kokonutui.com", ResourceCategory::UiComponents),
