@@ -1,5 +1,10 @@
+import { Badge } from "@astryxdesign/core/Badge";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { Text } from "@astryxdesign/core/Text";
+import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { useQuery } from "@tanstack/react-query";
-import { differenceInDays, formatDistanceToNowStrict } from "date-fns";
+import { differenceInDays } from "date-fns";
 import { Star, Tag } from "lucide-react";
 
 import { getRepoActivity } from "@/services/discovery.service";
@@ -30,33 +35,27 @@ export function RepoActivityLine({ fullName }: { fullName: string }) {
   if (release === null && !showGrowth) return null;
 
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+    <HStack gap={3} vAlign="center" wrap="wrap">
       {release !== null && (
-        <span className="inline-flex items-center gap-1.5">
-          <Tag className="size-3.5" aria-hidden />
-          <RepoLink
-            url={release.url}
-            title={release.name ?? release.tag}
-            className="rounded font-medium text-foreground outline-none hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {release.tag}
-          </RepoLink>
+        <HStack gap={1.5} vAlign="center">
+          <Icon icon={Tag} size="xsm" color="secondary" />
+          <Text type="supporting" color="primary" weight="medium">
+            <RepoLink url={release.url} title={release.name ?? release.tag}>
+              {release.tag}
+            </RepoLink>
+          </Text>
           {differenceInDays(new Date(), new Date(release.publishedAt)) < NEW_RELEASE_DAYS && (
-            <span className="rounded-full bg-highlight px-2 py-px font-semibold text-highlight-foreground">
-              New release
-            </span>
+            <Badge variant="teal" label="New release" />
           )}
-          <span>
-            {formatDistanceToNowStrict(new Date(release.publishedAt), { addSuffix: true })}
-          </span>
-        </span>
+          <Timestamp value={release.publishedAt} format="relative" hasTooltip={false} />
+        </HStack>
       )}
       {showGrowth && (
-        <span className="inline-flex items-center gap-1.5">
-          <Star className="size-3.5" aria-hidden />
-          {growth(gained.count, gained.days)}
-        </span>
+        <HStack gap={1.5} vAlign="center">
+          <Icon icon={Star} size="xsm" color="secondary" />
+          <Text type="supporting">{growth(gained.count, gained.days)}</Text>
+        </HStack>
       )}
-    </p>
+    </HStack>
   );
 }

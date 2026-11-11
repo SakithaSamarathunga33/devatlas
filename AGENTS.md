@@ -51,8 +51,9 @@ React UI ─► services/ ─► invoke() ─► Tauri command ─► applicatio
 - Import via the `@/` alias. Use `import type` for types (enforced).
 - Components render; logic lives in services, hooks, and the Rust application layer.
 - State: TanStack Query for backend data, Zustand only for shared transient UI state, component
-  state for local UI. Use semantic theme tokens (`bg-card`, `text-muted-foreground`), not hex.
-- Add shadcn components only when used: `pnpm dlx shadcn@latest add <name>` inside `apps/desktop`.
+  state for local UI. Use Astryx tokens and components, not hex.
+- UI is built on Astryx (`@astryxdesign/core`). Look components up with `pnpm exec astryx search` and
+  `pnpm exec astryx component <Name>` inside the app. Tailwind is for layout only.
 
 ## Rust conventions
 

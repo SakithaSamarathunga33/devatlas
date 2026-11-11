@@ -1,4 +1,9 @@
+/* The layer order must come first: it decides how Astryx and Tailwind cascade. */
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
+
 @import "tailwindcss";
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
 @import "tw-animate-css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
@@ -6,55 +11,39 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * DevAtlas design tokens. Dark is the default (and currently only) theme.
- * Components use the semantic names (background, card, primary, …), never raw hex values.
+ * The app's semantic names, resolved from the Astryx theme so remaining Tailwind classes follow
+ * it in light and dark. Components use these names or Astryx tokens, never raw hex values.
  */
 :root {
-  color-scheme: dark;
   --radius: 0.5rem;
 
-  /*
-   * "Slate & Mint" (owner palette). Dark is the default; the light theme below overrides it.
-   * Mint does two jobs: actions/selection and "new". Cyan is the quiet accent for counts and
-   * secondary highlights. Category and language colours are data, not brand.
-   */
-  --background: #0f1115;
-  --foreground: #f1f5f9;
-  /* Surfaces are neutral charcoal (owner decision 2026-11-11): no blue tint, mint is the only hue. */
-  --card: #17191e;
-  --card-foreground: #f1f5f9;
-  --popover: #17191e;
-  --popover-foreground: #f1f5f9;
-  --primary: #14b8a6; /* mint */
-  --primary-foreground: #0f1115;
-  --primary-hover: #0d9488;
-  --secondary: #1f2228; /* surface-alt */
-  --secondary-foreground: #f1f5f9;
-  --muted: #1f2228;
-  --muted-foreground: #94a3b8;
-  --faint-foreground: #64748b;
-  --disabled-foreground: #475569;
-  --accent: #262930;
-  --accent-foreground: #f1f5f9;
-  --destructive: #f2555a;
-  --border: #262930;
-  --input: #262930;
-  --ring: #14b8a6;
+  --background: var(--color-background-body);
+  --foreground: var(--color-text-primary);
+  --card: var(--color-background-card);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-background-popover);
+  --popover-foreground: var(--color-text-primary);
+  --primary: var(--color-accent);
+  --primary-foreground: var(--color-on-accent);
+  --primary-hover: color-mix(in oklab, var(--color-accent) 85%, var(--color-text-primary));
+  --secondary: var(--color-background-muted);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-background-muted);
+  --muted-foreground: var(--color-text-secondary);
+  --faint-foreground: var(--color-text-secondary);
+  --disabled-foreground: var(--color-text-disabled);
+  --accent: var(--color-background-muted);
+  --accent-foreground: var(--color-text-primary);
+  --destructive: var(--color-error);
+  --border: var(--color-border);
+  --input: var(--color-border-emphasized);
+  --ring: var(--color-accent);
 
-  --info: #22d3ee; /* accent (cyan) */
-  --success: #34d399;
-  --warning: #f5b544;
-  --highlight: #2dd4bf; /* secondary (teal) */
-  --highlight-foreground: #0f1115;
-
-  --sidebar: #0f1115;
-  --sidebar-foreground: #94a3b8;
-  --sidebar-primary: #14b8a6;
-  --sidebar-primary-foreground: #0f1115;
-  --sidebar-accent: #17191e;
-  --sidebar-accent-foreground: #f1f5f9;
-  --sidebar-border: #17191e; /* divider */
-  --sidebar-ring: #14b8a6;
+  --info: var(--color-text-info);
+  --success: var(--color-text-success);
+  --warning: var(--color-text-warning);
+  --highlight: var(--color-accent);
+  --highlight-foreground: var(--color-on-accent);
 
   /* Brand gradient: hero accents, progress rings and charts. */
   --gradient-from: #14b8a6;
@@ -124,45 +113,6 @@
  * a soft slate (#eef2f6 page, #f8fafc cards) rather than pure white, which glares.
  */
 :root[data-theme="light"] {
-  color-scheme: light;
-
-  --background: #eef2f6;
-  --foreground: #0f172a;
-  --card: #f8fafc;
-  --card-foreground: #0f172a;
-  --popover: #f8fafc;
-  --popover-foreground: #0f172a;
-  --primary: #0f766e;
-  --primary-foreground: #ffffff;
-  --primary-hover: #0d9488;
-  --secondary: #e6ebf1;
-  --secondary-foreground: #0f172a;
-  --muted: #e6ebf1;
-  --muted-foreground: #556378;
-  --faint-foreground: #556378;
-  --disabled-foreground: #94a3b8;
-  --accent: #dde4ec;
-  --accent-foreground: #0f172a;
-  --destructive: #d23a40;
-  --border: #d9e0e8;
-  --input: #c4cfdb;
-  --ring: #14b8a6;
-
-  --info: #0e7490;
-  --success: #15803d;
-  --warning: #a16207;
-  --highlight: #14b8a6;
-  --highlight-foreground: #0f172a;
-
-  --sidebar: #f4f7fa;
-  --sidebar-foreground: #334155;
-  --sidebar-primary: #0f766e;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e6ebf1;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #d9e0e8;
-  --sidebar-ring: #14b8a6;
-
   --gradient-from: #0d9488;
   --gradient-to: #06b6d4;
   --gradient-glow: rgb(13 148 136 / 0.16);
@@ -212,14 +162,6 @@
   --color-warning: var(--warning);
   --color-highlight: var(--highlight);
   --color-highlight-foreground: var(--highlight-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
   --color-tile-icon: var(--tile-icon);
   --color-category-ui: var(--category-ui);
   --color-category-inspiration: var(--category-inspiration);
@@ -350,15 +292,4 @@
   --chart-marker-badge-foreground: oklch(0.15 0 0);
   --chart-segment-background: oklch(0.41 0.0127 248.14 / 0.25);
   --chart-segment-line: oklch(1 0 0 / 0.25);
-}
-/* Magic UI's animated theme toggler: the new theme is revealed by a clip-path animation. */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-/* Scoped to the toggler, which sets this attribute only while a theme change is animating. */
-html[data-magicui-theme-vt="active"]::view-transition-group(root) {
-  animation-duration: var(--magicui-theme-toggle-vt-duration);
 }

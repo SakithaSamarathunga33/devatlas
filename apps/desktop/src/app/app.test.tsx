@@ -84,7 +84,7 @@ describe("App", () => {
       screen.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)$/ }),
     ).toBeInTheDocument();
     const primary = screen.getByRole("navigation", { name: "Primary" });
-    expect(within(primary).getByRole("button", { name: "Dashboard" })).toHaveAttribute(
+    expect(within(primary).getByRole("link", { name: "Dashboard" })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -92,7 +92,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Minimize" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
     expect(await screen.findByText("DevAtlas 0.1.0 · Windows")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Backend connected");
+    expect(screen.getByText("Backend connected")).toBeInTheDocument();
   });
 
   it("names the icon-only pages when the sidebar is collapsed", () => {
@@ -103,11 +103,11 @@ describe("App", () => {
       render(<App />);
 
       const primary = screen.getByRole("navigation", { name: "Primary" });
-      expect(within(primary).getByRole("button", { name: "Dashboard" })).toHaveAttribute(
+      expect(within(primary).getByRole("link", { name: "Dashboard" })).toHaveAttribute(
         "aria-current",
         "page",
       );
-      expect(within(primary).getByRole("button", { name: "Library" })).not.toHaveAttribute(
+      expect(within(primary).getByRole("link", { name: "Library" })).not.toHaveAttribute(
         "aria-current",
       );
     } finally {
@@ -120,7 +120,7 @@ describe("App", () => {
     render(<App />);
 
     fireEvent.click(
-      within(screen.getByRole("navigation", { name: "Primary" })).getByRole("button", {
+      within(screen.getByRole("navigation", { name: "Primary" })).getByRole("link", {
         name: "News",
       }),
     );
@@ -129,7 +129,7 @@ describe("App", () => {
 
     // The app's router is a module singleton; return to the dashboard for the next tests.
     fireEvent.click(
-      within(screen.getByRole("navigation", { name: "Primary" })).getByRole("button", {
+      within(screen.getByRole("navigation", { name: "Primary" })).getByRole("link", {
         name: "Dashboard",
       }),
     );
@@ -146,7 +146,7 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
 
     const dashboard = within(screen.getByRole("navigation", { name: "Primary" })).getByRole(
-      "button",
+      "link",
       { name: "Dashboard" },
     );
     expect(dashboard).not.toHaveAttribute("aria-current");
@@ -251,7 +251,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
 
-    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.documentElement).toHaveClass("dark");
     expect(localStorage.getItem("devatlas-theme")).toBe("dark");
   });

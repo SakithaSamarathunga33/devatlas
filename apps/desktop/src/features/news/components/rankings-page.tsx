@@ -1,3 +1,4 @@
+import { VStack } from "@astryxdesign/core/VStack";
 import { PageHeader } from "@/components/shared/page-header";
 
 import { LanguageRankings } from "./news-top";
@@ -5,7 +6,7 @@ import { LanguageRankings } from "./news-top";
 /** Rankings: how popular programming languages are, from the indexes that update monthly. */
 export function RankingsPage() {
   return (
-    <div className="w-full px-5 pt-5 pb-16 lg:px-8">
+    <VStack padding={6}>
       <PageHeader
         title="Languages"
         description="How popular languages are this month, and how each has moved over the last year."
@@ -13,6 +14,6 @@ export function RankingsPage() {
       <div className="mt-4">
         <LanguageRankings />
       </div>
-    </div>
+    </VStack>
   );
 }

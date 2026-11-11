@@ -1,7 +1,15 @@
-import { formatDistanceToNowStrict } from "date-fns";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { List, ListItem } from "@astryxdesign/core/List";
+import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { Text } from "@astryxdesign/core/Text";
+import { Timestamp } from "@astryxdesign/core/Timestamp";
+import { VisuallyHidden } from "@astryxdesign/core/VisuallyHidden";
+import { VStack } from "@astryxdesign/core/VStack";
 import { MessageSquare, Triangle } from "lucide-react";
+import { useRef } from "react";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import { RemoteImage, SiteIcon } from "@/features/library";
 import { useResourcePreview } from "@/hooks/use-resource-preview";
 import type { TopStory } from "@/types/news.types";
@@ -10,14 +18,12 @@ import { siteHost } from "../news-links";
 import { WebLink } from "./web-link";
 
 /** Two columns once the enclosing `@container` is wide enough, one otherwise. */
-const STORY_LIST = "grid gap-1 rounded-xl border border-border bg-card p-1.5 @3xl:grid-cols-2";
+const STORY_LIST = "grid gap-1 @3xl:grid-cols-2";
 
 /** A page's preview image (or its icon), from the same on-disk cache as library cards. */
 function PreviewImage({ url }: { url: string }) {
   const preview = useResourcePreview(url);
-  if (preview.isPending) {
-    return <Skeleton className="size-full rounded-none bg-foreground/[0.04]" />;
-  }
+  if (preview.isPending) return <Skeleton radius="none" />;
   return (
     <RemoteImage
       src={preview.data?.image ?? null}
@@ -38,64 +44,71 @@ function PreviewImage({ url }: { url: string }) {
 /** Top stories as compact rows, shared by the dashboard and the News page. */
 export function StoryList({ stories }: { stories: readonly TopStory[] }) {
   return (
-    <ol aria-label="Top stories" className={STORY_LIST}>
+    <List aria-label="Top stories" className={STORY_LIST}>
       {stories.map((story) => (
-        <li key={story.discussionUrl}>
-          <StoryRow story={story} />
-        </li>
+        <StoryRow key={story.discussionUrl} story={story} />
       ))}
-    </ol>
+    </List>
   );
 }
 
 export function StoryListSkeleton({ rows }: { rows: number }) {
   return (
     <div role="status" aria-busy="true" className={STORY_LIST}>
-      <span className="sr-only">Loading top stories</span>
+      <VisuallyHidden>Loading top stories</VisuallyHidden>
       {Array.from({ length: rows }, (_, index) => (
-        <Skeleton key={index} className="h-[76px] rounded-lg" />
+        <Skeleton key={index} height={76} index={index} />
       ))}
     </div>
   );
 }
 
-/** One story, opening inside DevAtlas. The title's link covers the row. */
+/** One story, opening inside DevAtlas. Clicking the row follows the title's link. */
 function StoryRow({ story }: { story: TopStory }) {
+  const titleLink = useRef<HTMLAnchorElement>(null);
   return (
-    <article className="relative flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-secondary">
-      <div
-        aria-hidden
-        className="h-14 w-24 shrink-0 overflow-hidden rounded-md border border-border bg-secondary"
-      >
-        <PreviewImage url={story.url} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate text-sm font-medium text-foreground">
-          <WebLink
-            href={story.url}
-            title={story.title}
-            className="after:absolute after:inset-0 after:rounded-lg focus-visible:ring-0 focus-visible:after:ring-2 focus-visible:after:ring-ring"
-          >
+    <ListItem
+      interactiveRef={titleLink}
+      startContent={
+        <div
+          aria-hidden
+          className="h-14 w-24 shrink-0 overflow-hidden rounded-md"
+          style={{ backgroundColor: "var(--color-background-muted)" }}
+        >
+          <PreviewImage url={story.url} />
+        </div>
+      }
+      label={
+        <Heading level={5} accessibilityLevel={3} maxLines={2}>
+          <WebLink ref={titleLink} href={story.url} title={story.title}>
             {story.title}
           </WebLink>
-        </h3>
-        <p className="truncate font-mono text-xs text-muted-foreground">{siteHost(story.url)}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground tabular-nums">
-          <span className="inline-flex items-center gap-1">
-            <Triangle className="size-2.5 fill-current text-primary" aria-hidden />
-            {story.points}
-            <span className="sr-only">{" points"}</span>
-          </span>
-          <WebLink
-            href={story.discussionUrl}
-            className="relative z-10 inline-flex items-center gap-1"
-          >
-            <MessageSquare className="size-3" aria-hidden />
-            {story.comments} comments
-          </WebLink>
-          <span>{formatDistanceToNowStrict(story.publishedAt, { addSuffix: true })}</span>
-        </p>
-      </div>
-    </article>
+        </Heading>
+      }
+      description={
+        <VStack gap={0.5}>
+          <Text type="supporting" maxLines={1}>
+            {siteHost(story.url)}
+          </Text>
+          <HStack gap={3} vAlign="center" wrap="wrap">
+            <HStack as="span" gap={1} vAlign="center">
+              <Icon icon={Triangle} size="xsm" color="accent" />
+              <Text type="supporting" hasTabularNumbers>
+                {story.points}
+              </Text>
+              <VisuallyHidden> points</VisuallyHidden>
+            </HStack>
+            <Text type="supporting" hasTabularNumbers>
+              <WebLink href={story.discussionUrl}>
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <Icon icon={MessageSquare} size="xsm" /> {story.comments} comments
+                </span>
+              </WebLink>
+            </Text>
+            <Timestamp value={story.publishedAt} format="relative" hasTooltip={false} />
+          </HStack>
+        </VStack>
+      }
+    />
   );
 }

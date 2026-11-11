@@ -1,3 +1,6 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+
 import { useTopStories } from "../hooks/use-news";
 import { StoryList, StoryListSkeleton } from "./story-card";
 
@@ -9,10 +12,16 @@ export function NewsPreview() {
 
   if (stories.isPending) return <StoryListSkeleton rows={SHOWN} />;
   if (stories.isError) {
-    return <p>{stories.error.message.replace(/^.*?failed: /, "")}</p>;
+    return (
+      <Banner
+        status="error"
+        title="Top stories aren't available"
+        description={stories.error.message.replace(/^.*?failed: /, "")}
+      />
+    );
   }
   if (stories.data.length === 0) {
-    return <p>No stories right now.</p>;
+    return <EmptyState isCompact title="No stories right now." />;
   }
 
   return <StoryList stories={stories.data.slice(0, SHOWN)} />;

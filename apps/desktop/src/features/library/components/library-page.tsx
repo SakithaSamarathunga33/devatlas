@@ -1,15 +1,27 @@
-import { CircleAlert, LayoutGrid, List, Plus, RotateCw } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { Link, useSearchParams } from "react-router";
+import { AspectRatio } from "@astryxdesign/core/AspectRatio";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Grid } from "@astryxdesign/core/Grid";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { List } from "@astryxdesign/core/List";
+import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { Text } from "@astryxdesign/core/Text";
+import { ToggleButton, ToggleButtonGroup } from "@astryxdesign/core/ToggleButton";
+import { VisuallyHidden } from "@astryxdesign/core/VisuallyHidden";
+import { VStack } from "@astryxdesign/core/VStack";
+import { Bookmark, LayoutGrid, List as ListIcon, Plus, RotateCw, SearchX, X } from "lucide-react";
+import { useState } from "react";
+import { useSearchParams } from "react-router";
 
-import { GooeyFilter } from "@/components/shared/gooey-filter";
+import { FilterTabs } from "@/components/shared/filter-tabs";
 import { PageHeader } from "@/components/shared/page-header";
 import { SearchField } from "@/components/shared/search-field";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useLibrary } from "@/hooks/use-library";
 import { CATEGORY_META, countByCategory, STATUS_LABELS } from "@/lib/resource-categories";
-import { cn } from "@/lib/utils";
 import {
   readingStatuses,
   resourceCategories,
@@ -20,8 +32,10 @@ import {
 } from "@/types/library.types";
 
 import { AddLinkForm } from "./add-link-form";
-import { ResourceCard } from "./resource-card";
+import { PREVIEW_RATIO, ResourceCard } from "./resource-card";
 import { ResourceRow } from "./resource-row";
+
+const CARD_COLUMNS = { minWidth: 280 };
 
 type CategoryFilter = ResourceCategory | ReadingStatus | "all" | "new" | "broken";
 type View = "grid" | "list";
@@ -76,14 +90,14 @@ export function LibraryPage() {
   };
 
   return (
-    <div className="w-full px-5 pt-5 pb-16 lg:px-8">
+    <VStack gap={4} padding={6}>
       <PageHeader
         title="Library"
         description={
           query.isSuccess ? librarySummary(query.data) : "Your developer links, in one place."
         }
       >
-        <div className="flex max-w-xl min-w-0 flex-1 basis-80 items-center gap-2">
+        <HStack gap={2} vAlign="center" className="max-w-xl min-w-0 flex-1 basis-80">
           <SearchField
             value={params.get("q") ?? ""}
             onChange={(value) => {
@@ -93,50 +107,39 @@ export function LibraryPage() {
             placeholder="Search…"
           />
           {query.isSuccess && query.data.resources.length > 0 && (
-            <div
-              role="group"
-              aria-label="Layout"
-              className="flex shrink-0 rounded-lg border border-border bg-card p-px"
+            <ToggleButtonGroup
+              label="Layout"
+              value={view}
+              onChange={(next) => {
+                // Pressing the active view reports null; one view always stays selected.
+                if (next === "grid" || next === "list") setView(next);
+              }}
             >
-              <ViewButton
+              <ToggleButton
+                isIconOnly
+                value="grid"
                 label="Grid view"
-                active={view === "grid"}
-                onSelect={() => {
-                  setView("grid");
-                }}
-              >
-                <LayoutGrid aria-hidden />
-              </ViewButton>
-              <ViewButton
+                icon={<Icon icon={LayoutGrid} />}
+              />
+              <ToggleButton
+                isIconOnly
+                value="list"
                 label="List view"
-                active={view === "list"}
-                onSelect={() => {
-                  setView("list");
-                }}
-              >
-                <List aria-hidden />
-              </ViewButton>
-            </div>
+                icon={<Icon icon={ListIcon} />}
+              />
+            </ToggleButtonGroup>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            label="Add link"
+            icon={<Icon icon={adding ? X : Plus} />}
             aria-expanded={adding}
             aria-controls="add-link-panel"
             onClick={() => {
               setParam("add", adding ? null : "1");
             }}
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground transition-colors outline-none hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <Plus
-              aria-hidden
-              className={cn(
-                "size-4 transition-transform motion-reduce:transition-none",
-                adding && "rotate-45",
-              )}
-            />
-            Add link
-          </button>
-        </div>
+          />
+        </HStack>
       </PageHeader>
       {adding && (
         <div id="add-link-panel">
@@ -147,33 +150,30 @@ export function LibraryPage() {
       {query.isPending && <LibrarySkeleton />}
 
       {query.isError && (
-        <div role="alert" className="mt-10 flex flex-col items-start gap-3">
-          <p className="flex items-center gap-2 text-sm font-medium text-destructive">
-            <CircleAlert className="size-4" aria-hidden />
-            Library unavailable
-          </p>
-          <p className="text-sm text-muted-foreground">{query.error.message}</p>
-          <Button
-            variant="outline"
-            onClick={() => void query.refetch()}
-            disabled={query.isFetching}
-          >
-            <RotateCw aria-hidden />
-            Try again
-          </Button>
-        </div>
+        <Banner
+          role="alert"
+          status="error"
+          title="Library unavailable"
+          description={query.error.message}
+          endContent={
+            <Button
+              label="Try again"
+              icon={<Icon icon={RotateCw} />}
+              isDisabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            />
+          }
+        />
       )}
 
       {query.isSuccess && query.data.source.warning !== null && (
-        <p role="alert" className="mt-4 flex items-center gap-2 text-sm text-destructive">
-          <CircleAlert className="size-4 shrink-0" aria-hidden />
-          <span>
-            {query.data.source.warning}{" "}
-            <Link to="/settings" className="underline underline-offset-4">
-              Open Settings
-            </Link>
-          </span>
-        </p>
+        <Banner
+          role="alert"
+          status="warning"
+          title="Your browser's bookmarks can't be read"
+          description={query.data.source.warning}
+          endContent={<Button label="Open Settings" href="/settings" />}
+        />
       )}
 
       {query.isSuccess && (
@@ -187,7 +187,7 @@ export function LibraryPage() {
           view={view}
         />
       )}
-    </div>
+    </VStack>
   );
 }
 
@@ -210,18 +210,20 @@ function LibraryBrowser({
     // The warning above already says why there is nothing.
     if (snapshot.source.warning !== null) return null;
     return snapshot.source.browser === "" ? (
-      <p className="mt-10 text-sm text-muted-foreground">
-        No links yet. Add one with Add link, or choose a browser to read bookmarks from in{" "}
-        <Link to="/settings" className="text-primary underline-offset-4 hover:underline">
-          Settings
-        </Link>
-        .
-      </p>
+      <EmptyState
+        icon={<Icon icon={Bookmark} size="lg" />}
+        title="No links yet"
+        description="Add one with Add link, or choose a browser to read bookmarks from in Settings."
+        headingLevel={2}
+        actions={<Button label="Settings" href="/settings" />}
+      />
     ) : (
-      <p className="mt-10 text-sm text-muted-foreground">
-        No bookmarks found in {snapshot.source.browser} › {snapshot.source.folder}. Save links into
-        that folder and they appear here.
-      </p>
+      <EmptyState
+        icon={<Icon icon={Bookmark} size="lg" />}
+        title={`No bookmarks found in ${snapshot.source.browser} › ${snapshot.source.folder}`}
+        description="Save links into that folder and they appear here."
+        headingLevel={2}
+      />
     );
   }
 
@@ -260,114 +262,94 @@ function LibraryBrowser({
     .filter((group) => group.items.length > 0);
 
   return (
-    <>
-      <div className="mt-4">
-        <GooeyFilter
-          label="Filter by category"
-          value={filter}
-          onChange={onCategoryChange}
-          options={[
-            { value: "all", label: "All", count: snapshot.resources.length },
-            ...(newCount > 0 ? [{ value: "new" as const, label: "New", count: newCount }] : []),
-            ...(brokenCount > 0
-              ? [{ value: "broken" as const, label: "Broken", count: brokenCount }]
-              : []),
-            ...statusCounts,
-            ...countByCategory(snapshot.resources).map(({ category: value, count }) => ({
-              value,
-              label: CATEGORY_META[value].label,
-              count,
-            })),
-          ]}
-        />
-      </div>
+    <VStack gap={6}>
+      <FilterTabs
+        label="Filter by category"
+        value={filter}
+        onChange={onCategoryChange}
+        options={[
+          { value: "all", label: "All", count: snapshot.resources.length },
+          ...(newCount > 0 ? [{ value: "new" as const, label: "New", count: newCount }] : []),
+          ...(brokenCount > 0
+            ? [{ value: "broken" as const, label: "Broken", count: brokenCount }]
+            : []),
+          ...statusCounts,
+          ...countByCategory(snapshot.resources).map(({ category: value, count }) => ({
+            value,
+            label: CATEGORY_META[value].label,
+            count,
+          })),
+        ]}
+      />
 
       {groups.length === 0 && (
-        <p className="mt-10 text-sm text-muted-foreground">No resources match “{search}”.</p>
+        <EmptyState
+          icon={<Icon icon={SearchX} size="lg" />}
+          title={`No resources match “${search}”`}
+          description="Try a different word, or clear the search."
+          headingLevel={2}
+        />
       )}
 
       {groups.map(({ category: group, items }) => {
-        const { label, icon: Icon } = CATEGORY_META[group];
+        const { label, icon: CategoryIcon } = CATEGORY_META[group];
         return (
-          <section key={group} aria-labelledby={`category-${group}`} className="mt-7">
-            <div className="flex items-center gap-2">
-              <Icon className="size-4 text-primary" aria-hidden />
-              <h2 id={`category-${group}`} className="text-base font-semibold">
+          <VStack as="section" key={group} gap={3} aria-labelledby={`category-${group}`}>
+            <HStack gap={2} vAlign="center">
+              <Icon icon={CategoryIcon} size="sm" color="accent" />
+              <Heading level={2} id={`category-${group}`}>
                 {label}
-              </h2>
-              <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>
-            </div>
+              </Heading>
+              <Text type="supporting" hasTabularNumbers>
+                {items.length}
+              </Text>
+            </HStack>
             {view === "grid" ? (
-              <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
+              <Grid role="list" columns={CARD_COLUMNS} gap={3}>
                 {items.map((resource) => (
-                  <li key={resource.id}>
+                  <div role="listitem" key={resource.id}>
                     <ResourceCard resource={resource} />
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </Grid>
             ) : (
-              <ul className="mt-3 divide-y divide-border rounded-xl border border-border bg-card p-1.5">
-                {items.map((resource) => (
-                  <li key={resource.id}>
-                    <ResourceRow resource={resource} />
-                  </li>
-                ))}
-              </ul>
+              <Card padding={0}>
+                <List hasDividers edge="bleed">
+                  {items.map((resource) => (
+                    <ResourceRow key={resource.id} resource={resource} />
+                  ))}
+                </List>
+              </Card>
             )}
-          </section>
+          </VStack>
         );
       })}
-    </>
-  );
-}
-
-interface ViewButtonProps {
-  label: string;
-  active: boolean;
-  onSelect: () => void;
-  children: ReactNode;
-}
-
-function ViewButton({ label, active, onSelect, children }: ViewButtonProps) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      aria-pressed={active}
-      onClick={onSelect}
-      className={cn(
-        "flex size-8 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4",
-        active
-          ? "bg-secondary text-primary"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
+    </VStack>
   );
 }
 
 /** Card-shaped placeholders while Brave's bookmarks are read. */
 function LibrarySkeleton() {
   return (
-    <div role="status" aria-busy="true" className="mt-9">
-      <span className="sr-only">Reading your library</span>
-      <Skeleton className="h-5 w-40" />
-      <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
+    <VStack role="status" aria-busy="true" gap={4}>
+      <VisuallyHidden>Reading your library</VisuallyHidden>
+      <Skeleton width={160} height={20} />
+      <Grid columns={CARD_COLUMNS} gap={3}>
         {Array.from({ length: 6 }, (_, index) => (
-          <li key={index} className="overflow-hidden rounded-xl border border-border bg-card">
-            <Skeleton className="aspect-[1200/630] rounded-none" />
-            <div className="flex gap-3 p-4">
-              <Skeleton className="size-9 rounded-lg" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-              </div>
-            </div>
-          </li>
+          <Card key={index} padding={0}>
+            <AspectRatio ratio={PREVIEW_RATIO}>
+              <Skeleton radius="none" index={index} />
+            </AspectRatio>
+            <HStack gap={3} padding={3}>
+              <Skeleton width={36} height={36} />
+              <VStack gap={2} className="flex-1">
+                <Skeleton width="75%" height={16} />
+                <Skeleton width="50%" height={12} />
+              </VStack>
+            </HStack>
+          </Card>
         ))}
-      </ul>
-    </div>
+      </Grid>
+    </VStack>
   );
 }

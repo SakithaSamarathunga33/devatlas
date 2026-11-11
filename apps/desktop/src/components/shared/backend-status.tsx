@@ -1,28 +1,26 @@
-import { StatusBeacon, type BeaconTone } from "@/components/shared/status-beacon";
-import { useAppInfo } from "@/hooks/use-app-info";
-import { cn } from "@/lib/utils";
+import { HStack } from "@astryxdesign/core/HStack";
+import { StatusDot } from "@astryxdesign/core/StatusDot";
+import { Text } from "@astryxdesign/core/Text";
 
-const STATUS: Record<"pending" | "success" | "error", { label: string; tone: BeaconTone }> = {
-  pending: { label: "Connecting to backend", tone: "warning" },
-  success: { label: "Backend connected", tone: "success" },
-  error: { label: "Backend unavailable", tone: "destructive" },
-};
+import { useAppInfo } from "@/hooks/use-app-info";
+
+const STATUS = {
+  pending: { label: "Connecting to backend", variant: "warning" },
+  success: { label: "Backend connected", variant: "success" },
+  error: { label: "Backend unavailable", variant: "error" },
+} as const;
 
 /** Live indicator of the Rust backend connection, derived from the app-info query. */
-export function BackendStatus({ className }: { className?: string }) {
+export function BackendStatus() {
   const { status } = useAppInfo();
-  const { label, tone } = STATUS[status];
+  const { label, variant } = STATUS[status];
 
   return (
-    <span
-      role="status"
-      className={cn(
-        "inline-flex items-center gap-2.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground",
-        className,
-      )}
-    >
-      <StatusBeacon tone={tone} pulse={status === "pending"} />
-      {label}
+    <span role="status">
+      <HStack gap={2} vAlign="center">
+        <StatusDot variant={variant} label={label} isPulsing={status === "pending"} />
+        <Text type="supporting">{label}</Text>
+      </HStack>
     </span>
   );
 }

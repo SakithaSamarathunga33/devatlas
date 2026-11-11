@@ -1,19 +1,32 @@
+import { AspectRatio } from "@astryxdesign/core/AspectRatio";
+import { Badge } from "@astryxdesign/core/Badge";
+import { Center } from "@astryxdesign/core/Center";
+import { ClickableCard } from "@astryxdesign/core/ClickableCard";
+import { Divider } from "@astryxdesign/core/Divider";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { IconButton } from "@astryxdesign/core/IconButton";
+import { useOverlay } from "@astryxdesign/core/Overlay";
+import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { Text } from "@astryxdesign/core/Text";
+import { MediaTheme } from "@astryxdesign/core/theme";
+import { Token } from "@astryxdesign/core/Token";
+import { VStack } from "@astryxdesign/core/VStack";
 import { format } from "date-fns";
 import { ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Link } from "react-router";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import { useResourcePreview } from "@/hooks/use-resource-preview";
-import { CATEGORY_META, STATUS_LABELS } from "@/lib/resource-categories";
+import { STATUS_LABELS } from "@/lib/resource-categories";
 import { cn } from "@/lib/utils";
 import type { Resource } from "@/types/library.types";
 
 import { useResourceActions, viewerPath } from "../hooks/use-resource-actions";
 import { EditResourceDialog } from "./edit-resource-dialog";
 
-const cardAction =
-  "rounded-full bg-black/55 p-2 text-white/90 opacity-0 backdrop-blur transition-opacity outline-none group-hover/card:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring";
+/** The shape of an Open Graph preview image. */
+export const PREVIEW_RATIO = 1200 / 630;
 
 /** Initial of the site's name: "ui.aceternity.com" → "A", "reactbits.dev" → "R". */
 function siteInitial(host: string): string {
@@ -22,105 +35,110 @@ function siteInitial(host: string): string {
   return (name ?? host).charAt(0).toUpperCase();
 }
 
+function linkHealthLabel(resource: Resource): string | null {
+  if (resource.linkHealth === "broken") return "Broken link";
+  return resource.linkHealth === "moved" ? "Moved" : null;
+}
+
 /** A saved link with its preview image; opens the site inside DevAtlas. */
 export function ResourceCard({ resource }: { resource: Resource }) {
   const preview = useResourcePreview(resource.url);
-  const tint = CATEGORY_META[resource.category].tint;
-  const { openExternally, remove } = useResourceActions(resource);
   const [editing, setEditing] = useState(false);
+  // Reveals on hover and on focus within the card, so Tab reaches the actions after the link.
+  const { containerRef, containerProps, element } = useOverlay({
+    showOn: "hover",
+    position: "top",
+    content: (
+      <ResourceActions
+        resource={resource}
+        onEdit={() => {
+          setEditing(true);
+        }}
+      />
+    ),
+  });
+  // The card's link holds no text, so its name has to carry what the card shows.
+  const label = [
+    resource.title,
+    resource.host,
+    resource.isNew ? "New" : null,
+    linkHealthLabel(resource),
+  ]
+    .filter((part) => part !== null)
+    .join(", ");
 
   return (
-    <article className="group/card relative h-full rounded-xl border border-border bg-card transition-[border-color,box-shadow] duration-150 hover:border-foreground/15 hover:shadow-[0_10px_24px_-14px_rgb(0_0_0/0.7)]">
-      <Link
-        to={viewerPath(resource)}
-        title={resource.url}
-        className="flex h-full flex-col rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    <>
+      <ClickableCard
+        ref={(node) => {
+          containerRef.current = node;
+        }}
+        {...containerProps}
+        label={label}
+        href={viewerPath(resource)}
+        padding={0}
+        height="100%"
       >
-        <div className="relative aspect-[1200/630] overflow-hidden rounded-t-[inherit] border-b border-border bg-secondary">
-          {preview.isPending ? (
-            <Skeleton className="size-full rounded-none bg-foreground/[0.04]" />
-          ) : (
-            <RemoteImage
-              src={preview.data?.image ?? null}
-              className="size-full object-cover transition-transform duration-500 group-hover/card:scale-[1.03] motion-reduce:transition-none"
-              fallback={
-                <div className="flex size-full items-center justify-center">
-                  <SiteIcon
-                    icon={preview.data?.icon ?? null}
-                    host={resource.host}
-                    className="size-14 rounded-2xl text-xl"
-                  />
-                </div>
-              }
-            />
-          )}
-          {resource.isNew && (
-            <span className="absolute top-2.5 left-2.5 rounded-full bg-highlight px-2.5 py-0.5 text-xs font-semibold text-highlight-foreground shadow-[0_1px_3px_rgb(0_0_0/0.4)]">
-              New
-            </span>
-          )}
-          {(resource.linkHealth === "broken" || resource.linkHealth === "moved") && (
-            <span className="absolute bottom-2.5 left-2.5 rounded-full bg-destructive px-2.5 py-0.5 text-xs font-semibold text-white">
-              {resource.linkHealth === "broken" ? "Broken link" : "Moved"}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-start gap-3 p-3">
-          <SiteIcon
-            icon={preview.data?.icon ?? null}
-            host={resource.host}
-            className={cn("size-9 rounded-lg bg-linear-to-br text-sm", tint)}
-          />
-          <div className="min-w-0 flex-1">
-            <h3 className="line-clamp-2 text-sm leading-snug font-medium">{resource.title}</h3>
-            <p className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="min-w-0 truncate font-mono">{resource.host}</span>
-              {resource.addedAt !== null && (
-                <span className="ml-auto shrink-0">
-                  {resource.origin === "devatlas" ? "Added" : "Saved"}{" "}
-                  {format(resource.addedAt, "MMM yyyy")}
-                </span>
+        <div title={resource.url}>
+          <AspectRatio ratio={PREVIEW_RATIO}>
+            <div className="relative size-full">
+              {preview.isPending ? (
+                <Skeleton radius="none" />
+              ) : (
+                <RemoteImage
+                  src={preview.data?.image ?? null}
+                  className="size-full object-cover"
+                  fallback={
+                    <Center height="100%">
+                      <SiteIcon
+                        icon={preview.data?.icon ?? null}
+                        host={resource.host}
+                        className="size-14 rounded-2xl text-xl"
+                      />
+                    </Center>
+                  }
+                />
               )}
-            </p>
-            {(resource.tags.length > 0 || resource.status !== null) && (
-              <ResourceTags tags={resource.tags} status={resource.status} className="mt-2" />
-            )}
-          </div>
+              <HStack gap={1} className="absolute bottom-2 left-2">
+                <ResourceBadges resource={resource} />
+              </HStack>
+            </div>
+          </AspectRatio>
+          <Divider />
+          <HStack gap={3} padding={3} vAlign="start">
+            <SiteIcon
+              icon={preview.data?.icon ?? null}
+              host={resource.host}
+              className="size-9 rounded-lg text-sm"
+            />
+            <VStack gap={1} className="min-w-0 flex-1">
+              <Heading level={5} accessibilityLevel={3} maxLines={2}>
+                {resource.title}
+              </Heading>
+              <HStack gap={3} vAlign="center" hAlign="between">
+                <div className="min-w-0">
+                  <Text type="code" size="xsm" color="secondary" maxLines={1}>
+                    {resource.host}
+                  </Text>
+                </div>
+                {resource.addedAt !== null && (
+                  <div className="shrink-0">
+                    <Text type="supporting">
+                      {resource.origin === "devatlas" ? "Added" : "Saved"}{" "}
+                      {format(resource.addedAt, "MMM yyyy")}
+                    </Text>
+                  </div>
+                )}
+              </HStack>
+              {(resource.tags.length > 0 || resource.status !== null) && (
+                <ResourceTags tags={resource.tags} status={resource.status} className="mt-1" />
+              )}
+            </VStack>
+          </HStack>
         </div>
-      </Link>
-
-      <div className="absolute top-2.5 right-2.5 flex gap-1.5">
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(true);
-          }}
-          aria-label={`Edit ${resource.title}`}
-          title="Edit category, tags and notes"
-          className={cardAction}
-        >
-          <Pencil className="size-3.5" aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={remove}
-          aria-label={`Remove ${resource.title} from your library`}
-          title="Remove from library"
-          className={cardAction}
-        >
-          <Trash2 className="size-3.5" aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={openExternally}
-          aria-label={`Open ${resource.host} in your browser`}
-          title="Open in your browser"
-          className={cardAction}
-        >
-          <ExternalLink className="size-3.5" aria-hidden />
-        </button>
-      </div>
+        {element}
+      </ClickableCard>
+      {/* Outside the card: a click inside the dialog must not reach the card's link. */}
       {editing && (
         <EditResourceDialog
           resource={resource}
@@ -129,11 +147,57 @@ export function ResourceCard({ resource }: { resource: Resource }) {
           }}
         />
       )}
-    </article>
+    </>
   );
 }
 
-/** A link's tags, as small chips. */
+/** A link's New and link-health marks. */
+export function ResourceBadges({ resource }: { resource: Resource }) {
+  const health = linkHealthLabel(resource);
+  return (
+    <>
+      {resource.isNew && <Badge variant="info" label="New" />}
+      {health !== null && (
+        <Badge variant={resource.linkHealth === "broken" ? "error" : "warning"} label={health} />
+      )}
+    </>
+  );
+}
+
+/** Edit, remove (with undo) and open-in-browser, shared by the card and list views. */
+export function ResourceActions({ resource, onEdit }: { resource: Resource; onEdit: () => void }) {
+  const { openExternally, remove } = useResourceActions(resource);
+  return (
+    <HStack gap={1}>
+      <IconButton
+        variant="ghost"
+        size="sm"
+        icon={<Icon icon={Pencil} />}
+        label={`Edit ${resource.title}`}
+        tooltip="Edit category, tags and notes"
+        onClick={onEdit}
+      />
+      <IconButton
+        variant="ghost"
+        size="sm"
+        icon={<Icon icon={Trash2} />}
+        label={`Remove ${resource.title} from your library`}
+        tooltip="Remove from library"
+        onClick={remove}
+      />
+      <IconButton
+        variant="ghost"
+        size="sm"
+        icon={<Icon icon={ExternalLink} />}
+        label={`Open ${resource.host} in your browser`}
+        tooltip="Open in your browser"
+        onClick={openExternally}
+      />
+    </HStack>
+  );
+}
+
+/** A link's reading status and tags, as small tokens. */
 export function ResourceTags({
   tags,
   status = null,
@@ -144,21 +208,12 @@ export function ResourceTags({
   className?: string;
 }) {
   return (
-    <span className={cn("flex flex-wrap gap-1", className)}>
-      {status !== null && (
-        <span className="rounded-full bg-primary/15 px-2 py-px text-xs font-medium text-primary">
-          {STATUS_LABELS[status]}
-        </span>
-      )}
+    <HStack gap={1} wrap="wrap" className={className}>
+      {status !== null && <Token size="sm" color="blue" label={STATUS_LABELS[status]} />}
       {tags.map((tag) => (
-        <span
-          key={tag}
-          className="rounded-full bg-secondary px-2 py-px text-xs text-muted-foreground"
-        >
-          {tag}
-        </span>
+        <Token key={tag} size="sm" label={tag} />
       ))}
-    </span>
+    </HStack>
   );
 }
 
@@ -200,15 +255,22 @@ export function SiteIcon({
     <span
       aria-hidden
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden bg-foreground/[0.06] font-semibold text-tile-icon ring-1 ring-foreground/10 ring-inset",
+        "flex shrink-0 items-center justify-center overflow-hidden border border-(--color-border) bg-(--color-background-muted) text-(--color-text-secondary)",
         className,
       )}
     >
-      <RemoteImage
-        src={icon}
-        className="size-full bg-white/90 object-contain p-1.5"
-        fallback={siteInitial(host)}
-      />
+      {/* Always a light backing: many favicons are dark marks on transparency. */}
+      <MediaTheme mode="light">
+        <RemoteImage
+          src={icon}
+          className="size-full bg-(--color-background-card) object-contain p-1.5"
+          fallback={
+            <Text type="inherit" color="inherit" weight="semibold">
+              {siteInitial(host)}
+            </Text>
+          }
+        />
+      </MediaTheme>
     </span>
   );
 }

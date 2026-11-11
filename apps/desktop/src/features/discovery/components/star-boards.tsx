@@ -1,13 +1,46 @@
-import { ArrowDown, ArrowUp, Minus, Shuffle, Star } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Button } from "@astryxdesign/core/Button";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { Link as AstryxLink } from "@astryxdesign/core/Link";
+import { List, ListItem } from "@astryxdesign/core/List";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableHeaderCell,
+  TableRow,
+} from "@astryxdesign/core/Table";
+import { Text } from "@astryxdesign/core/Text";
+import { VisuallyHidden } from "@astryxdesign/core/VisuallyHidden";
+import { VStack } from "@astryxdesign/core/VStack";
+import { ArrowDown, ArrowUp, Minus, Search, Shuffle, Star, Trophy } from "lucide-react";
+import { useId, useState, type MouseEvent, type ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { StarBoards, StarBoardView, StarRepo } from "@/types/discovery.types";
 
 import { useStarBoards } from "../hooks/use-star-boards";
 import { compactNumber, openExternal } from "../repo-utils";
-import { REPO_LIST, RepoListError, RepoListSkeleton, RepoRow, SaveRepoButton } from "./repo-ui";
+import {
+  ExpandRepoButton,
+  OpenOnGithubButton,
+  RepoAvatar,
+  RepoDetails,
+  RepoListError,
+  RepoListSkeleton,
+  RepoName,
+  RepoRow,
+  SaveRepoButton,
+} from "./repo-ui";
+
+/** Pixel widths of the ranking columns; Repository takes what is left. */
+const COLUMN = { rank: 80, number: 112, actions: 224 } as const;
+
+/** Astryx cells default to max-width: 0, which would cap a width set on its own. */
+function columnWidth(width: number) {
+  return { width, maxWidth: width };
+}
 
 const SITE = "https://www.star-history.com/";
 const RANDOM_PICKS = 20;
@@ -32,6 +65,10 @@ function sharePercent(count: number, total: number): string {
   const share = (count / total) * 100;
   const digits = share >= 0.1 ? 1 : share >= 0.01 ? 3 : share >= 0.001 ? 4 : 5;
   return `${share.toFixed(digits)}%`;
+}
+
+function repoUrl(repo: StarRepo): string {
+  return `https://github.com/${repo.fullName}`;
 }
 
 interface StarBoardsViewProps {
@@ -89,6 +126,20 @@ function Board({ boards, view, search, isSaved }: StarBoardsViewProps & { boards
   }
 }
 
+function Unpublished() {
+  return <EmptyState icon={<Icon icon={Trophy} />} title={UNPUBLISHED} />;
+}
+
+function NoMatches({ search }: { search: string }) {
+  return (
+    <EmptyState
+      isCompact
+      icon={<Icon icon={Search} />}
+      title={`No repositories match “${search}”.`}
+    />
+  );
+}
+
 function RankedBoard({
   label,
   repos,
@@ -102,28 +153,131 @@ function RankedBoard({
   search: string;
   isSaved: IsSaved;
 }) {
-  if (repos.length === 0) {
-    return <p className="mt-8 text-sm text-muted-foreground">{UNPUBLISHED}</p>;
-  }
+  if (repos.length === 0) return <Unpublished />;
   // Positions come from the site's order, so they stay put while searching.
   const ranked = repos
     .map((repo, index) => ({ repo, rank: index + 1 }))
     .filter(({ repo }) => matches(repo, search));
+  const hasWeeklyGains = repos.some((repo) => repo.newStars !== null);
 
   return (
-    <>
+    <VStack gap={3}>
       {ranked.length === 0 ? (
         <NoMatches search={search} />
       ) : (
-        <ol aria-label={label} className={cn("mt-4", REPO_LIST)}>
-          {ranked.map(({ repo, rank }) => (
-            <li key={repo.fullName}>
-              <StarRow repo={repo} rank={rank} saved={isSaved(repo.fullName)} />
-            </li>
-          ))}
-        </ol>
+        <Table aria-label={label} hasHover style={{ tableLayout: "fixed" }}>
+          <TableHeader>
+            <TableRow isHeaderRow>
+              <TableHeaderCell style={columnWidth(COLUMN.rank)}>#</TableHeaderCell>
+              <TableHeaderCell>Repository</TableHeaderCell>
+              {hasWeeklyGains && (
+                <TableHeaderCell className="text-right" style={columnWidth(COLUMN.number)}>
+                  This week
+                </TableHeaderCell>
+              )}
+              <TableHeaderCell className="text-right" style={columnWidth(COLUMN.number)}>
+                Stars
+              </TableHeaderCell>
+              <TableHeaderCell style={columnWidth(COLUMN.actions)}>
+                <VisuallyHidden>Actions</VisuallyHidden>
+              </TableHeaderCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {ranked.map(({ repo, rank }) => (
+              <BoardRow
+                key={repo.fullName}
+                repo={repo}
+                rank={rank}
+                saved={isSaved(repo.fullName)}
+                hasWeeklyGains={hasWeeklyGains}
+              />
+            ))}
+          </TableBody>
+        </Table>
       )}
       <Credit updated={updated} />
+    </VStack>
+  );
+}
+
+/** One ranked repository: click it (or the chevron) to show its star history. */
+function BoardRow({
+  repo,
+  rank,
+  saved,
+  hasWeeklyGains,
+}: {
+  repo: StarRepo;
+  rank: number;
+  saved: boolean;
+  hasWeeklyGains: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
+  const url = repoUrl(repo);
+  const toggle = () => {
+    setExpanded((open) => !open);
+  };
+  // Mouse convenience: the chevron is the keyboard and screen-reader path.
+  const onRowClick = (event: MouseEvent<HTMLTableRowElement>) => {
+    if (event.target instanceof Element && event.target.closest("a, button")) return;
+    toggle();
+  };
+
+  return (
+    <>
+      <TableRow onClick={onRowClick} className="cursor-pointer">
+        <TableCell>
+          <HStack gap={2} vAlign="center">
+            <Text color="secondary" hasTabularNumbers>
+              {rank}
+            </Text>
+            {repo.newStars !== null && <RankChange change={repo.rankChange} />}
+          </HStack>
+        </TableCell>
+        <TableCell>
+          <HStack gap={3} vAlign="center">
+            <RepoAvatar
+              fullName={repo.fullName}
+              details={undefined}
+              className="size-8 rounded-lg"
+            />
+            <div className="min-w-0">
+              <Text as="p" maxLines={1}>
+                <RepoName fullName={repo.fullName} url={url} />
+              </Text>
+            </div>
+          </HStack>
+        </TableCell>
+        {hasWeeklyGains && (
+          <TableCell className="text-right">
+            <NewStars repo={repo} />
+          </TableCell>
+        )}
+        <TableCell className="text-right">
+          <TotalStars repo={repo} />
+        </TableCell>
+        <TableCell>
+          <HStack gap={1} vAlign="center" hAlign="end">
+            <SaveRepoButton repo={{ fullName: repo.fullName, url }} saved={saved} />
+            <OpenOnGithubButton fullName={repo.fullName} url={url} />
+            <ExpandRepoButton
+              fullName={repo.fullName}
+              expanded={expanded}
+              detailsId={detailsId}
+              onToggle={toggle}
+            />
+          </HStack>
+        </TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow>
+          <TableCell colSpan={hasWeeklyGains ? 5 : 4}>
+            <RepoDetails id={detailsId} fullName={repo.fullName} details={undefined} />
+          </TableCell>
+        </TableRow>
+      )}
     </>
   );
 }
@@ -139,203 +293,195 @@ function RandomBoard({
   isSaved: IsSaved;
 }) {
   const [picks, setPicks] = useState(() => randomSample(pool, RANDOM_PICKS));
-  if (pool.length === 0) {
-    return <p className="mt-8 text-sm text-muted-foreground">{UNPUBLISHED}</p>;
-  }
+  if (pool.length === 0) return <Unpublished />;
   const searching = search.trim() !== "";
   const visible = searching
     ? pool.filter((repo) => matches(repo, search)).slice(0, RANDOM_PICKS)
     : picks;
 
   return (
-    <>
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
+    <VStack gap={3}>
+      <HStack gap={3} vAlign="center" hAlign="between">
+        <Text type="supporting">
           {searching ? "Searching" : `${String(picks.length)} random picks from`}{" "}
           {pool.length.toLocaleString("en")} repositories
-        </p>
+        </Text>
         <Button
-          variant="outline"
+          label="Shuffle"
           size="sm"
+          icon={<Icon icon={Shuffle} />}
           onClick={() => {
             setPicks(randomSample(pool, RANDOM_PICKS));
           }}
-        >
-          <Shuffle aria-hidden />
-          Shuffle
-        </Button>
-      </div>
+        />
+      </HStack>
       {visible.length === 0 ? (
         <NoMatches search={search} />
       ) : (
-        <ol aria-label="Random repositories" className={cn("mt-3", REPO_LIST)}>
+        <List aria-label="Random repositories" hasDividers>
           {visible.map((repo) => (
-            <li key={repo.fullName}>
-              <StarRow repo={repo} saved={isSaved(repo.fullName)} />
-            </li>
+            <RepoRow
+              key={repo.fullName}
+              fullName={repo.fullName}
+              url={repoUrl(repo)}
+              details={undefined}
+              marker={repo.newStars === null ? undefined : <RankChange change={repo.rankChange} />}
+              metric={
+                <HStack gap={4} vAlign="center">
+                  <NewStars repo={repo} />
+                  <TotalStars repo={repo} />
+                </HStack>
+              }
+              action={
+                <SaveRepoButton
+                  repo={{ fullName: repo.fullName, url: repoUrl(repo) }}
+                  saved={isSaved(repo.fullName)}
+                />
+              }
+            />
           ))}
-        </ol>
+        </List>
       )}
       <Credit updated={null} />
-    </>
+    </VStack>
   );
 }
 
-function NoMatches({ search }: { search: string }) {
+function Mark({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <p className="mt-8 text-sm text-muted-foreground">
-      No repositories match &ldquo;{search}&rdquo;.
-    </p>
-  );
-}
-
-function StarRow({ repo, rank, saved }: { repo: StarRepo; rank?: number; saved: boolean }) {
-  const url = `https://github.com/${repo.fullName}`;
-  return (
-    <RepoRow
-      fullName={repo.fullName}
-      url={url}
-      details={undefined}
-      rank={rank}
-      marker={repo.newStars === null ? undefined : <RankChange change={repo.rankChange} />}
-      metric={<StarMetric repo={repo} />}
-      action={<SaveRepoButton repo={{ fullName: repo.fullName, url }} saved={saved} />}
-    />
-  );
-}
-
-function Mark({
-  label,
-  className,
-  children,
-}: {
-  label: string;
-  className: string;
-  children: ReactNode;
-}) {
-  return (
-    <span title={label} className={cn("flex w-4 shrink-0 justify-center", className)}>
+    <span title={label} className="flex w-4 shrink-0 justify-center">
       {children}
-      <span className="sr-only">{label}</span>
+      <VisuallyHidden>{label}</VisuallyHidden>
     </span>
   );
 }
 
-/** Movement since last week: mint when climbing, grey when falling, as on the Rankings page. */
+/** Movement since last week: accent when climbing, grey when falling, as on the Rankings page. */
 function RankChange({ change }: { change: number | null }) {
   if (change === null) {
     return (
-      <Mark label="New to top 20" className="text-primary">
-        <span aria-hidden className="text-[11px] font-semibold">
-          N
+      <Mark label="New to top 20">
+        <span aria-hidden>
+          <Text type="supporting" color="accent" weight="semibold">
+            N
+          </Text>
         </span>
       </Mark>
     );
   }
   if (change === 0) {
     return (
-      <Mark label="No change" className="text-muted-foreground">
-        <Minus className="size-3" aria-hidden />
+      <Mark label="No change">
+        <Icon icon={Minus} size="xsm" color="secondary" />
       </Mark>
     );
   }
   return change > 0 ? (
-    <Mark label={`Up ${String(change)}`} className="text-primary">
-      <ArrowUp className="size-3" aria-hidden />
+    <Mark label={`Up ${String(change)}`}>
+      <Icon icon={ArrowUp} size="xsm" color="accent" />
     </Mark>
   ) : (
-    <Mark label={`Down ${String(-change)}`} className="text-muted-foreground">
-      <ArrowDown className="size-3" aria-hidden />
+    <Mark label={`Down ${String(-change)}`}>
+      <Icon icon={ArrowDown} size="xsm" color="secondary" />
     </Mark>
   );
 }
 
-function StarMetric({ repo }: { repo: StarRepo }) {
+function NewStars({ repo }: { repo: StarRepo }) {
+  if (repo.newStars === null) return null;
   return (
-    <div className="flex shrink-0 items-center gap-4 text-xs tabular-nums">
-      {repo.newStars !== null && (
-        <span
-          title={`+${repo.newStars.toLocaleString("en")} stars this week`}
-          className="w-14 text-right font-medium text-primary"
-        >
-          +{compactNumber.format(repo.newStars)}
-          <span className="sr-only"> new stars this week</span>
-        </span>
-      )}
-      <span
-        title={`${repo.stars.toLocaleString("en")} stars`}
-        className="inline-flex w-16 items-center justify-end gap-1.5 text-muted-foreground"
-      >
-        <Star className="size-3.5" aria-hidden />
+    <span title={`+${repo.newStars.toLocaleString("en")} stars this week`}>
+      <Text type="supporting" color="accent" weight="medium" hasTabularNumbers>
+        +{compactNumber.format(repo.newStars)}
+      </Text>
+      <VisuallyHidden> new stars this week</VisuallyHidden>
+    </span>
+  );
+}
+
+function TotalStars({ repo }: { repo: StarRepo }) {
+  return (
+    <span
+      title={`${repo.stars.toLocaleString("en")} stars`}
+      className="inline-flex items-center justify-end gap-1.5"
+    >
+      <Icon icon={Star} size="xsm" color="secondary" />
+      <Text type="supporting" hasTabularNumbers>
         {compactNumber.format(repo.stars)}
-        <span className="sr-only">stars</span>
-      </span>
-    </div>
+      </Text>
+      <VisuallyHidden>stars</VisuallyHidden>
+    </span>
   );
 }
 
 /** How many repositories reach each star count; the catch-all "1+" tier is only the total. */
 function Pyramid({ tiers, updated }: { tiers: StarBoards["pyramid"]; updated: string | null }) {
   const shown = tiers.filter((tier) => tier.threshold > 1);
-  if (shown.length === 0) {
-    return <p className="mt-8 text-sm text-muted-foreground">{UNPUBLISHED}</p>;
-  }
+  if (shown.length === 0) return <Unpublished />;
   const widest = Math.max(1, ...shown.map((tier) => tier.count));
   const total = tiers.find((tier) => tier.threshold === 1)?.count ?? widest;
 
   return (
-    <div className="max-w-3xl">
-      <ol
-        aria-label="Repositories by star count"
-        className="mt-4 space-y-1 rounded-xl border border-border bg-card p-4"
-      >
+    <VStack gap={3} maxWidth={768}>
+      <List aria-label="Repositories by star count" density="compact">
         {shown.map((tier) => (
-          <li
+          <ListItem
             key={tier.threshold}
-            className="grid grid-cols-[4.5rem_1fr_8rem] items-center gap-3 text-xs tabular-nums"
-          >
-            <span className="inline-flex items-center gap-1 font-medium">
-              <Star className="size-3 text-primary" aria-hidden />
-              {tier.label}
-            </span>
-            <span className="flex h-6 justify-center">
+            startContent={
+              <HStack gap={1} vAlign="center" width={72}>
+                <Icon icon={Star} size="xsm" color="accent" />
+                <Text type="supporting" weight="medium" hasTabularNumbers>
+                  {tier.label}
+                </Text>
+              </HStack>
+            }
+            label={
+              <span aria-hidden className="flex h-6 justify-center">
+                <span
+                  className="h-full rounded-sm"
+                  style={{
+                    width: `${String((tier.count / widest) * 100)}%`,
+                    minWidth: 2,
+                    backgroundColor: "var(--color-accent)",
+                  }}
+                />
+              </span>
+            }
+            endContent={
               <span
-                aria-hidden
-                className="h-full rounded-sm bg-primary/70"
-                style={{ width: `${String((tier.count / widest) * 100)}%`, minWidth: 2 }}
-              />
-            </span>
-            <span
-              title={`${tier.count.toLocaleString("en")} repositories`}
-              className="text-right text-muted-foreground"
-            >
-              {compactNumber.format(tier.count)} ({sharePercent(tier.count, total)})
-            </span>
-          </li>
+                title={`${tier.count.toLocaleString("en")} repositories`}
+                className="w-32 text-right"
+              >
+                <Text type="supporting" hasTabularNumbers>
+                  {compactNumber.format(tier.count)} ({sharePercent(tier.count, total)})
+                </Text>
+              </span>
+            }
+          />
         ))}
-      </ol>
-      <p className="mt-3 text-xs text-muted-foreground">
+      </List>
+      <Text type="supporting" as="p">
         Share of the {compactNumber.format(total)} GitHub repositories with at least one star.
-      </p>
+      </Text>
       <Credit updated={updated} />
-    </div>
+    </VStack>
   );
 }
 
 function Credit({ updated }: { updated: string | null }) {
   return (
-    <p className="mt-3 text-xs text-muted-foreground">
+    <Text type="supporting" as="p">
       {updated !== null && `Updated ${updated} · `}Data from{" "}
-      <a
+      <AstryxLink
         href={SITE}
+        type="inherit"
         onClick={(event) => {
           event.preventDefault();
           openExternal(SITE, "star-history.com");
         }}
-        className="rounded text-primary outline-none hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring"
       >
         star-history.com
-      </a>
-    </p>
+      </AstryxLink>
+    </Text>
   );
 }

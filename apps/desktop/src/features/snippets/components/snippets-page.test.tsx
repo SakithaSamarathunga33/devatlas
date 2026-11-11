@@ -106,7 +106,7 @@ describe("SnippetsPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "New snippet" }));
     const dialog = await screen.findByRole("dialog", { name: "New snippet" });
     const create = within(dialog).getByRole("button", { name: "Create" });
-    expect(create).toBeDisabled();
+    expect(create).toHaveAttribute("aria-disabled", "true");
 
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Title" }), {
       target: { value: "Sleep" },

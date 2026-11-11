@@ -1,6 +1,13 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { List, ListItem } from "@astryxdesign/core/List";
+import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { Text } from "@astryxdesign/core/Text";
+import { VStack } from "@astryxdesign/core/VStack";
 import { Star } from "lucide-react";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import { useLibrary } from "@/hooks/use-library";
 
 import { useTrendingRepos } from "../hooks/use-trending-repos";
@@ -18,51 +25,60 @@ export function TrendingPreview() {
 
   if (repos.isPending) {
     return (
-      <div role="status" aria-busy="true" className="space-y-2">
+      <VStack role="status" aria-busy="true" gap={2}>
         <span className="sr-only">Loading trending repositories</span>
         {Array.from({ length: 3 }, (_, index) => (
-          <Skeleton key={index} className="h-14 rounded-xl" />
+          <Skeleton key={index} index={index} height={56} />
         ))}
-      </div>
+      </VStack>
     );
   }
   if (repos.isError) {
-    return <p>{repos.error.message.replace(/^.*?failed: /, "")}</p>;
+    return (
+      <Banner
+        status="error"
+        title="Trending repositories aren't available"
+        description={repos.error.message.replace(/^.*?failed: /, "")}
+      />
+    );
   }
   if (repos.data.length === 0) {
-    return <p>No new repositories gained stars this week.</p>;
+    return (
+      <EmptyState
+        isCompact
+        title="Nothing new this week"
+        description="No new repositories gained stars this week."
+      />
+    );
   }
 
   return (
-    <ol
-      aria-label="New this week"
-      className="divide-y divide-border rounded-xl border border-border bg-card"
-    >
-      {repos.data.slice(0, SHOWN).map((repo, index) => (
-        <li key={repo.fullName} className="flex items-center gap-3 px-3 py-2.5">
-          <span className="w-5 shrink-0 text-right text-sm text-muted-foreground tabular-nums">
-            {index + 1}
-          </span>
-          <RepoAvatar fullName={repo.fullName} details={repo} className="size-9 rounded-lg" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm text-foreground">
-              <RepoName fullName={repo.fullName} url={repo.url} />
-            </p>
-            {repo.description !== null && (
-              <p className="truncate text-xs text-muted-foreground">{repo.description}</p>
-            )}
-          </div>
-          <div className="hidden shrink-0 items-center gap-3 text-xs text-muted-foreground sm:flex">
-            {repo.language !== null && <LanguagePill language={repo.language} />}
-            <span className="inline-flex w-14 items-center gap-1">
-              <Star className="size-3.5" aria-hidden />
-              <span className="tabular-nums">{compactNumber.format(repo.stars)}</span>
-              <span className="sr-only">stars</span>
-            </span>
-          </div>
-          <SaveRepoButton repo={repo} saved={savedIds.has(libraryId(repo.fullName))} compact />
-        </li>
+    <List aria-label="New this week" listStyle="decimal" hasDividers edge="flush">
+      {repos.data.slice(0, SHOWN).map((repo) => (
+        <ListItem
+          key={repo.fullName}
+          label={<RepoName fullName={repo.fullName} url={repo.url} />}
+          description={repo.description ?? undefined}
+          startContent={
+            <RepoAvatar fullName={repo.fullName} details={repo} className="size-9 rounded-lg" />
+          }
+          endContent={
+            <HStack gap={3} vAlign="center">
+              <div className="hidden items-center gap-3 sm:flex">
+                {repo.language !== null && <LanguagePill language={repo.language} />}
+                <HStack gap={1} vAlign="center" width={56}>
+                  <Icon icon={Star} size="sm" color="secondary" />
+                  <Text type="supporting" hasTabularNumbers>
+                    {compactNumber.format(repo.stars)}
+                  </Text>
+                  <span className="sr-only">stars</span>
+                </HStack>
+              </div>
+              <SaveRepoButton repo={repo} saved={savedIds.has(libraryId(repo.fullName))} compact />
+            </HStack>
+          }
+        />
       ))}
-    </ol>
+    </List>
   );
 }

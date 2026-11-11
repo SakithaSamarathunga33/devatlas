@@ -1,62 +1,47 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Layout, LayoutContent, LayoutFooter, LayoutHeader } from "@astryxdesign/core/Layout";
+import { Text } from "@astryxdesign/core/Text";
+import { VStack } from "@astryxdesign/core/VStack";
+import type { ReactNode } from "react";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary";
+interface StepScreenProps {
+  title: string;
+  description: string;
+  /** The navigation buttons, aligned to the end of the footer. */
+  footer?: ReactNode;
+  children: ReactNode;
 }
 
-const BUTTON_BASE =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-5 text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-accent-soft focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-45";
-
-export function Button({
-  variant = "primary",
-  className = "",
-  type = "button",
-  ...props
-}: ButtonProps) {
-  const look =
-    variant === "primary"
-      ? "btn-primary text-canvas"
-      : "border border-line bg-surface-raised/70 text-fg hover:bg-surface-raised";
-  return <button type={type} className={`${BUTTON_BASE} ${look} ${className}`} {...props} />;
-}
-
-interface CheckboxProps {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}
-
-export function Checkbox({ label, checked, onChange }: CheckboxProps) {
+/** The frame of every step: heading on top, content filling the middle, buttons below. */
+export function StepScreen({ title, description, footer, children }: StepScreenProps) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 text-sm text-fg">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => {
-          onChange(event.target.checked);
-        }}
-        className="size-[18px] cursor-pointer rounded accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-soft"
-      />
-      {label}
-    </label>
+    <Layout
+      height="fill"
+      padding={6}
+      header={
+        <LayoutHeader>
+          <VStack gap={1}>
+            <Heading level={1} className="outline-none">
+              {title}
+            </Heading>
+            <Text type="supporting">{description}</Text>
+          </VStack>
+        </LayoutHeader>
+      }
+      footer={
+        footer !== undefined && (
+          <LayoutFooter>
+            <HStack gap={2} hAlign="end">
+              {footer}
+            </HStack>
+          </LayoutFooter>
+        )
+      }
+    >
+      <LayoutContent isScrollable={false}>{children}</LayoutContent>
+    </Layout>
   );
-}
-
-/** Heading block shared by the step screens. */
-export function ScreenHeader({ title, description }: { title: string; description: string }) {
-  return (
-    <header className="mb-5">
-      <h1 tabIndex={-1} className="text-xl font-semibold tracking-tight outline-none">
-        {title}
-      </h1>
-      <p className="mt-1 text-sm text-muted">{description}</p>
-    </header>
-  );
-}
-
-/** Bottom-right navigation row of the step screens. */
-export function Footer({ children }: { children: ReactNode }) {
-  return <footer className="mt-auto flex justify-end gap-3 pt-5">{children}</footer>;
 }
 
 export function Mark({ className = "" }: { className?: string }) {

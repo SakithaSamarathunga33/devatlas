@@ -112,7 +112,7 @@ describe("CommandPalette", () => {
     fireEvent.change(within(dialog).getByRole("combobox", { name: "Search" }), {
       target: { value: "lovely" },
     });
-    expect(within(dialog).getByRole("option", { name: /Motion docs/ })).toBeInTheDocument();
+    expect(await within(dialog).findByRole("option", { name: /Motion docs/ })).toBeInTheDocument();
   });
 
   it("finds collections and snippets, including inside the code", async () => {
@@ -147,14 +147,26 @@ describe("CommandPalette", () => {
     renderPalette();
     const dialog = await search("o");
     const input = within(dialog).getByRole("combobox", { name: "Search" });
+    // The highlight is the combobox's active descendant; aria-selected is Astryx's picker state.
+    const highlighted = () =>
+      document.getElementById(input.getAttribute("aria-activedescendant") ?? "");
     await within(dialog).findByRole("option", { name: /Motion docs/ });
+    await within(dialog).findByRole("option", { name: /Client work/ });
+    await within(dialog).findByRole("option", { name: /Debounce helper/ });
     const options = within(dialog).getAllByRole("option");
-    expect(options[0]).toHaveAttribute("aria-selected", "true");
+    await vi.waitFor(() => {
+      expect(highlighted()).toBe(options[0]);
+    });
 
     fireEvent.keyDown(input, { key: "ArrowDown" });
-    expect(within(dialog).getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true");
+    expect(highlighted()).toBe(within(dialog).getAllByRole("option")[1]);
     fireEvent.keyDown(input, { key: "ArrowUp" });
     fireEvent.change(input, { target: { value: "springy" } });
+    // Astryx commits results after a microtask, so wait for the top result to be highlighted.
+    const match = await within(dialog).findByRole("option", { name: /Motion docs/ });
+    await vi.waitFor(() => {
+      expect(highlighted()).toBe(match);
+    });
     fireEvent.keyDown(input, { key: "Enter" });
 
     await vi.waitFor(() => {
@@ -163,14 +175,39 @@ describe("CommandPalette", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it.each(["/library/motion.dev", "/news/view?url=x", "/discovery/view?url=x"])(
-    "stays closed on the site viewer at %s, which sits above the app's window",
-    (path) => {
-      renderPalette(path);
+  it("re-runs the query when links finish loading after it was typed", async () => {
+    renderPalette();
+    let finishLoading: (snapshot: unknown) => void = () => undefined;
+    const loading = new Promise((resolve) => {
+      finishLoading = resolve;
+    });
+    const respond = vi.mocked(invoke).getMockImplementation();
+    vi.mocked(invoke).mockImplementation((command, args) =>
+      command === "list_library" ? loading : (respond?.(command, args) ?? Promise.resolve(null)),
+    );
 
-      fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const dialog = await search("springy");
+    expect(await within(dialog).findByText("Nothing found.")).toBeInTheDocument();
 
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    },
-  );
+    finishLoading({ source: { browser: "", folder: "", warning: null }, resources: [LINK] });
+
+    expect(await within(dialog).findByRole("option", { name: /Motion docs/ })).toBeInTheDocument();
+  });
+
+  it.each([
+    "/library/motion.dev",
+    "/news/view?url=x",
+    "/discovery/view?url=x",
+    "/explorer/view?url=x",
+  ])("stays closed on the site viewer at %s, which sits above the app's window", (path) => {
+    renderPalette(path);
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Search everything/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
 });

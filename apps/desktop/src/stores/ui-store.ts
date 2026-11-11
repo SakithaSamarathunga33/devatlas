@@ -4,13 +4,12 @@ export type Theme = "dark" | "light";
 
 const THEME_KEY = "devatlas-theme";
 
-/** Puts the theme on <html> (tokens key off `data-theme`, shadcn's `dark:` off `.dark`) and
- * remembers it; public/theme-init.js reads it back before the next launch's first paint. */
+/** Puts the theme on <html> (chart tokens key off `.dark`; Astryx's Theme keeps `data-theme` in
+ * step) and remembers it; public/theme-init.js reads it back before the next launch's first paint. */
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   root.classList.toggle("dark", theme === "dark");
-  if (theme === "light") root.dataset.theme = "light";
-  else delete root.dataset.theme;
+  root.dataset.theme = theme;
   try {
     localStorage.setItem(THEME_KEY, theme);
   } catch {

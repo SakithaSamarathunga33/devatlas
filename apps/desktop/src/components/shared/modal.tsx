@@ -1,37 +1,24 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
+import type { ReactNode } from "react";
 
 interface ModalProps {
   title: string;
   /** Called on Esc as well as from the content's own buttons; the parent unmounts the modal. */
   onClose: () => void;
+  /** "form" keeps a stray backdrop click from discarding what was typed. */
+  purpose?: "form" | "info";
   children: ReactNode;
 }
 
-/** A modal on the native `<dialog>`, which brings the focus trap, Esc and inert background. */
-export function Modal({ title, onClose, children }: ModalProps) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-
-  useEffect(() => {
-    const opener = document.activeElement;
-    if (dialog.current?.open === false) dialog.current.showModal();
-    // The browser only restores focus on close(); parents close by unmounting.
-    return () => {
-      if (opener instanceof HTMLElement) opener.focus();
-    };
-  }, []);
-
+/** A modal dialog; the parent renders it while open and unmounts it to close. */
+export function Modal({ title, onClose, purpose = "info", children }: ModalProps) {
+  const onOpenChange = (isOpen: boolean) => {
+    if (!isOpen) onClose();
+  };
   return (
-    <dialog
-      ref={dialog}
-      aria-labelledby={titleId}
-      onClose={onClose}
-      className="m-auto max-h-[85vh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-card p-5 text-foreground backdrop:bg-black/60"
-    >
-      <h2 id={titleId} className="text-base font-semibold">
-        {title}
-      </h2>
+    <Dialog isOpen onOpenChange={onOpenChange} width={512} padding={5} purpose={purpose}>
+      <DialogHeader title={title} onOpenChange={onOpenChange} hasDivider={false} />
       {children}
-    </dialog>
+    </Dialog>
   );
 }

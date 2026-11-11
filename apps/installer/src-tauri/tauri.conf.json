@@ -13,8 +13,8 @@
       {
         "label": "main",
         "title": "DevAtlas Installer",
-        "width": 480,
-        "height": 500,
+        "width": 560,
+        "height": 600,
         "resizable": false,
         "maximizable": false,
         "center": true,

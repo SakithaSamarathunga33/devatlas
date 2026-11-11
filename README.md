@@ -51,18 +51,17 @@ AI features and sync are **not implemented yet**.
 
 ## Technology stack
 
-| Area             | Technology                                                                                         |
-| ---------------- | -------------------------------------------------------------------------------------------------- |
-| Desktop runtime  | Tauri 2, Rust (stable, edition 2024)                                                               |
-| Frontend         | React 19, TypeScript 6, Vite 8                                                                     |
-| UI               | Tailwind CSS 4, shadcn/ui (Radix), Lucide icons, Motion, Geist fonts                               |
-| UI effects       | Magic UI (BlurFade, progress rings), React Bits (Gooey Nav: sidebar, filters), Kokonut UI (Loader) |
-| State & data     | TanStack Query (backend data), Zustand (shared UI state), Zod (IPC validation)                     |
-| Forms (upcoming) | React Hook Form + @hookform/resolvers                                                              |
-| Charts           | Bklit UI (area chart; d3-scale, d3-shape)                                                          |
-| Other            | React Router, Sonner (toasts), date-fns                                                            |
-| Rust crates      | serde, tracing, tracing-subscriber, SQLx (SQLite)                                                  |
-| Tooling          | pnpm 10 workspaces, Cargo workspace, ESLint, Prettier, Vitest, rustfmt, Clippy                     |
+| Area             | Technology                                                                     |
+| ---------------- | ------------------------------------------------------------------------------ |
+| Desktop runtime  | Tauri 2, Rust (stable, edition 2024)                                           |
+| Frontend         | React 19, TypeScript 6, Vite 8                                                 |
+| UI               | Astryx design system, Tailwind CSS 4 for layout, Lucide icons, Geist fonts     |
+| State & data     | TanStack Query (backend data), Zustand (shared UI state), Zod (IPC validation) |
+| Forms (upcoming) | React Hook Form + @hookform/resolvers                                          |
+| Charts           | Bklit UI (area chart; d3-scale, d3-shape)                                      |
+| Other            | React Router, Sonner (toasts), date-fns                                        |
+| Rust crates      | serde, tracing, tracing-subscriber, SQLx (SQLite)                              |
+| Tooling          | pnpm 10 workspaces, Cargo workspace, ESLint, Prettier, Vitest, rustfmt, Clippy |
 
 TypeScript is pinned to 6.0.x because `typescript-eslint` does not yet support TypeScript 7.
 
@@ -75,7 +74,7 @@ devatlas/
 │       ├── public/            # Static assets (brand mark)
 │       ├── src/               # React frontend (feature-oriented)
 │       │   ├── app/           # Providers, router, layouts
-│       │   ├── components/    # layout/, shared/, ui/ (shadcn)
+│       │   ├── components/    # layout/, shared/
 │       │   ├── features/      # dashboard/
 │       │   ├── hooks/ lib/ services/ stores/ types/ styles/
 │       │   └── test/          # Vitest setup

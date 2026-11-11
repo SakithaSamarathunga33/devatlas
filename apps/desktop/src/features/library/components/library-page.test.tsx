@@ -133,6 +133,21 @@ function submitLink(url: string) {
   fireEvent.click(screen.getByRole("button", { name: "Save link" }));
 }
 
+/** Theme keeps empty live regions with the alert role, so find the one that says this. */
+function findAlert(text: string) {
+  return vi.waitFor(() => {
+    const alert = screen.getAllByRole("alert").find((node) => node.textContent.includes(text));
+    if (alert === undefined) throw new Error(`No alert says “${text}”`);
+    return alert;
+  });
+}
+
+/** Picks an option from an Astryx Selector, whose list opens from a button-like combobox. */
+function choose(dialog: HTMLElement, name: RegExp, option: string) {
+  fireEvent.click(within(dialog).getByRole("combobox", { name }));
+  fireEvent.click(screen.getByRole("option", { name: option }));
+}
+
 describe("LibraryPage", () => {
   it("saves a pasted link and refreshes the library", async () => {
     await renderLibrary();
@@ -156,9 +171,7 @@ describe("LibraryPage", () => {
 
     submitLink("motion.dev/docs");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "“Docs | Motion” is already in your library.",
-    );
+    expect(await findAlert("“Docs | Motion” is already in your library.")).toBeInTheDocument();
   });
 
   it("asks for a link before submitting", async () => {
@@ -172,7 +185,7 @@ describe("LibraryPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Save link" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Paste a link to save it.");
+    expect(await findAlert("Paste a link to save it.")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith("add_link", expect.anything());
   });
 
@@ -227,10 +240,12 @@ describe("LibraryPage", () => {
   it("tags newly added resources, lists them first, and filters to them", async () => {
     await renderLibrary();
 
-    expect(
-      within(screen.getByRole("link", { name: /React Bits - Index/ })).getByText("New"),
-    ).toBeInTheDocument();
+    // The card's link is an empty overlay anchor: its name says New, the card shows it.
+    expect(screen.getByRole("link", { name: /React Bits - Index.*New/ })).toBeInTheDocument();
     const components = screen.getByRole("region", { name: "UI components" });
+    const [firstCard] = within(components).getAllByRole("listitem");
+    if (firstCard === undefined) throw new Error("fixture");
+    expect(within(firstCard).getByText("New")).toBeInTheDocument();
     expect(
       within(components)
         .getAllByRole("heading", { level: 3 })
@@ -247,7 +262,7 @@ describe("LibraryPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Animation/ }));
     expect(screen.queryByRole("region", { name: "UI components" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Animation/ })).toHaveAttribute(
-      "aria-pressed",
+      "aria-current",
       "true",
     );
 
@@ -265,13 +280,11 @@ describe("LibraryPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit Docs | Motion" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit link" });
     expect(await within(dialog).findByRole("checkbox", { name: "Website" })).toBeChecked();
-    expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveValue("");
-    fireEvent.change(within(dialog).getByRole("combobox", { name: "Category" }), {
-      target: { value: "icons" },
-    });
-    fireEvent.change(within(dialog).getByRole("combobox", { name: "Status" }), {
-      target: { value: "trying" },
-    });
+    expect(within(dialog).getByRole("combobox", { name: /^Category/ })).toHaveTextContent(
+      "Automatic",
+    );
+    choose(dialog, /^Category/, "Icons");
+    choose(dialog, /^Status/, "Trying");
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Tags" }), {
       target: { value: "React, css , " },
     });
@@ -309,9 +322,31 @@ describe("LibraryPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Edit Docs | Motion" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit link" });
 
-    expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveValue("icons");
+    expect(within(dialog).getByRole("combobox", { name: /^Category/ })).toHaveTextContent("Icons");
     expect(within(dialog).getByRole("textbox", { name: "Tags" })).toHaveValue("a, b");
     expect(within(dialog).getByRole("textbox", { name: "Note" })).toHaveValue("Hi");
+  });
+
+  it("won't save while the collections are still loading", async () => {
+    await renderLibrary();
+    const respond = vi.mocked(invoke).getMockImplementation();
+    vi.mocked(invoke).mockImplementation((command, args) =>
+      command === "list_groups"
+        ? new Promise(() => undefined)
+        : (respond?.(command, args) ?? Promise.resolve(null)),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Docs | Motion" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit link" });
+    const save = within(dialog).getByRole("button", { name: "Save" });
+    const form = save.closest("form");
+    if (form === null) throw new Error("Save is not in a form");
+    expect(save).toHaveAttribute("aria-disabled", "true");
+
+    // Enter in a field submits the form directly; saving now would clear the link's groups.
+    fireEvent.submit(form);
+
+    expect(invoke).not.toHaveBeenCalledWith("update_resource", expect.anything());
   });
 
   it("shows tags on the card and finds links by tag or note", async () => {
@@ -381,7 +416,7 @@ describe("LibraryPage", () => {
       ],
     });
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Bookmarks were not found.");
+    expect(await findAlert("Bookmarks were not found.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Best Portfolio Websites/ })).toBeInTheDocument();
   });
 

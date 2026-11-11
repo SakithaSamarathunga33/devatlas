@@ -1,20 +1,39 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { CodeBlock } from "@astryxdesign/core/CodeBlock";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { FormLayout } from "@astryxdesign/core/FormLayout";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { IconButton } from "@astryxdesign/core/IconButton";
+import { Selector } from "@astryxdesign/core/Selector";
+import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { StackItem } from "@astryxdesign/core/Stack";
+import { Text } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { Token } from "@astryxdesign/core/Token";
+import { VisuallyHidden } from "@astryxdesign/core/VisuallyHidden";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, Copy, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Copy, Link2, Pencil, Plus, Trash2 } from "lucide-react";
+import { useState, type CSSProperties } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { Modal } from "@/components/shared/modal";
 import { PageHeader } from "@/components/shared/page-header";
 import { SearchField } from "@/components/shared/search-field";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useLibrary } from "@/hooks/use-library";
 import { snippetsQueryKey, useSnippets } from "@/hooks/use-snippets";
-import { fieldClass, selectClass } from "@/lib/styles";
 import { describeError } from "@/services/ipc";
 import { createSnippet, deleteSnippet, updateSnippet } from "@/services/snippets.service";
 import type { Snippet } from "@/types/snippets.types";
+
+/** TextArea reads the body font token, so pointing that token at the code font makes it mono. */
+const CODE_FONT = { "--font-family-body": "var(--font-family-code)" } as CSSProperties;
 
 function message(error: unknown): string {
   return describeError(error).replace(/^.*?failed: /, "");
@@ -37,9 +56,9 @@ export function SnippetsPage() {
   const visible = all.filter((snippet) => term === "" || matches(snippet, term));
 
   return (
-    <div className="w-full px-5 pt-5 pb-16 lg:px-8">
+    <VStack padding={6}>
       <PageHeader title="Snippets" description="Small pieces of code worth keeping.">
-        <div className="flex max-w-xl min-w-0 flex-1 basis-80 items-center gap-2">
+        <div className="flex max-w-xl min-w-0 flex-1 basis-80 items-center justify-end gap-2">
           <SearchField
             value={search}
             onChange={(value) => {
@@ -49,38 +68,33 @@ export function SnippetsPage() {
             placeholder="Search…"
           />
           <Button
+            label="New snippet"
+            variant="primary"
+            icon={<Icon icon={Plus} />}
             onClick={() => {
               setCreating(true);
             }}
-          >
-            <Plus aria-hidden />
-            New snippet
-          </Button>
+          />
         </div>
       </PageHeader>
 
       {snippets.isPending && (
         <div role="status" aria-busy="true" className="mt-5 grid gap-3 lg:grid-cols-2">
-          <span className="sr-only">Loading snippets</span>
-          <Skeleton className="h-40 rounded-xl" />
-          <Skeleton className="h-40 rounded-xl" />
+          <VisuallyHidden>Loading snippets</VisuallyHidden>
+          <Skeleton height={160} />
+          <Skeleton height={160} index={1} />
         </div>
       )}
       {snippets.isError && (
-        <p role="alert" className="mt-8 flex items-center gap-2 text-sm text-destructive">
-          <CircleAlert className="size-4 shrink-0" aria-hidden />
-          {message(snippets.error)}
-        </p>
+        <div className="mt-8">
+          <Banner status="error" role="alert" title={message(snippets.error)} />
+        </div>
       )}
       {snippets.isSuccess && all.length === 0 && (
-        <p className="mt-8 text-sm text-muted-foreground">
-          No snippets yet. Save the few lines you always look up.
-        </p>
+        <EmptyState title="No snippets yet" description="Save the few lines you always look up." />
       )}
       {snippets.isSuccess && all.length > 0 && visible.length === 0 && (
-        <p className="mt-8 text-sm text-muted-foreground">
-          No snippets match &ldquo;{search}&rdquo;.
-        </p>
+        <EmptyState title={`No snippets match “${search}”`} />
       )}
       {visible.length > 0 && (
         <ul className="mt-5 grid gap-3 lg:grid-cols-2">
@@ -99,7 +113,7 @@ export function SnippetsPage() {
           }}
         />
       )}
-    </div>
+    </VStack>
   );
 }
 
@@ -127,58 +141,66 @@ function SnippetCard({ snippet }: { snippet: Snippet }) {
   };
 
   return (
-    <article className="flex h-full flex-col rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold">{snippet.title}</h3>
-          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            {snippet.language !== null && <span>{snippet.language}</span>}
-            {snippet.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-secondary px-2 py-px">
-                {tag}
-              </span>
-            ))}
-            {attached !== undefined && <span className="text-primary">{attached}</span>}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Copy ${snippet.title}`}
-          title="Copy"
-          onClick={copy}
-          className="size-8 text-muted-foreground"
-        >
-          <Copy aria-hidden />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Edit ${snippet.title}`}
-          title="Edit"
-          onClick={() => {
-            setDialog("edit");
-          }}
-          className="size-8 text-muted-foreground"
-        >
-          <Pencil aria-hidden />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Delete ${snippet.title}`}
-          title="Delete"
-          onClick={() => {
-            setDialog("delete");
-          }}
-          className="size-8 text-muted-foreground hover:text-destructive"
-        >
-          <Trash2 aria-hidden />
-        </Button>
-      </div>
-      <pre className="mt-3 max-h-64 flex-1 overflow-auto rounded-lg bg-secondary p-3 font-mono text-xs">
-        <code>{snippet.code}</code>
-      </pre>
+    <article className="h-full">
+      <Card height="100%">
+        <VStack gap={3}>
+          <HStack gap={2} vAlign="start">
+            <StackItem size="fill">
+              <VStack gap={1}>
+                <Heading level={5} accessibilityLevel={2} maxLines={1}>
+                  {snippet.title}
+                </Heading>
+                <HStack gap={1.5} vAlign="center" wrap="wrap">
+                  {snippet.language !== null && <Text type="supporting">{snippet.language}</Text>}
+                  {snippet.tags.map((tag) => (
+                    <Token key={tag} label={tag} size="sm" />
+                  ))}
+                  {attached !== undefined && (
+                    <Token label={attached} size="sm" color="blue" icon={<Icon icon={Link2} />} />
+                  )}
+                </HStack>
+              </VStack>
+            </StackItem>
+            <IconButton
+              label={`Copy ${snippet.title}`}
+              tooltip="Copy"
+              variant="ghost"
+              size="sm"
+              icon={<Icon icon={Copy} />}
+              onClick={copy}
+            />
+            <IconButton
+              label={`Edit ${snippet.title}`}
+              tooltip="Edit"
+              variant="ghost"
+              size="sm"
+              icon={<Icon icon={Pencil} />}
+              onClick={() => {
+                setDialog("edit");
+              }}
+            />
+            <IconButton
+              label={`Delete ${snippet.title}`}
+              tooltip="Delete"
+              variant="ghost"
+              size="sm"
+              icon={<Icon icon={Trash2} />}
+              onClick={() => {
+                setDialog("delete");
+              }}
+            />
+          </HStack>
+          <CodeBlock
+            code={snippet.code}
+            language={snippet.language?.toLowerCase() ?? "plaintext"}
+            hasLanguageLabel={false}
+            hasCopyButton={false}
+            size="sm"
+            width="100%"
+            maxHeight={256}
+          />
+        </VStack>
+      </Card>
       {dialog === "edit" && <SnippetForm snippet={snippet} onClose={closeDialog} />}
       {dialog === "delete" && <DeleteDialog snippet={snippet} onClose={closeDialog} />}
     </article>
@@ -216,92 +238,60 @@ function SnippetForm({ snippet, onClose }: { snippet?: Snippet; onClose: () => v
   });
 
   return (
-    <Modal title={snippet === undefined ? "New snippet" : "Edit snippet"} onClose={onClose}>
+    <Modal
+      purpose="form"
+      title={snippet === undefined ? "New snippet" : "Edit snippet"}
+      onClose={onClose}
+    >
       <form
-        className="mt-4 flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           save.mutate();
         }}
       >
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Title
-          <input
-            value={title}
-            autoFocus
-            onChange={(event) => {
-              setTitle(event.target.value);
-            }}
-            className={fieldClass}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Language
-          <input
-            value={language}
-            placeholder="TypeScript"
-            onChange={(event) => {
-              setLanguage(event.target.value);
-            }}
-            className={fieldClass}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Code
-          <textarea
-            value={code}
-            rows={8}
-            spellCheck={false}
-            onChange={(event) => {
-              setCode(event.target.value);
-            }}
-            className={`${fieldClass} font-mono text-xs`}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Tags
-          <input
-            value={tags}
-            placeholder="react, hooks"
-            onChange={(event) => {
-              setTags(event.target.value);
-            }}
-            className={fieldClass}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Link
-          <select
-            value={resourceId}
-            onChange={(event) => {
-              setResourceId(event.target.value);
-            }}
-            className={selectClass}
-          >
-            <option value="">None</option>
-            {library.data?.resources.map((resource) => (
-              <option key={resource.id} value={resource.id}>
-                {resource.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        {save.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {message(save.error)}
-          </p>
-        )}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={save.isPending || title.trim() === "" || code.trim() === ""}
-          >
-            {snippet === undefined ? "Create" : "Save"}
-          </Button>
-        </div>
+        <VStack gap={4}>
+          <FormLayout>
+            <TextInput label="Title" hasAutoFocus value={title} onChange={setTitle} />
+            <TextInput
+              label="Language"
+              placeholder="TypeScript"
+              value={language}
+              onChange={setLanguage}
+            />
+            <TextArea
+              label="Code"
+              rows={8}
+              hasSpellCheck={false}
+              controlStyle={CODE_FONT}
+              value={code}
+              onChange={setCode}
+            />
+            <TextInput label="Tags" placeholder="react, hooks" value={tags} onChange={setTags} />
+            <Selector
+              label="Link"
+              hasSearch
+              options={[
+                { value: "", label: "None" },
+                ...(library.data?.resources ?? []).map((resource) => ({
+                  value: resource.id,
+                  label: resource.title,
+                })),
+              ]}
+              value={resourceId}
+              onChange={setResourceId}
+            />
+          </FormLayout>
+          {save.isError && <Banner status="error" role="alert" title={message(save.error)} />}
+          <HStack gap={2} hAlign="end">
+            <Button label="Cancel" variant="ghost" onClick={onClose} />
+            <Button
+              type="submit"
+              label={snippet === undefined ? "Create" : "Save"}
+              variant="primary"
+              isDisabled={save.isPending || title.trim() === "" || code.trim() === ""}
+            />
+          </HStack>
+        </VStack>
       </form>
     </Modal>
   );
@@ -319,26 +309,23 @@ function DeleteDialog({ snippet, onClose }: { snippet: Snippet; onClose: () => v
 
   return (
     <Modal title={`Delete “${snippet.title}”?`} onClose={onClose}>
-      <p className="mt-2 text-sm text-muted-foreground">This can&apos;t be undone.</p>
-      {remove.isError && (
-        <p role="alert" className="mt-3 text-sm text-destructive">
-          {message(remove.error)}
-        </p>
-      )}
-      <div className="mt-4 flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          variant="destructive"
-          disabled={remove.isPending}
-          onClick={() => {
-            remove.mutate();
-          }}
-        >
-          Delete
-        </Button>
-      </div>
+      <VStack gap={4}>
+        <Text type="supporting" as="p">
+          This can&apos;t be undone.
+        </Text>
+        {remove.isError && <Banner status="error" role="alert" title={message(remove.error)} />}
+        <HStack gap={2} hAlign="end">
+          <Button label="Cancel" variant="ghost" onClick={onClose} />
+          <Button
+            label="Delete"
+            variant="destructive"
+            isDisabled={remove.isPending}
+            onClick={() => {
+              remove.mutate();
+            }}
+          />
+        </HStack>
+      </VStack>
     </Modal>
   );
 }

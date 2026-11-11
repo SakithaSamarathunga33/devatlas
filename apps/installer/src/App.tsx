@@ -1,7 +1,8 @@
+import { Step, Stepper } from "@astryxdesign/core/Stepper";
 import { useEffect, useRef, useState } from "react";
 
-import { Backdrop, TitleBar } from "@/components/chrome";
-import { withAppFolder } from "@/lib/format";
+import { TitleBar } from "@/components/chrome";
+import { formatBytes, withAppFolder } from "@/lib/format";
 import { CompleteScreen, InstallingScreen, ReadyScreen } from "@/screens/finish-screens";
 import {
   LicenseScreen,
@@ -22,6 +23,14 @@ import {
 } from "@/services/installer";
 
 type Screen = "welcome" | "license" | "options" | "installing" | "complete" | "ready";
+
+/** The Stepper entry each screen belongs to; Welcome and Ready sit outside the steps. */
+const STEP_LABEL: Partial<Record<Screen, string>> = {
+  license: "License",
+  options: "Options",
+  installing: "Install",
+  complete: "Finish",
+};
 
 /** Waits for typing to pause before measuring a drive. */
 const SPACE_CHECK_DELAY_MS = 300;
@@ -55,12 +64,16 @@ export function App() {
   const [progress, setProgress] = useState<InstallProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
+  // Retrying stays on the same screen, so this is what moves focus back to its heading.
+  const [attempt, setAttempt] = useState(0);
   const mainRef = useRef<HTMLElement>(null);
 
   // Each screen remounts; move focus to its heading so keyboard and screen-reader users follow.
   useEffect(() => {
-    mainRef.current?.querySelector("h1")?.focus();
-  }, [screen]);
+    const heading = mainRef.current?.querySelector("h1");
+    heading?.setAttribute("tabindex", "-1");
+    heading?.focus();
+  }, [screen, attempt]);
 
   useEffect(() => {
     getInstallDefaults()
@@ -99,6 +112,7 @@ export function App() {
 
   const startInstall = () => {
     go("installing");
+    setAttempt((current) => current + 1);
     setProgress(null);
     install(options, setProgress)
       .then(() => {
@@ -137,10 +151,13 @@ export function App() {
   };
 
   const isInstalling = screen === "installing" && error === null;
+  const steps = isCustom
+    ? ["License", "Options", "Install", "Finish"]
+    : ["License", "Install", "Finish"];
+  const activeStep = STEP_LABEL[screen] === undefined ? -1 : steps.indexOf(STEP_LABEL[screen]);
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden">
-      <Backdrop />
+    <div className="flex h-full flex-col overflow-hidden">
       <TitleBar
         canClose={!isInstalling}
         onMinimize={() => {
@@ -150,15 +167,25 @@ export function App() {
           run(closeWindow);
         }}
       />
-      <main
-        ref={mainRef}
-        key={screen}
-        className="relative flex min-h-0 flex-1 animate-enter flex-col px-7 pt-3 pb-7"
-      >
+      {activeStep >= 0 && (
+        <div className="shrink-0 px-6 pt-2">
+          <Stepper activeStep={activeStep} label="Setup progress" density="compact">
+            {steps.map((label, index) => (
+              <Step key={label} step={index} label={label} />
+            ))}
+          </Stepper>
+        </div>
+      )}
+      <main ref={mainRef} key={screen} className="min-h-0 flex-1">
         {screen === "welcome" && (
           <WelcomeScreen
             isReady={defaults !== null}
             error={error}
+            details={
+              defaults === null
+                ? null
+                : `Version ${defaults.version} · needs ~${formatBytes(defaults.requiredBytes)}`
+            }
             onInstall={() => {
               // The one-click path always uses the defaults, whatever Customize left behind.
               setOptions({ ...INITIAL_OPTIONS, dir: defaults?.dir ?? "" });

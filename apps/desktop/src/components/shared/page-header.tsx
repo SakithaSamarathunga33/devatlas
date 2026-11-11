@@ -1,3 +1,5 @@
+import { Heading } from "@astryxdesign/core/Heading";
+import { Text } from "@astryxdesign/core/Text";
 import type { ReactNode } from "react";
 
 interface PageHeaderProps {
@@ -12,8 +14,10 @@ export function PageHeader({ title, description, children }: PageHeaderProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-[-0.03em]">{title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <Heading level={1}>{title}</Heading>
+        <Text type="supporting" as="p">
+          {description}
+        </Text>
       </div>
       {children}
     </div>

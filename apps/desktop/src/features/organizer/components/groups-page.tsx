@@ -1,16 +1,28 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
+import { ClickableCard } from "@astryxdesign/core/ClickableCard";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { IconButton } from "@astryxdesign/core/IconButton";
+import { Link } from "@astryxdesign/core/Link";
+import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { Text } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CircleAlert, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Link2, ListChecks, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
 import { Modal } from "@/components/shared/modal";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceCard } from "@/features/library";
 import { groupsQueryKey, useGroups } from "@/hooks/use-groups";
 import { useLibrary } from "@/hooks/use-library";
-import { fieldClass } from "@/lib/styles";
 import { describeError } from "@/services/ipc";
 import {
   createGroup,
@@ -28,29 +40,26 @@ const COPY = {
   description: "Group links into curated sets for a stack, a client, or an idea.",
 };
 
-const PAGE = "w-full px-5 pt-5 pb-16 lg:px-8";
+const CARD_GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3";
 
 function errorMessage(error: unknown): string {
   return describeError(error).replace(/^.*?failed: /, "");
 }
 
 function LoadFailed({ error }: { error: unknown }) {
-  return (
-    <p role="alert" className="mt-8 flex items-center gap-2 text-sm text-destructive">
-      <CircleAlert className="size-4 shrink-0" aria-hidden />
-      {errorMessage(error)}
-    </p>
-  );
+  return <Banner role="alert" status="error" title={errorMessage(error)} />;
 }
 
 function ListSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <VStack role="status" aria-busy="true">
       <span className="sr-only">Loading</span>
-      {Array.from({ length: 3 }, (_, index) => (
-        <Skeleton key={index} className="h-24 rounded-xl" />
-      ))}
-    </div>
+      <div className={CARD_GRID}>
+        {Array.from({ length: 3 }, (_, index) => (
+          <Skeleton key={index} index={index} height={96} />
+        ))}
+      </div>
+    </VStack>
   );
 }
 
@@ -65,47 +74,59 @@ export function CollectionsPage() {
   const ofKind = groups.data ?? [];
 
   return (
-    <div className={PAGE}>
+    <VStack gap={5} padding={6}>
       <PageHeader title={title} description={description}>
         <Button
+          variant="primary"
+          label={`New ${singular}`}
+          icon={<Icon icon={Plus} />}
           onClick={() => {
             setCreating(true);
           }}
-        >
-          <Plus aria-hidden />
-          New {singular}
-        </Button>
+        />
       </PageHeader>
 
       {(groups.isPending || library.isPending) && <ListSkeleton />}
       {groups.isError && <LoadFailed error={groups.error} />}
       {groups.isSuccess && libraryFailed && <LoadFailed error={library.error} />}
       {groups.isSuccess && !library.isPending && !libraryFailed && ofKind.length === 0 && (
-        <p className="mt-8 text-sm text-muted-foreground">
-          No {title.toLowerCase()} yet. Create one, then add links to it here or from a link&apos;s
-          Edit button in the Library.
-        </p>
+        <EmptyState
+          headingLevel={2}
+          icon={<Icon icon={ListChecks} />}
+          title={`No ${title.toLowerCase()} yet`}
+          description="Create one, then add links to it here or from a link's Edit button in the Library."
+        />
       )}
       {groups.isSuccess && !library.isPending && !libraryFailed && ofKind.length > 0 && (
-        <ul className="mt-5 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
+        <ul className={CARD_GRID}>
           {ofKind.map((group) => {
             const count = group.resourceIds.filter((id) => inLibrary.has(id)).length;
+            const links = `${String(count)} ${count === 1 ? "link" : "links"}`;
             return (
               <li key={group.id}>
-                <Link
-                  to={`${path}/${encodeURIComponent(group.id)}`}
-                  className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-[border-color] outline-none hover:border-foreground/15 focus-visible:ring-2 focus-visible:ring-ring"
+                <ClickableCard
+                  href={`${path}/${encodeURIComponent(group.id)}`}
+                  label={[group.name, group.description, links]
+                    .filter((part) => part !== null)
+                    .join(", ")}
+                  height="100%"
                 >
-                  <span className="truncate text-sm font-semibold">{group.name}</span>
-                  {group.description !== null && (
-                    <span className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                      {group.description}
-                    </span>
-                  )}
-                  <span className="mt-3 text-xs text-muted-foreground tabular-nums">
-                    {count} {count === 1 ? "link" : "links"}
-                  </span>
-                </Link>
+                  <VStack gap={3} height="100%" justify="between">
+                    <VStack gap={1}>
+                      <Heading level={5} accessibilityLevel={2} maxLines={1}>
+                        {group.name}
+                      </Heading>
+                      {group.description !== null && (
+                        <Text type="supporting" maxLines={2}>
+                          {group.description}
+                        </Text>
+                      )}
+                    </VStack>
+                    <Text type="supporting" hasTabularNumbers>
+                      {links}
+                    </Text>
+                  </VStack>
+                </ClickableCard>
               </li>
             );
           })}
@@ -119,7 +140,7 @@ export function CollectionsPage() {
           }}
         />
       )}
-    </div>
+    </VStack>
   );
 }
 
@@ -136,39 +157,37 @@ export function CollectionDetailPage() {
   };
 
   const back = (
-    <Link
-      to={path}
-      aria-label={`Back to ${title}`}
-      className="mb-3 inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <ArrowLeft className="size-4" aria-hidden />
-      {title}
+    <Link href={path} label={`Back to ${title}`} type="supporting" color="secondary">
+      <span className="inline-flex items-center gap-1.5">
+        <Icon icon={ArrowLeft} size="sm" />
+        {title}
+      </span>
     </Link>
   );
 
   if (groups.isPending || library.isPending) {
     return (
-      <div className={PAGE}>
+      <VStack gap={4} padding={6}>
         {back}
         <ListSkeleton />
-      </div>
+      </VStack>
     );
   }
   if (groups.isError || (library.isError && library.data === undefined)) {
     return (
-      <div className={PAGE}>
+      <VStack gap={4} padding={6}>
         {back}
         <LoadFailed error={groups.error ?? library.error} />
-      </div>
+      </VStack>
     );
   }
   const group = groups.data.find((item) => item.id === groupId);
   if (group === undefined) {
     return (
-      <div className={PAGE}>
+      <VStack gap={4} padding={6}>
         {back}
-        <p className="mt-4 text-sm text-muted-foreground">This {singular} no longer exists.</p>
-      </div>
+        <EmptyState headingLevel={1} title={`This ${singular} no longer exists.`} />
+      </VStack>
     );
   }
 
@@ -176,52 +195,50 @@ export function CollectionDetailPage() {
   const members = resources.filter((resource) => group.resourceIds.includes(resource.id));
 
   return (
-    <div className={PAGE}>
+    <VStack gap={4} padding={6}>
       {back}
       <PageHeader
         title={group.name}
         description={group.description ?? `${String(members.length)} links`}
       >
-        <div className="flex items-center gap-2">
+        <HStack gap={2} vAlign="center">
           <Button
+            variant="primary"
+            label="Manage links"
+            icon={<Icon icon={ListChecks} />}
             onClick={() => {
               setDialog("links");
             }}
-          >
-            <ListChecks aria-hidden />
-            Manage links
-          </Button>
-          <Button
+          />
+          <IconButton
             variant="ghost"
-            size="icon"
-            aria-label={`Edit ${singular}`}
-            title={`Edit ${singular}`}
+            label={`Edit ${singular}`}
+            tooltip={`Edit ${singular}`}
+            icon={<Icon icon={Pencil} />}
             onClick={() => {
               setDialog("edit");
             }}
-          >
-            <Pencil aria-hidden />
-          </Button>
-          <Button
+          />
+          <IconButton
             variant="ghost"
-            size="icon"
-            aria-label={`Delete ${singular}`}
-            title={`Delete ${singular}`}
+            label={`Delete ${singular}`}
+            tooltip={`Delete ${singular}`}
+            icon={<Icon icon={Trash2} />}
             onClick={() => {
               setDialog("delete");
             }}
-            className="hover:text-destructive"
-          >
-            <Trash2 aria-hidden />
-          </Button>
-        </div>
+          />
+        </HStack>
       </PageHeader>
       {members.length === 0 ? (
-        <p className="mt-8 text-sm text-muted-foreground">
-          No links in this {singular} yet. Use Manage links to add some.
-        </p>
+        <EmptyState
+          headingLevel={2}
+          icon={<Icon icon={Link2} />}
+          title={`No links in this ${singular} yet`}
+          description="Use Manage links to add some."
+        />
       ) : (
-        <ul className="mt-5 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
+        <ul className={CARD_GRID}>
           {members.map((resource) => (
             <li key={resource.id}>
               <ResourceCard resource={resource} />
@@ -235,7 +252,7 @@ export function CollectionDetailPage() {
       )}
       {dialog === "edit" && <GroupFormDialog group={group} onClose={closeDialog} />}
       {dialog === "delete" && <DeleteDialog group={group} onClose={closeDialog} />}
-    </div>
+    </VStack>
   );
 }
 
@@ -256,51 +273,36 @@ function GroupFormDialog({ group, onClose }: { group?: Group; onClose: () => voi
       onClose();
     },
   });
+  const isNameEmpty = name.trim() === "";
 
   return (
-    <Modal title={group === undefined ? `New ${singular}` : `Edit ${singular}`} onClose={onClose}>
+    <Modal
+      purpose="form"
+      title={group === undefined ? `New ${singular}` : `Edit ${singular}`}
+      onClose={onClose}
+    >
       <form
-        className="mt-4 flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
-          save.mutate();
+          // Astryx's submit button is only aria-disabled, so Enter still reaches this handler.
+          if (!isNameEmpty && !save.isPending) save.mutate();
         }}
       >
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Name
-          <input
-            value={name}
-            autoFocus
-            onChange={(event) => {
-              setName(event.target.value);
-            }}
-            className={fieldClass}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Description
-          <textarea
-            value={description}
-            rows={2}
-            onChange={(event) => {
-              setDescription(event.target.value);
-            }}
-            className={fieldClass}
-          />
-        </label>
-        {save.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {errorMessage(save.error)}
-          </p>
-        )}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={save.isPending || name.trim() === ""}>
-            {group === undefined ? "Create" : "Save"}
-          </Button>
-        </div>
+        <VStack gap={4}>
+          <TextInput label="Name" value={name} hasAutoFocus onChange={setName} />
+          <TextArea label="Description" value={description} rows={2} onChange={setDescription} />
+          {save.isError && <Banner role="alert" status="error" title={errorMessage(save.error)} />}
+          <HStack gap={2} hAlign="end">
+            <Button variant="ghost" label="Cancel" onClick={onClose} />
+            <Button
+              type="submit"
+              variant="primary"
+              label={group === undefined ? "Create" : "Save"}
+              isLoading={save.isPending}
+              isDisabled={isNameEmpty}
+            />
+          </HStack>
+        </VStack>
       </form>
     </Modal>
   );
@@ -343,63 +345,49 @@ function ManageLinksDialog({
   };
 
   return (
-    <Modal title="Manage links" onClose={onClose}>
-      <input
-        type="search"
-        aria-label="Filter links"
-        placeholder="Filter links…"
-        value={filter}
-        onChange={(event) => {
-          setFilter(event.target.value);
-        }}
-        className={`mt-4 ${fieldClass}`}
-      />
-      {resources.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">Your library is empty.</p>
-      ) : (
-        <div className="mt-3 flex max-h-80 flex-col gap-0.5 overflow-y-auto">
-          {visible.map((resource) => (
-            <label
-              key={resource.id}
-              className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-secondary"
-            >
-              <input
-                type="checkbox"
-                aria-label={resource.title}
-                checked={selected.has(resource.id)}
-                onChange={(event) => {
-                  toggle(resource.id, event.target.checked);
+    <Modal purpose="form" title="Manage links" onClose={onClose}>
+      <VStack gap={3}>
+        <TextInput
+          type="search"
+          label="Filter links"
+          isLabelHidden
+          placeholder="Filter links…"
+          startIcon={Search}
+          value={filter}
+          onChange={setFilter}
+        />
+        {resources.length === 0 && <EmptyState isCompact title="Your library is empty." />}
+        {resources.length > 0 && visible.length === 0 && (
+          <EmptyState isCompact title="No links match this filter." />
+        )}
+        {visible.length > 0 && (
+          <VStack gap={2} className="max-h-80 overflow-y-auto">
+            {visible.map((resource) => (
+              <CheckboxInput
+                key={resource.id}
+                label={resource.title}
+                description={resource.host}
+                value={selected.has(resource.id)}
+                onChange={(checked) => {
+                  toggle(resource.id, checked);
                 }}
-                className="size-4 shrink-0 accent-primary"
               />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm">{resource.title}</span>
-                <span className="block truncate font-mono text-xs text-muted-foreground">
-                  {resource.host}
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
-      )}
-      {save.isError && (
-        <p role="alert" className="mt-3 text-sm text-destructive">
-          {errorMessage(save.error)}
-        </p>
-      )}
-      <div className="mt-4 flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          disabled={save.isPending}
-          onClick={() => {
-            save.mutate();
-          }}
-        >
-          Save
-        </Button>
-      </div>
+            ))}
+          </VStack>
+        )}
+        {save.isError && <Banner role="alert" status="error" title={errorMessage(save.error)} />}
+        <HStack gap={2} hAlign="end">
+          <Button variant="ghost" label="Cancel" onClick={onClose} />
+          <Button
+            variant="primary"
+            label="Save"
+            isLoading={save.isPending}
+            onClick={() => {
+              save.mutate();
+            }}
+          />
+        </HStack>
+      </VStack>
     </Modal>
   );
 }
@@ -421,28 +409,25 @@ function DeleteDialog({ group, onClose }: { group: Group; onClose: () => void })
 
   return (
     <Modal title={`Delete “${group.name}”?`} onClose={onClose}>
-      <p className="mt-2 text-sm text-muted-foreground">
-        This can&apos;t be undone. The links stay in your library.
-      </p>
-      {remove.isError && (
-        <p role="alert" className="mt-3 text-sm text-destructive">
-          {errorMessage(remove.error)}
-        </p>
-      )}
-      <div className="mt-4 flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          variant="destructive"
-          disabled={remove.isPending}
-          onClick={() => {
-            remove.mutate();
-          }}
-        >
-          Delete
-        </Button>
-      </div>
+      <VStack gap={4}>
+        <Text type="supporting" as="p">
+          This can&apos;t be undone. The links stay in your library.
+        </Text>
+        {remove.isError && (
+          <Banner role="alert" status="error" title={errorMessage(remove.error)} />
+        )}
+        <HStack gap={2} hAlign="end">
+          <Button variant="ghost" label="Cancel" onClick={onClose} />
+          <Button
+            variant="destructive"
+            label="Delete"
+            isLoading={remove.isPending}
+            onClick={() => {
+              remove.mutate();
+            }}
+          />
+        </HStack>
+      </VStack>
     </Modal>
   );
 }

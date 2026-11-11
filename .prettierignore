@@ -6,3 +6,5 @@ apps/desktop/src-tauri/gen
 apps/installer/src-tauri/gen
 apps/desktop/src-tauri/icons
 **/.impeccable
+apps/*/src/astryx-themes.ts
+apps/*/src/themes/*/devatlas.*

@@ -1,19 +1,18 @@
-import {
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  CircleAlert,
-  ExternalLink,
-  Lock,
-  RotateCw,
-} from "lucide-react";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Divider } from "@astryxdesign/core/Divider";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { IconButton } from "@astryxdesign/core/IconButton";
+import { Spinner } from "@astryxdesign/core/Spinner";
+import { Text } from "@astryxdesign/core/Text";
+import { StackItem } from "@astryxdesign/core/Stack";
+import { Toolbar } from "@astryxdesign/core/Toolbar";
+import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Lock, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
 import { toast } from "sonner";
 
-import Loader from "@/components/kokonutui/loader";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { describeError } from "@/services/ipc";
 import { openInBrowser } from "@/services/library.service";
 import {
@@ -90,79 +89,94 @@ export function SiteViewer({ url, host, backTo, backLabel }: SiteViewerProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-background px-3">
-        <Button variant="ghost" size="icon-sm" asChild className="text-muted-foreground">
-          <Link to={backTo} aria-label={backLabel}>
-            <ArrowLeft />
-          </Link>
-        </Button>
-        <span aria-hidden className="mx-1 h-5 w-px bg-border" />
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Go back"
-          onClick={() => {
-            go("back");
-          }}
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Go forward"
-          onClick={() => {
-            go("forward");
-          }}
-        >
-          <ChevronRight />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Reload"
-          onClick={() => {
-            go("reload");
-          }}
-        >
-          <RotateCw className={cn(page.loading && "animate-spin motion-reduce:animate-none")} />
-        </Button>
-
-        <div className="mx-2 flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-muted px-3 text-xs">
-          {page.url.startsWith("https://") && (
-            <Lock className="size-3.5 shrink-0 text-success" aria-label="Secure connection" />
-          )}
-          <span className="truncate font-mono text-muted-foreground" title={page.url}>
-            {page.url}
-          </span>
-        </div>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={openExternally}
-          className="text-muted-foreground"
-        >
-          <ExternalLink />
-          Open in browser
-        </Button>
-      </div>
+      <Toolbar
+        label="Site viewer"
+        dividers={["bottom"]}
+        className="shrink-0"
+        startContent={
+          <>
+            <IconButton
+              label={backLabel}
+              variant="ghost"
+              icon={<Icon icon={ArrowLeft} />}
+              href={backTo}
+            />
+            <Divider orientation="vertical" />
+            <IconButton
+              label="Go back"
+              variant="ghost"
+              icon={<Icon icon={ChevronLeft} />}
+              onClick={() => {
+                go("back");
+              }}
+            />
+            <IconButton
+              label="Go forward"
+              variant="ghost"
+              icon={<Icon icon={ChevronRight} />}
+              onClick={() => {
+                go("forward");
+              }}
+            />
+            {/* Not isLoading: a stuck page must stay reloadable. */}
+            <IconButton
+              label="Reload"
+              variant="ghost"
+              icon={page.loading ? <Spinner size="sm" aria-hidden /> : <Icon icon={RotateCw} />}
+              onClick={() => {
+                go("reload");
+              }}
+            />
+          </>
+        }
+        centerContent={
+          // A fixed share of the window: the lane sizes to its content, so a long URL must truncate.
+          <div className="w-[min(42rem,50vw)]">
+            <Card variant="muted" padding={1.5}>
+              <HStack gap={1.5} vAlign="center">
+                {page.url.startsWith("https://") && (
+                  <Icon icon={Lock} size="xsm" color="success" label="Secure connection" />
+                )}
+                <StackItem size="fill">
+                  <Text type="code" color="secondary" maxLines={1}>
+                    {page.url}
+                  </Text>
+                </StackItem>
+              </HStack>
+            </Card>
+          </div>
+        }
+        endContent={
+          <Button
+            label="Open in browser"
+            variant="ghost"
+            icon={<Icon icon={ExternalLink} />}
+            onClick={openExternally}
+          />
+        }
+      />
 
       {/* The native site view is placed exactly over this element by the Rust backend. */}
       <div ref={frameRef} className="relative min-h-0 flex-1">
         {error === null ? (
-          <Loader size="md" title={`Loading ${host}`} subtitle="" className="absolute inset-0" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Spinner size="xl" label={`Loading ${host}`} />
+          </div>
         ) : (
-          <div role="alert" className="flex flex-col items-center gap-3 pt-24 text-sm">
-            <p className="flex items-center gap-2 font-medium text-destructive">
-              <CircleAlert className="size-4" aria-hidden />
-              Couldn't show {host} here
-            </p>
-            <p className="max-w-md text-center text-muted-foreground">{error}</p>
-            <Button variant="outline" size="sm" onClick={openExternally}>
-              <ExternalLink />
-              Open in browser instead
-            </Button>
+          <div className="mx-auto max-w-md pt-24">
+            <Banner
+              status="error"
+              role="alert"
+              title={`Couldn't show ${host} here`}
+              description={error}
+              endContent={
+                <Button
+                  label="Open in browser instead"
+                  icon={<Icon icon={ExternalLink} />}
+                  onClick={openExternally}
+                />
+              }
+            />
           </div>
         )}
       </div>

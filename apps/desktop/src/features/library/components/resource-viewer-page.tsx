@@ -1,9 +1,14 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Center } from "@astryxdesign/core/Center";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Icon } from "@astryxdesign/core/Icon";
+import { Spinner } from "@astryxdesign/core/Spinner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useEffect } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 
-import Loader from "@/components/kokonutui/loader";
 import { SiteViewer } from "@/components/shared/site-viewer";
 import { libraryQueryKey, useLibrary } from "@/hooks/use-library";
 import { markResourceOpened } from "@/services/library.service";
@@ -18,18 +23,33 @@ export function ResourceViewerPage() {
   );
 
   if (library.isPending) {
-    return <Loader size="md" title="Opening" subtitle="" className="mt-24" />;
+    return (
+      <Center className="mt-24">
+        <Spinner size="xl" label="Opening" />
+      </Center>
+    );
   }
   if (resource === undefined) {
+    const back = (
+      <Button href="/library" label="Back to library" icon={<Icon icon={ArrowLeft} />} />
+    );
     return (
-      <div className="mx-auto max-w-xl px-6 pt-16 text-sm text-muted-foreground">
-        <p>
-          {library.isError ? library.error.message : "This resource is no longer in your library."}
-        </p>
-        <Link to="/library" className="mt-4 inline-flex items-center gap-1.5 text-primary">
-          <ArrowLeft className="size-4" aria-hidden />
-          Back to library
-        </Link>
+      <div className="mx-auto max-w-xl px-6 pt-16">
+        {library.isError ? (
+          <Banner
+            role="alert"
+            status="error"
+            title="Library unavailable"
+            description={library.error.message}
+            endContent={back}
+          />
+        ) : (
+          <EmptyState
+            title="This resource is no longer in your library."
+            headingLevel={1}
+            actions={back}
+          />
+        )}
       </div>
     );
   }

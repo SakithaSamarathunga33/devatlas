@@ -59,8 +59,7 @@ allow-list (GitHub Search API, Hacker News, 35 official blogs, TIOBE/PYPL).
   cyan `#22D3EE`. Light: background `#F8FAFC`, surface `#FFFFFF`, surface-alt `#F1F5F9`, border
   `#E2E8F0`, text `#0F172A` / `#334155` / `#64748B`; actions use `#0F766E` and cyan text
   `#0E7490` for contrast on white. Tokens live in `src/styles/globals.css`.
-- Component libraries the owner chose: Magic UI (animated circular progress), React Bits (Gooey
-  Nav), Bklit (charts); Uiverse is welcome but its site can't be fetched, so pieces are pasted in.
+- Design system the owner chose: Astryx (`@astryxdesign/core`), with a DevAtlas theme in `src/themes/devatlas`.
 
 ## Evidence on Hand
 

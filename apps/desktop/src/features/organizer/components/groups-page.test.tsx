@@ -79,14 +79,16 @@ describe("Collections", () => {
 
     const link = await screen.findByRole("link", { name: /Client work/ });
     expect(link).toHaveAttribute("href", "/collections/c1");
-    expect(link).toHaveTextContent("For Acme");
-    expect(link).toHaveTextContent("1 link");
+    // ClickableCard's link is an empty overlay; the card around it holds the text.
+    expect(link.closest("li")).toHaveTextContent("For Acme");
+    expect(link.closest("li")).toHaveTextContent("1 link");
   });
 
   it("counts only links still in the library", async () => {
     renderAt("/collections", [group({ resourceIds: ["motion.dev", "removed.example"] })]);
 
-    expect(await screen.findByRole("link", { name: /Client work/ })).toHaveTextContent("1 link");
+    const link = await screen.findByRole("link", { name: /Client work/ });
+    expect(link.closest("li")).toHaveTextContent("1 link");
   });
 
   it("explains an empty page", async () => {
@@ -103,7 +105,7 @@ describe("Collections", () => {
     fireEvent.click(screen.getByRole("button", { name: "New collection" }));
     const dialog = await screen.findByRole("dialog", { name: "New collection" });
     const create = within(dialog).getByRole("button", { name: "Create" });
-    expect(create).toBeDisabled();
+    expect(create).toHaveAttribute("aria-disabled", "true");
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), {
       target: { value: "Website" },
     });
@@ -118,6 +120,20 @@ describe("Collections", () => {
     await vi.waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+  });
+
+  it("doesn't submit a blank name with the Enter key", async () => {
+    vi.mocked(invoke).mockClear();
+    renderAt("/collections", []);
+    await screen.findByText(/No collections yet/);
+
+    fireEvent.click(screen.getByRole("button", { name: "New collection" }));
+    const dialog = await screen.findByRole("dialog", { name: "New collection" });
+    const name = within(dialog).getByRole("textbox", { name: "Name" });
+    fireEvent.submit(name.closest("form") as HTMLFormElement);
+
+    expect(invoke).not.toHaveBeenCalledWith("create_group", expect.anything());
+    expect(screen.getByRole("dialog", { name: "New collection" })).toBeInTheDocument();
   });
 
   it("shows a group's links", async () => {
@@ -159,6 +175,19 @@ describe("Collections", () => {
     });
 
     expect(within(dialog).getAllByRole("checkbox")).toHaveLength(1);
+  });
+
+  it("says when the filter matches no links", async () => {
+    renderAt("/collections/c1", [group({})]);
+    fireEvent.click(await screen.findByRole("button", { name: "Manage links" }));
+    const dialog = await screen.findByRole("dialog", { name: "Manage links" });
+
+    fireEvent.change(within(dialog).getByRole("searchbox", { name: "Filter links" }), {
+      target: { value: "nothing matches this" },
+    });
+
+    expect(within(dialog).getByText("No links match this filter.")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
   it("renames one", async () => {
@@ -218,7 +247,9 @@ describe("Collections", () => {
       </AppProviders>,
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("The library is unavailable.");
+    // Theme keeps empty live regions with the alert role, so start from the message.
+    const message = await screen.findByText("The library is unavailable.");
+    expect(message.closest('[role="alert"]')).toBeInTheDocument();
     expect(screen.queryByText("0 links")).not.toBeInTheDocument();
   });
 
@@ -252,6 +283,7 @@ describe("Collections", () => {
       </AppProviders>,
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("couldn't open its database");
+    const message = await screen.findByText(/couldn't open its database/);
+    expect(message.closest('[role="alert"]')).toBeInTheDocument();
   });
 });

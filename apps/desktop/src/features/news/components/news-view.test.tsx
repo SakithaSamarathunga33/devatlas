@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "@/app/providers/app-providers";
@@ -93,6 +93,12 @@ function mockBackend() {
   });
 }
 
+/** Opens a Selector and picks one of its options. */
+async function choose(combobox: HTMLElement, option: string) {
+  fireEvent.click(combobox);
+  fireEvent.click(await screen.findByRole("option", { name: option }));
+}
+
 function renderNews() {
   mockBackend();
   render(
@@ -149,22 +155,18 @@ describe("NewsPage", () => {
     renderNews();
     await screen.findByRole("region", { name: /^Languages/ });
 
-    const categories = screen.getByRole("group", { name: "Category" });
+    const categories = screen.getByRole("navigation", { name: "Category" });
     fireEvent.click(within(categories).getByRole("button", { name: /^Databases/ }));
     expect(screen.queryByRole("region", { name: /^Languages/ })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: /^Databases/ })).toBeInTheDocument();
 
     fireEvent.click(within(categories).getByRole("button", { name: /^All/ }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Source" }), {
-      target: { value: "react" },
-    });
+    await choose(screen.getByRole("combobox", { name: "Source" }), "React");
     const matching = screen.getByRole("list", { name: "Matching posts" });
     expect(within(matching).getAllByRole("listitem")).toHaveLength(1);
     expect(matching).toHaveTextContent("React Compiler 2.0");
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Source" }), {
-      target: { value: "" },
-    });
+    await choose(screen.getByRole("combobox", { name: "Source" }), "All sources");
     fireEvent.change(screen.getByRole("searchbox", { name: "Search blog posts" }), {
       target: { value: "beta" },
     });
@@ -172,6 +174,30 @@ describe("NewsPage", () => {
       "PostgreSQL 19 Beta 1 Released",
     );
     expect(screen.queryByText("Announcing Rust 1.95")).not.toBeInTheDocument();
+  });
+});
+
+describe("NewsPage links", () => {
+  it("opens a story from its row and remembers the page, filters included", async () => {
+    mockBackend();
+    render(
+      <AppProviders>
+        <MemoryRouter initialEntries={["/news?q=zig"]}>
+          <Routes>
+            <Route path="/news" element={<NewsPage />} />
+            <Route path="/news/view" element={<NewsViewerPage />} />
+          </Routes>
+        </MemoryRouter>
+      </AppProviders>,
+    );
+    await screen.findByRole("list", { name: "Top stories" });
+
+    fireEvent.click(screen.getByText("example.com"));
+
+    expect(await screen.findByRole("link", { name: "Back to news" })).toHaveAttribute(
+      "href",
+      "/news?q=zig",
+    );
   });
 });
 
@@ -186,14 +212,14 @@ describe("RankingsPage", () => {
       </AppProviders>,
     );
 
-    const tiobe = await screen.findByRole("list", { name: "TIOBE ranking" });
-    const rows = within(tiobe).getAllByRole("listitem");
+    const tiobe = await screen.findByRole("table", { name: "TIOBE ranking" });
+    const rows = within(tiobe).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(3);
     expect(rows[2]).toHaveTextContent("Java");
     expect(within(tiobe).getByText("up one place since last year")).toBeInTheDocument();
     expect(rows[0]).toHaveTextContent("20.86%");
     expect(screen.getByText(/TIOBE Index, November 2026/)).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "PYPL ranking" })).toHaveTextContent("52.04%");
+    expect(screen.getByRole("table", { name: "PYPL ranking" })).toHaveTextContent("52.04%");
     expect(screen.getByRole("link", { name: "About PYPL" })).toHaveAttribute(
       "href",
       viewer("https://pypl.github.io/PYPL.html"),

@@ -1,25 +1,35 @@
+import { Badge } from "@astryxdesign/core/Badge";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { IconButton } from "@astryxdesign/core/IconButton";
+import { Link as AstryxLink } from "@astryxdesign/core/Link";
+import { List, ListItem } from "@astryxdesign/core/List";
+import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { Text } from "@astryxdesign/core/Text";
+import { Timestamp } from "@astryxdesign/core/Timestamp";
+import { VisuallyHidden } from "@astryxdesign/core/VisuallyHidden";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, formatDistanceToNowStrict } from "date-fns";
+import { format } from "date-fns";
 import {
   CalendarDays,
   Check,
   ChevronDown,
-  CircleAlert,
+  ChevronUp,
   ExternalLink,
   GitFork,
-  LoaderCircle,
   Plus,
-  RotateCw,
   Star,
   Trash2,
 } from "lucide-react";
-import { useId, useState, type MouseEvent, type ReactNode } from "react";
-import { Link, useLocation } from "react-router";
+import { useId, useRef, useState, type ReactNode, type Ref } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useResourceActions } from "@/features/library";
+import { FeedError, InAppAnchor } from "@/features/news";
 import { libraryQueryKey } from "@/hooks/use-library";
 import { cn } from "@/lib/utils";
 import { describeError } from "@/services/ipc";
@@ -28,10 +38,6 @@ import type { GithubRepo } from "@/types/discovery.types";
 import type { Resource } from "@/types/library.types";
 
 import { compactNumber, languageColor, openExternal, repoViewerPath } from "../repo-utils";
-
-/** The panel that holds `RepoRow`s: one card with hairlines, like the dashboard's lists. */
-export const REPO_LIST =
-  "divide-y divide-border overflow-hidden rounded-xl border border-border bg-card";
 
 /** GitHub's mark (Octicons `mark-github`, MIT); Lucide no longer ships brand icons. */
 export function GithubMark({ className }: { className?: string }) {
@@ -42,7 +48,8 @@ export function GithubMark({ className }: { className?: string }) {
   );
 }
 
-/** Owner avatar; falls back to github.com/<owner>.png when GitHub's details are missing. */
+/** Owner avatar; falls back to github.com/<owner>.png when GitHub's details are missing.
+ * A plain image because Astryx's Avatar can't set `referrerPolicy`. */
 export function RepoAvatar({
   fullName,
   details,
@@ -60,7 +67,8 @@ export function RepoAvatar({
       alt=""
       loading="lazy"
       referrerPolicy="no-referrer"
-      className={cn("shrink-0 bg-secondary object-cover", className)}
+      className={cn("shrink-0 object-cover", className)}
+      style={{ backgroundColor: "var(--color-background-muted)" }}
     />
   );
 }
@@ -68,12 +76,13 @@ export function RepoAvatar({
 export function RepoName({ fullName, url }: { fullName: string; url: string }) {
   const [owner, name] = fullName.split("/");
   return (
-    <RepoLink
-      url={url}
-      className="rounded outline-none hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <span className="text-muted-foreground">{owner} / </span>
-      <span className="font-semibold">{name}</span>
+    <RepoLink url={url}>
+      <Text type="inherit" color="secondary" weight="normal">
+        {owner} /{" "}
+      </Text>
+      <Text type="inherit" color="primary" weight="semibold">
+        {name}
+      </Text>
     </RepoLink>
   );
 }
@@ -90,49 +99,57 @@ export function RepoLink({
   title?: string;
   children: ReactNode;
 }) {
-  const location = useLocation();
+  // Astryx's Link forwards `title` to the anchor, though its props don't declare it.
+  const tooltip = { title: title ?? url };
   return (
-    <Link
-      to={repoViewerPath(url)}
-      state={{ from: `${location.pathname}${location.search}` }}
-      title={title ?? url}
+    <AstryxLink
+      as={InAppAnchor}
+      href={repoViewerPath(url)}
+      {...tooltip}
+      type="inherit"
+      color="inherit"
       className={className}
     >
       {children}
-    </Link>
+    </AstryxLink>
   );
 }
 
 export function LanguagePill({ language }: { language: string }) {
-  const color = languageColor(language);
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-border bg-secondary px-2 py-0.5 text-xs">
-      <span
-        aria-hidden
-        className="size-2 shrink-0 rounded-full bg-muted-foreground opacity-70"
-        style={color === undefined ? undefined : { backgroundColor: color }}
-      />
-      <span className="truncate">{language}</span>
-    </span>
+    <Badge
+      label={language}
+      icon={
+        <span
+          aria-hidden
+          className="block size-2 rounded-full"
+          style={{ backgroundColor: languageColor(language) ?? "var(--color-text-secondary)" }}
+        />
+      }
+    />
   );
 }
 
-function Stat({ icon: Icon, value, label }: { icon: typeof Star; value: number; label: string }) {
+function Stat({ icon, value, label }: { icon: typeof Star; value: number; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <Icon className="size-3.5" aria-hidden />
-      <span className="tabular-nums">{compactNumber.format(value)}</span>
-      <span className="sr-only">{label}</span>
-    </span>
+    <HStack gap={1.5} vAlign="center">
+      <Icon icon={icon} size="xsm" color="secondary" />
+      <Text type="supporting" hasTabularNumbers>
+        {compactNumber.format(value)}
+      </Text>
+      <VisuallyHidden>{label}</VisuallyHidden>
+    </HStack>
   );
 }
 
 export function CreatedAgo({ createdAt }: { createdAt: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <CalendarDays className="size-3.5" aria-hidden />
-      Created {formatDistanceToNowStrict(new Date(createdAt), { addSuffix: true })}
-    </span>
+    <HStack gap={1.5} vAlign="center">
+      <Icon icon={CalendarDays} size="xsm" color="secondary" />
+      <Text type="supporting">
+        Created <Timestamp value={createdAt} format="relative" hasTooltip={false} />
+      </Text>
+    </HStack>
   );
 }
 
@@ -150,7 +167,7 @@ export function RepoMeta({
   return (
     <div
       className={cn(
-        "items-center text-xs text-muted-foreground",
+        "items-center",
         layout === "columns"
           ? "grid shrink-0 grid-cols-[7.5rem_4rem_3.75rem] gap-3"
           : "flex flex-wrap gap-x-4 gap-y-1.5",
@@ -175,11 +192,11 @@ export function StarHistory({ fullName }: { fullName: string }) {
   const page = `https://www.star-history.com/?repos=${encodeURIComponent(fullName)}&type=date&legend=top-left`;
 
   return (
-    <div className="max-w-[640px]">
+    <VStack gap={2} maxWidth={640}>
       {failed ? (
-        <p className="text-sm text-muted-foreground">
+        <Text type="supporting" as="p">
           The star history chart couldn&apos;t be loaded right now.
-        </p>
+        </Text>
       ) : (
         <img
           src={chart}
@@ -190,37 +207,35 @@ export function StarHistory({ fullName }: { fullName: string }) {
           onError={() => {
             setFailed(true);
           }}
-          className="aspect-[3/2] h-auto w-full rounded-lg border border-border bg-card"
+          className="aspect-[3/2] h-auto w-full rounded-lg"
         />
       )}
-      <a
-        href={page}
-        onClick={(event) => {
-          event.preventDefault();
-          openExternal(page, "star-history.com");
-        }}
-        className="mt-2 inline-flex items-center gap-1 rounded text-xs text-primary outline-none hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        Compare on star-history.com
-        <ExternalLink className="size-3" aria-hidden />
-      </a>
-    </div>
+      <Text type="supporting">
+        <AstryxLink
+          href={page}
+          type="inherit"
+          onClick={(event) => {
+            event.preventDefault();
+            openExternal(page, "star-history.com");
+          }}
+        >
+          Compare on star-history.com <Icon icon={ExternalLink} size="xsm" />
+        </AstryxLink>
+      </Text>
+    </VStack>
   );
 }
 
 export function OpenOnGithubButton({ fullName, url }: { fullName: string; url: string }) {
-  const location = useLocation();
   return (
-    <Button variant="ghost" size="icon" asChild className="size-9 text-muted-foreground">
-      <Link
-        to={repoViewerPath(url)}
-        state={{ from: `${location.pathname}${location.search}` }}
-        aria-label={`Open ${fullName} on GitHub`}
-        title="Open on GitHub"
-      >
-        <ExternalLink aria-hidden />
-      </Link>
-    </Button>
+    <IconButton
+      as={InAppAnchor}
+      href={repoViewerPath(url)}
+      variant="ghost"
+      label={`Open ${fullName} on GitHub`}
+      tooltip="Open on GitHub"
+      icon={<Icon icon={ExternalLink} />}
+    />
   );
 }
 
@@ -254,30 +269,21 @@ export function SaveRepoButton({
 
   return (
     <Button
-      size={compact ? "icon-sm" : "sm"}
-      disabled={isSaved || save.isPending}
+      label={label}
+      size="sm"
+      variant={isSaved ? "ghost" : "secondary"}
+      isDisabled={isSaved}
+      isLoading={save.isPending}
+      isIconOnly={compact}
+      // Fixed width, so the row's columns stay put when "Save" becomes "Saved".
+      width={compact ? undefined : 92}
+      tooltip={compact ? label : undefined}
+      icon={<Icon icon={isSaved ? Check : Plus} />}
       onClick={() => {
         save.mutate();
       }}
-      aria-label={label}
-      title={compact ? label : undefined}
-      className={cn(
-        "border",
-        // Fixed width, so the row's columns stay put when "Save" becomes "Saved".
-        !compact && "h-9 w-[5.75rem] px-3",
-        isSaved
-          ? "border-transparent bg-transparent text-muted-foreground disabled:opacity-100"
-          : "border-border bg-transparent text-primary hover:border-primary/40 hover:bg-primary/15",
-      )}
     >
-      {isSaved ? (
-        <Check aria-hidden />
-      ) : save.isPending ? (
-        <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden />
-      ) : (
-        <Plus aria-hidden />
-      )}
-      {!compact && (isSaved ? "Saved" : save.isPending ? "Saving" : "Save")}
+      {compact ? undefined : isSaved ? "Saved" : save.isPending ? "Saving" : "Save"}
     </Button>
   );
 }
@@ -286,16 +292,63 @@ export function SaveRepoButton({
 export function RemoveRepoButton({ resource, fullName }: { resource: Resource; fullName: string }) {
   const { remove } = useResourceActions(resource);
   return (
-    <Button
+    <IconButton
       variant="ghost"
-      size="icon"
-      aria-label={`Remove ${fullName} from your library`}
-      title="Remove from library"
+      label={`Remove ${fullName} from your library`}
+      tooltip="Remove from library"
+      icon={<Icon icon={Trash2} />}
       onClick={remove}
-      className="size-9 text-muted-foreground hover:text-destructive"
-    >
-      <Trash2 aria-hidden />
-    </Button>
+    />
+  );
+}
+
+/** The keyboard and screen-reader control for a repository's details. */
+export function ExpandRepoButton({
+  fullName,
+  expanded,
+  detailsId,
+  onToggle,
+  ref,
+}: {
+  fullName: string;
+  expanded: boolean;
+  detailsId: string;
+  onToggle: () => void;
+  ref?: Ref<HTMLButtonElement>;
+}) {
+  return (
+    <IconButton
+      ref={ref}
+      variant="ghost"
+      label={`${expanded ? "Hide" : "Show"} details for ${fullName}`}
+      icon={<Icon icon={expanded ? ChevronUp : ChevronDown} />}
+      aria-expanded={expanded}
+      aria-controls={detailsId}
+      onClick={onToggle}
+    />
+  );
+}
+
+/** A repository's dates, counts and star history, shown when its row is expanded. */
+export function RepoDetails({
+  id,
+  fullName,
+  details,
+}: {
+  id: string;
+  fullName: string;
+  details: GithubRepo | undefined;
+}) {
+  return (
+    <VStack id={id} gap={3}>
+      {details !== undefined && (
+        <Text type="supporting" as="p">
+          Created {format(new Date(details.createdAt), "MMMM d, yyyy")} ·{" "}
+          {details.stars.toLocaleString("en")} stars · {details.forks.toLocaleString("en")} forks
+        </Text>
+      )}
+      <StarHistory fullName={fullName} />
+    </VStack>
   );
 }
 
@@ -316,8 +369,8 @@ interface RepoRowProps {
   action: ReactNode;
 }
 
-/** A repository as a row: click it (or the chevron) to expand its star history and links,
- * and again to collapse. Clicks on links and buttons inside keep their own meaning. */
+/** A repository as a `List` row: click it (or the chevron) to expand its star history and
+ * links, and again to collapse. Clicks on links and buttons inside keep their own meaning. */
 export function RepoRow({
   fullName,
   url,
@@ -331,141 +384,110 @@ export function RepoRow({
 }: RepoRowProps) {
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
-  const toggle = () => {
-    setExpanded((open) => !open);
-  };
-  // Mouse convenience: clicking anywhere on the row toggles it. The chevron button is the
-  // keyboard and screen-reader path, so the row itself is not a focusable control.
-  const onRowClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (event.target instanceof Element && event.target.closest("a, button, input, select")) {
-      return;
-    }
-    toggle();
-  };
+  const expandButton = useRef<HTMLButtonElement>(null);
   const description = details?.description ?? note;
 
   return (
-    <article className={cn("transition-colors", expanded && "bg-secondary/40")}>
-      <div
-        onClick={onRowClick}
-        className="flex cursor-pointer items-center gap-4 px-3 py-2.5 transition-colors hover:bg-secondary/40"
-      >
-        {rank !== undefined && (
-          <span className="w-6 shrink-0 text-right text-sm text-muted-foreground tabular-nums">
-            {rank}
-          </span>
-        )}
-        {marker}
-        <RepoAvatar fullName={fullName} details={details} className="size-10 rounded-lg" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-3">
-            <h3 className="min-w-0 truncate text-sm">
+    <ListItem
+      align="start"
+      // Clicks on the row go to the chevron, so the row itself adds no tab stop.
+      interactiveRef={expandButton}
+      startContent={
+        <HStack gap={3} vAlign="center">
+          {rank !== undefined && (
+            <span className="w-6 text-right">
+              <Text color="secondary" hasTabularNumbers>
+                {rank}
+              </Text>
+            </span>
+          )}
+          {marker}
+          <RepoAvatar fullName={fullName} details={details} className="size-10 rounded-lg" />
+        </HStack>
+      }
+      label={
+        <HStack gap={3} vAlign="center">
+          <div className="min-w-0">
+            <Heading level={4} accessibilityLevel={3} maxLines={1}>
               <RepoName fullName={fullName} url={url} />
-            </h3>
-            {details !== undefined && (
-              <span className="hidden shrink-0 text-xs text-muted-foreground xl:inline">
-                <CreatedAgo createdAt={details.createdAt} />
-              </span>
-            )}
+            </Heading>
           </div>
+          {details !== undefined && (
+            <span className="hidden shrink-0 xl:inline">
+              <CreatedAgo createdAt={details.createdAt} />
+            </span>
+          )}
+        </HStack>
+      }
+      description={
+        <VStack gap={1.5}>
           {description !== undefined && (
-            <p
-              className={cn(
-                "mt-0.5 max-w-[75ch] text-sm text-muted-foreground",
-                !expanded && "line-clamp-1",
-              )}
-            >
+            <Text as="p" color="secondary" maxLines={expanded ? 0 : 1}>
               {description}
-            </p>
+            </Text>
           )}
           {activity}
           {details !== undefined && (
-            <RepoMeta details={details} layout="inline" className="mt-2 xl:hidden" />
+            <RepoMeta details={details} layout="inline" className="xl:hidden" />
           )}
-        </div>
-        {details !== undefined && (
-          <RepoMeta details={details} layout="columns" className="hidden xl:grid" />
-        )}
-        {metric}
-        <div className="flex shrink-0 items-center gap-2">
-          {action}
-          <OpenOnGithubButton fullName={fullName} url={url} />
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-expanded={expanded}
-            aria-controls={detailsId}
-            aria-label={`${expanded ? "Hide" : "Show"} details for ${fullName}`}
-            onClick={toggle}
-            className="size-9 text-muted-foreground"
-          >
-            <ChevronDown
-              aria-hidden
-              className={cn(
-                "transition-transform duration-200 motion-reduce:transition-none",
-                expanded && "rotate-180",
-              )}
-            />
-          </Button>
-        </div>
-      </div>
-      {expanded && (
-        <div id={detailsId} className="border-t border-border px-4 pt-4 pb-4 sm:pl-[6.75rem]">
+          {expanded && (
+            // Selecting or clicking inside the details shouldn't collapse them.
+            <div
+              className="pt-2"
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              <RepoDetails id={detailsId} fullName={fullName} details={details} />
+            </div>
+          )}
+        </VStack>
+      }
+      endContent={
+        <HStack gap={3} vAlign="center">
           {details !== undefined && (
-            <p className="mb-3 text-xs text-muted-foreground">
-              Created {format(new Date(details.createdAt), "MMMM d, yyyy")} ·{" "}
-              {details.stars.toLocaleString("en")} stars · {details.forks.toLocaleString("en")}{" "}
-              forks
-            </p>
+            <RepoMeta details={details} layout="columns" className="hidden xl:grid" />
           )}
-          <StarHistory fullName={fullName} />
-        </div>
-      )}
-    </article>
+          {metric}
+          <HStack gap={1} vAlign="center">
+            {action}
+            <OpenOnGithubButton fullName={fullName} url={url} />
+            <ExpandRepoButton
+              ref={expandButton}
+              fullName={fullName}
+              expanded={expanded}
+              detailsId={detailsId}
+              onToggle={() => {
+                setExpanded((open) => !open);
+              }}
+            />
+          </HStack>
+        </HStack>
+      }
+    />
   );
 }
 
 export function RepoListSkeleton({ label }: { label: string }) {
   return (
-    <div role="status" aria-busy="true" className={cn("mt-4", REPO_LIST)}>
-      <span className="sr-only">{label}</span>
-      {Array.from({ length: 6 }, (_, index) => (
-        <div key={index} className="flex items-center gap-4 px-3 py-2.5">
-          <Skeleton className="size-10 rounded-lg" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-56" />
-            <Skeleton className="h-3.5 w-2/3" />
-          </div>
-        </div>
-      ))}
+    <div role="status" aria-busy="true">
+      <VisuallyHidden>{label}</VisuallyHidden>
+      <List hasDividers>
+        {Array.from({ length: 6 }, (_, index) => (
+          <ListItem
+            key={index}
+            startContent={<Skeleton width={40} height={40} index={index} />}
+            label={<Skeleton width={224} height={16} index={index} />}
+            description={<Skeleton width="66%" height={14} index={index} />}
+          />
+        ))}
+      </List>
     </div>
   );
 }
 
 /** A list that failed to load: what happened, and a retry. */
-export function RepoListError({
-  title,
-  query,
-}: {
-  title: string;
-  query: { error: Error; isFetching: boolean; refetch: () => Promise<unknown> };
-}) {
-  return (
-    <div role="alert" className="mt-8 flex flex-col items-start gap-3">
-      <p className="flex items-center gap-2 text-sm font-medium text-destructive">
-        <CircleAlert className="size-4" aria-hidden />
-        {title}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        {query.error.message.replace(/^.*?failed: /, "")}
-      </p>
-      <Button variant="outline" onClick={() => void query.refetch()} disabled={query.isFetching}>
-        <RotateCw aria-hidden />
-        Try again
-      </Button>
-    </div>
-  );
-}
+export const RepoListError = FeedError;
 
 /** A saved repository as a card, for the grid view. */
 export function RepoCard({
@@ -479,36 +501,33 @@ export function RepoCard({
 }: Omit<RepoRowProps, "rank"> & { savedAt: number | null }) {
   const description = details?.description ?? note;
   return (
-    <article className="flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-[border-color] duration-150 hover:border-foreground/15">
-      <div className="flex items-start gap-3">
-        <RepoAvatar fullName={fullName} details={details} className="size-11 rounded-lg" />
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm">
-            <RepoName fullName={fullName} url={url} />
-          </h3>
-          {savedAt !== null && (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Saved {format(savedAt, "MMM d, yyyy")}
-            </p>
-          )}
+    <Card height="100%">
+      <VStack gap={3} height="100%">
+        <HStack gap={3} vAlign="start">
+          <RepoAvatar fullName={fullName} details={details} className="size-11 rounded-lg" />
+          <div className="min-w-0 flex-1">
+            <Heading level={4} accessibilityLevel={3} maxLines={1}>
+              <RepoName fullName={fullName} url={url} />
+            </Heading>
+            {savedAt !== null && (
+              <Text type="supporting" as="p">
+                Saved <Timestamp value={savedAt} format="date" />
+              </Text>
+            )}
+          </div>
+          <HStack gap={1} vAlign="center">
+            {action}
+            <OpenOnGithubButton fullName={fullName} url={url} />
+          </HStack>
+        </HStack>
+        <div className="flex-1">
+          <Text as="p" color="secondary" maxLines={3}>
+            {description ?? "No description."}
+          </Text>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {action}
-          <OpenOnGithubButton fullName={fullName} url={url} />
-        </div>
-      </div>
-      <p className="mt-3 line-clamp-3 flex-1 text-sm text-muted-foreground">
-        {description ?? "No description."}
-      </p>
-      {activity}
-      {details !== undefined && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-          {details.language !== null && <LanguagePill language={details.language} />}
-          <Stat icon={Star} value={details.stars} label="stars" />
-          <Stat icon={GitFork} value={details.forks} label="forks" />
-          <CreatedAgo createdAt={details.createdAt} />
-        </div>
-      )}
-    </article>
+        {activity}
+        {details !== undefined && <RepoMeta details={details} layout="inline" />}
+      </VStack>
+    </Card>
   );
 }

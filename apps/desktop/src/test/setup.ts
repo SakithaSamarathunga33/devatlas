@@ -12,7 +12,7 @@ class ObserverStub {
 }
 vi.stubGlobal("IntersectionObserver", ObserverStub);
 vi.stubGlobal("ResizeObserver", ObserverStub);
-// Gooey Nav checks prefers-reduced-motion; jsdom has no matchMedia.
+// Astryx and Motion check media queries; jsdom has no matchMedia.
 vi.stubGlobal(
   "matchMedia",
   vi.fn((query: string) => ({

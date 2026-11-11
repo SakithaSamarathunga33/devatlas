@@ -1,3 +1,4 @@
+import { VStack } from "@astryxdesign/core/VStack";
 import { useSearchParams } from "react-router";
 
 import { ForYouToggle } from "@/components/shared/for-you-toggle";
@@ -17,7 +18,7 @@ export function NewsPage() {
   const forYou = params.get("for") === "me" && interests.length > 0;
 
   return (
-    <div className="w-full px-5 pt-5 pb-16 lg:px-8">
+    <VStack padding={6}>
       <PageHeader
         title="News"
         description="What developers are talking about, and the latest from official blogs."
@@ -58,6 +59,6 @@ export function NewsPage() {
       </PageHeader>
 
       <NewsView search={search} matches={forYou ? interestMatcher(interests) : undefined} />
-    </div>
+    </VStack>
   );
 }

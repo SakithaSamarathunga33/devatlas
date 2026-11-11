@@ -105,8 +105,19 @@ function renderDiscovery(
   );
 }
 
+/** The rows of a ranking table, without its header. */
+function bodyRows(table: HTMLElement): HTMLElement[] {
+  return within(table).getAllByRole("row").slice(1);
+}
+
+/** Opens a Selector and picks one of its options. */
+async function choose(combobox: HTMLElement, option: string) {
+  fireEvent.click(combobox);
+  fireEvent.click(await screen.findByRole("option", { name: option }));
+}
+
 function rowOf(name: RegExp): HTMLElement {
-  const row = screen.getByRole("link", { name }).closest("article");
+  const row = screen.getByRole("link", { name }).closest("li, tr");
   if (!(row instanceof HTMLElement)) throw new Error("row not found");
   return row;
 }
@@ -149,7 +160,7 @@ describe("DiscoveryPage — trending", () => {
 
     expect(
       await screen.findByRole("button", { name: "tauri-apps/tauri is in your library" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
 
     fireEvent.click(
       screen.getByRole("button", { name: "Save zed-industries/zed to your library" }),
@@ -157,7 +168,7 @@ describe("DiscoveryPage — trending", () => {
 
     expect(
       await screen.findByRole("button", { name: "zed-industries/zed is in your library" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
     expect(invoke).toHaveBeenCalledWith("add_link", {
       url: "https://github.com/zed-industries/zed",
     });
@@ -213,12 +224,10 @@ describe("DiscoveryPage — trending", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "This month" }));
     expect(screen.getByRole("button", { name: "This month" })).toHaveAttribute(
-      "aria-pressed",
+      "aria-current",
       "true",
     );
-    fireEvent.change(screen.getByRole("combobox", { name: "Language" }), {
-      target: { value: "Rust" },
-    });
+    await choose(screen.getByRole("combobox", { name: "Language" }), "Rust");
 
     await vi.waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("list_trending_repos", {
@@ -283,8 +292,8 @@ describe("DiscoveryPage — Star History", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Star History" }));
 
-    const list = await screen.findByRole("list", { name: "Star History weekly ranking" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(4);
+    const table = await screen.findByRole("table", { name: "Star History weekly ranking" });
+    expect(bodyRows(table)).toHaveLength(4);
     const first = rowOf(/^morluto\s*\/\s*rea$/);
     expect(first).toHaveTextContent(/^1/);
     expect(first).toHaveTextContent("+24.5K");
@@ -292,9 +301,22 @@ describe("DiscoveryPage — Star History", () => {
     expect(screen.getByText("Nov 3, 2026 – Nov 9, 2026", { exact: false })).toBeInTheDocument();
   });
 
+  it("gives the ranking columns fixed widths so numbers never get squeezed", async () => {
+    renderBoards();
+
+    const table = await screen.findByRole("table", { name: "Star History weekly ranking" });
+
+    expect(table).toHaveStyle({ tableLayout: "fixed" });
+    // Astryx cells default to max-width: 0, which would cap any width set on its own.
+    expect(within(table).getByRole("columnheader", { name: "This week" })).toHaveStyle({
+      width: "112px",
+      maxWidth: "112px",
+    });
+  });
+
   it("shows how each repository moved since last week", async () => {
     renderBoards();
-    await screen.findByRole("list", { name: "Star History weekly ranking" });
+    await screen.findByRole("table", { name: "Star History weekly ranking" });
 
     expect(rowOf(/^morluto\s*\/\s*rea$/)).toHaveTextContent("Up 5");
     expect(rowOf(/^zed-industries\s*\/\s*zed$/)).toHaveTextContent("New to top 20");
@@ -318,19 +340,19 @@ describe("DiscoveryPage — Star History", () => {
 
   it("switches to the all-time ranking", async () => {
     renderBoards();
-    await screen.findByRole("list", { name: "Star History weekly ranking" });
+    await screen.findByRole("table", { name: "Star History weekly ranking" });
 
     fireEvent.click(screen.getByRole("button", { name: "All-time" }));
 
-    const list = screen.getByRole("list", { name: "Star History all-time ranking" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+    const table = screen.getByRole("table", { name: "Star History all-time ranking" });
+    expect(bodyRows(table)).toHaveLength(1);
     expect(rowOf(/^codecrafters-io\s*\/\s*build-your-own-x$/)).toHaveTextContent("561.5K");
     expect(screen.getByText("Updated Nov 10, 2026", { exact: false })).toBeInTheDocument();
   });
 
   it("draws 20 random repositories and shuffles them on request", async () => {
     renderBoards();
-    await screen.findByRole("list", { name: "Star History weekly ranking" });
+    await screen.findByRole("table", { name: "Star History weekly ranking" });
     fireEvent.click(screen.getByRole("button", { name: "Random" }));
 
     const names = () =>
@@ -348,7 +370,7 @@ describe("DiscoveryPage — Star History", () => {
 
   it("searches the whole random pool, not just the current draw", async () => {
     renderBoards();
-    await screen.findByRole("list", { name: "Star History weekly ranking" });
+    await screen.findByRole("table", { name: "Star History weekly ranking" });
     fireEvent.click(screen.getByRole("button", { name: "Random" }));
 
     for (const index of [0, 29]) {
@@ -365,14 +387,14 @@ describe("DiscoveryPage — Star History", () => {
 
   it("tells screen readers what the weekly number means", async () => {
     renderBoards();
-    await screen.findByRole("list", { name: "Star History weekly ranking" });
+    await screen.findByRole("table", { name: "Star History weekly ranking" });
 
     expect(rowOf(/^morluto\s*\/\s*rea$/)).toHaveTextContent("+24.5K new stars this week");
   });
 
   it("shows the star pyramid without the catch-all tier and hides search", async () => {
     renderBoards();
-    await screen.findByRole("list", { name: "Star History weekly ranking" });
+    await screen.findByRole("table", { name: "Star History weekly ranking" });
 
     fireEvent.click(screen.getByRole("button", { name: "Pyramid" }));
 
@@ -386,20 +408,20 @@ describe("DiscoveryPage — Star History", () => {
 
   it("searches the ranking while keeping its positions", async () => {
     renderBoards();
-    await screen.findByRole("list", { name: "Star History weekly ranking" });
+    await screen.findByRole("table", { name: "Star History weekly ranking" });
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search Star History repositories" }), {
       target: { value: "zed" },
     });
 
-    const list = screen.getByRole("list", { name: "Star History weekly ranking" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+    const table = screen.getByRole("table", { name: "Star History weekly ranking" });
+    expect(bodyRows(table)).toHaveLength(1);
     expect(rowOf(/^zed-industries\s*\/\s*zed$/)).toHaveTextContent(/^2/);
   });
 
   it("credits and links the source", async () => {
     renderBoards();
-    await screen.findByRole("list", { name: "Star History weekly ranking" });
+    await screen.findByRole("table", { name: "Star History weekly ranking" });
 
     expect(screen.getByRole("link", { name: "star-history.com" })).toHaveAttribute(
       "href",
@@ -416,7 +438,10 @@ describe("DiscoveryPage — Star History", () => {
   it("explains when the rankings cannot be read", async () => {
     renderBoards(() => Promise.reject(new Error("Star History's rankings couldn't be loaded.")));
 
-    const alert = await screen.findByRole("alert");
+    // Earlier tests can leave Astryx's empty live region behind, so find the alert by its text.
+    const title = await screen.findByText("Star History rankings unavailable");
+    const alert = title.closest("[role=alert]");
+    if (!(alert instanceof HTMLElement)) throw new Error("alert not found");
     expect(alert).toHaveTextContent("Star History rankings unavailable");
     expect(within(alert).getByRole("button", { name: "Try again" })).toBeEnabled();
   });
@@ -433,7 +458,7 @@ describe("DiscoveryPage — saved repositories", () => {
     const saved = await openSaved();
 
     expect(screen.getByRole("button", { name: /^Saved repos\s*2$/ })).toHaveAttribute(
-      "aria-pressed",
+      "aria-current",
       "true",
     );
     expect(within(saved).getByText("2 saved repositories")).toBeInTheDocument();
@@ -454,26 +479,20 @@ describe("DiscoveryPage — saved repositories", () => {
     // Recently saved first: Next.js (2 000) before Tauri (1 000).
     expect(names()).toEqual(["vercel / next.js", "tauri-apps / tauri"]);
 
-    fireEvent.change(within(saved).getByRole("combobox", { name: "Sort" }), {
-      target: { value: "name" },
-    });
+    await choose(within(saved).getByRole("combobox", { name: "Sort" }), "Name");
     expect(names()).toEqual(["tauri-apps / tauri", "vercel / next.js"]);
 
-    fireEvent.change(within(saved).getByRole("combobox", { name: "Language" }), {
-      target: { value: "Rust" },
-    });
+    await choose(within(saved).getByRole("combobox", { name: "Language" }), "Rust");
     expect(names()).toEqual(["tauri-apps / tauri"]);
     expect(within(saved).getByText("1 of 2 saved repositories")).toBeInTheDocument();
 
-    fireEvent.change(within(saved).getByRole("combobox", { name: "Language" }), {
-      target: { value: "" },
-    });
+    await choose(within(saved).getByRole("combobox", { name: "Language" }), "All languages");
     fireEvent.change(screen.getByRole("searchbox", { name: "Search saved repositories" }), {
       target: { value: "react" },
     });
     expect(names()).toEqual(["vercel / next.js"]);
 
-    fireEvent.click(within(saved).getByRole("button", { name: "List view" }));
+    fireEvent.click(within(saved).getByRole("radio", { name: "List view" }));
     expect(
       within(saved).getByRole("button", { name: "Show details for vercel/next.js" }),
     ).toBeInTheDocument();

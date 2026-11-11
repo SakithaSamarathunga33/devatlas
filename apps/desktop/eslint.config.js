@@ -14,8 +14,9 @@ export default defineConfig([
     "coverage",
     "src-tauri",
     "src/components/charts",
-    "src/components/GooeyNav.tsx",
     "src/components/shimmering-text.tsx",
+    "src/astryx-themes.ts",
+    "src/themes/*/devatlas.*",
   ]),
   {
     files: ["**/*.{ts,tsx}"],

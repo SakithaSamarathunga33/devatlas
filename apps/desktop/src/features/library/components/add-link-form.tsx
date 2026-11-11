@@ -1,10 +1,12 @@
+import { Button } from "@astryxdesign/core/Button";
+import { Icon } from "@astryxdesign/core/Icon";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link2, LoaderCircle, Plus } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { Link2, Plus } from "lucide-react";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Button } from "@/components/ui/button";
 import { libraryQueryKey } from "@/hooks/use-library";
 import { describeError } from "@/services/ipc";
 import { addLink } from "@/services/library.service";
@@ -43,43 +45,41 @@ export function AddLinkForm({ autoFocus = false }: { autoFocus?: boolean }) {
           save.mutate(values);
         })(event);
       }}
-      className="mt-3 max-w-3xl"
+      className="flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-start"
     >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <label className="relative block flex-1">
-          <span className="sr-only">Link to save</span>
-          <Link2
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <input
-            {...form.register("url")}
-            type="url"
-            inputMode="url"
-            autoFocus={autoFocus}
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="Paste a link, e.g. https://www.awwwards.com/websites/portfolio/"
-            aria-invalid={message !== undefined}
-            aria-describedby={message === undefined ? undefined : "add-link-error"}
-            disabled={save.isPending}
-            className="h-11 w-full rounded-xl border border-input bg-card pr-4 pl-10 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-60 aria-invalid:border-destructive/60"
-          />
-        </label>
-        <Button type="submit" disabled={save.isPending} className="h-11 rounded-xl px-5">
-          {save.isPending ? (
-            <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden />
-          ) : (
-            <Plus aria-hidden />
+      <div className="min-w-0 flex-1">
+        <Controller
+          control={form.control}
+          name="url"
+          render={({ field }) => (
+            <TextInput
+              ref={field.ref}
+              type="url"
+              label="Link to save"
+              isLabelHidden
+              inputMode="url"
+              startIcon={Link2}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              hasAutoFocus={autoFocus}
+              autoComplete="off"
+              hasSpellCheck={false}
+              placeholder="Paste a link, e.g. https://www.awwwards.com/websites/portfolio/"
+              isDisabled={save.isPending}
+              status={message === undefined ? undefined : { type: "error", message }}
+              statusVariant="detached"
+            />
           )}
-          {save.isPending ? "Fetching details" : "Save link"}
-        </Button>
+        />
       </div>
-      {message !== undefined && (
-        <p id="add-link-error" role="alert" className="mt-2 pl-4 text-xs text-destructive">
-          {message}
-        </p>
-      )}
+      <Button
+        type="submit"
+        variant="primary"
+        icon={<Icon icon={Plus} />}
+        isLoading={save.isPending}
+        label={save.isPending ? "Fetching details" : "Save link"}
+      />
     </form>
   );
 }

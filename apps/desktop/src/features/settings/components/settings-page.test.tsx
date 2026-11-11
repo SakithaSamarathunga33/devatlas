@@ -61,39 +61,46 @@ const profile = () => screen.getByRole("combobox", { name: "Profile" });
 const folder = () => screen.getByRole("combobox", { name: "Bookmark folder" });
 const save = () => screen.getByRole("button", { name: "Save" });
 
+/** Selector is a popup listbox: open it, then pick the option by its visible name. */
+async function choose(control: HTMLElement, option: string) {
+  fireEvent.click(control);
+  fireEvent.click(await screen.findByRole("option", { name: option }));
+}
+
 describe("SettingsPage", () => {
   it("shows the current browser, profile and folder", async () => {
     renderSettings();
 
-    expect(await browser()).toHaveValue("brave");
-    expect(profile()).toHaveValue("Default");
-    expect(folder()).toHaveValue("develop");
-    expect(screen.getByRole("option", { name: "Personal" })).toBeInTheDocument();
+    expect(await browser()).toHaveTextContent("Brave");
+    expect(profile()).toHaveTextContent("Personal");
+    expect(folder()).toHaveTextContent("develop");
+    fireEvent.click(profile());
+    expect(await screen.findByRole("option", { name: "Work" })).toBeInTheDocument();
   });
 
   it("moves to the first profile and folder when the browser changes", async () => {
     renderSettings();
 
-    fireEvent.change(await browser(), { target: { value: "chrome" } });
+    await choose(await browser(), "Google Chrome");
 
-    expect(profile()).toHaveValue("Default");
-    expect(folder()).toHaveValue("dev");
+    expect(profile()).toHaveTextContent("Default");
+    expect(folder()).toHaveTextContent("dev");
   });
 
   it("moves to the first folder when the profile changes", async () => {
     renderSettings();
     await browser();
 
-    fireEvent.change(profile(), { target: { value: "Profile 1" } });
+    await choose(profile(), "Work");
 
-    expect(folder()).toHaveValue("client");
+    expect(folder()).toHaveTextContent("client");
   });
 
   it("saves the selection and confirms it", async () => {
     renderSettings();
     await browser();
 
-    fireEvent.change(folder(), { target: { value: "stuffs" } });
+    await choose(folder(), "stuffs");
     fireEvent.click(save());
 
     expect(await screen.findByText("Settings saved")).toBeInTheDocument();
@@ -105,7 +112,7 @@ describe("SettingsPage", () => {
   it("can use no browser at all", async () => {
     renderSettings();
 
-    fireEvent.change(await browser(), { target: { value: "" } });
+    await choose(await browser(), "None, only links I add");
 
     expect(screen.queryByRole("combobox", { name: "Profile" })).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Bookmark folder" })).not.toBeInTheDocument();
@@ -125,7 +132,7 @@ describe("SettingsPage", () => {
     });
 
     expect(await screen.findByText(/No supported browser was found/)).toBeInTheDocument();
-    expect(await browser()).toHaveValue("");
+    expect(await browser()).toHaveTextContent("None, only links I add");
   });
 
   it("can't save a browser profile that has no bookmark folders", async () => {
@@ -141,9 +148,9 @@ describe("SettingsPage", () => {
       ],
     });
 
-    fireEvent.change(await browser(), { target: { value: "edge" } });
+    await choose(await browser(), "Microsoft Edge");
 
-    expect(save()).toBeDisabled();
+    expect(save()).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText(/has no bookmark folders/)).toBeInTheDocument();
   });
 
@@ -154,7 +161,7 @@ describe("SettingsPage", () => {
     });
     await browser();
 
-    expect(folder()).toHaveValue("archived");
+    expect(folder()).toHaveTextContent("archived");
   });
 
   it("saves a GitHub token without ever showing it back", async () => {

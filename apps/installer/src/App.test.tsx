@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
@@ -33,6 +33,14 @@ beforeEach(() => {
   api.closeWindow.mockResolvedValue();
 });
 
+/** Astryx keeps its own empty live regions, so look for the alert that says this. */
+function findAlert(text: string) {
+  return waitFor(() => {
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts.some((alert) => alert.textContent.includes(text))).toBe(true);
+  });
+}
+
 async function acceptLicense() {
   fireEvent.click(await screen.findByRole("button", { name: "Install DevAtlas" }));
   fireEvent.click(screen.getByRole("checkbox", { name: /I agree/ }));
@@ -44,7 +52,7 @@ describe("setup wizard", () => {
     render(<App />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Install DevAtlas" }));
-    expect(screen.getByRole("button", { name: /Next/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Next/ })).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(screen.getByRole("checkbox", { name: /I agree/ }));
     fireEvent.click(screen.getByRole("button", { name: /Next/ }));
 
@@ -84,8 +92,8 @@ describe("setup wizard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Next/ }));
 
     await screen.findByText(/Available Space: < 1 MB/);
-    expect(screen.getByRole("alert")).toHaveTextContent("Not enough space");
-    expect(screen.getByRole("button", { name: /Next/ })).toBeDisabled();
+    await findAlert("Not enough space");
+    expect(screen.getByRole("button", { name: /Next/ })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("shows install errors and retries", async () => {
@@ -94,7 +102,7 @@ describe("setup wizard", () => {
 
     await acceptLicense();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Access is denied.");
+    await findAlert("Access is denied.");
     expect(screen.getByRole("button", { name: "Close" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("Installation Complete!")).toBeInTheDocument();
@@ -107,7 +115,7 @@ describe("setup wizard", () => {
     await acceptLicense();
 
     expect(await screen.findByText("Installing DevAtlas")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close" })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("launches DevAtlas, then Get Started closes setup", async () => {
@@ -117,11 +125,6 @@ describe("setup wizard", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Launch DevAtlas/ }));
     expect(await screen.findByText("Ready to Get Started")).toBeInTheDocument();
     expect(api.launchApp).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("button", { name: "Discover" }));
-    expect(screen.getByRole("button", { name: "Discover" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
     expect(screen.getByText(/Trending repos/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: /Get Started/ }));
 
@@ -147,8 +150,11 @@ describe("setup wizard", () => {
     );
     render(<App />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("must run as the desktop installer");
-    expect(screen.getByRole("button", { name: "Install DevAtlas" })).toBeDisabled();
+    await findAlert("must run as the desktop installer");
+    expect(screen.getByRole("button", { name: "Install DevAtlas" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 
   it("uses the defaults for one-click install even after visiting Customize", async () => {
@@ -158,7 +164,7 @@ describe("setup wizard", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /I agree/ }));
     fireEvent.click(screen.getByRole("button", { name: /Next/ }));
     fireEvent.change(await screen.findByDisplayValue(DIR), { target: { value: "" } });
-    expect(screen.getByRole("alert")).toHaveTextContent("Choose a folder");
+    await findAlert("Choose a folder");
     fireEvent.click(screen.getByRole("button", { name: /Back/ }));
     expect(screen.getByRole("checkbox", { name: /I agree/ })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -179,9 +185,20 @@ describe("setup wizard", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Launch DevAtlas/ }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not start DevAtlas");
+    await findAlert("Could not start DevAtlas");
     expect(screen.getByText("Installation Complete!")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Launch DevAtlas/ })).toBeEnabled();
+  });
+
+  it("shows where the user is in setup, with Options only when customizing", async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Customize Installation" }));
+    expect(screen.getByRole("list", { name: "Setup progress" })).toHaveTextContent("Options");
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Install DevAtlas" }));
+
+    expect(screen.getByRole("list", { name: "Setup progress" })).not.toHaveTextContent("Options");
   });
 
   it("moves focus to each new screen's heading", async () => {
@@ -190,6 +207,22 @@ describe("setup wizard", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Install DevAtlas" }));
 
     expect(screen.getByRole("heading", { name: "License Agreement" })).toHaveFocus();
+  });
+
+  it("moves focus back to the heading when retrying a failed install", async () => {
+    api.install.mockRejectedValueOnce(new Error("Could not write C:\\x: Access is denied."));
+    api.install.mockReturnValueOnce(new Promise(() => {}));
+    render(<App />);
+    await acceptLicense();
+
+    await findAlert("Access is denied.");
+    const retry = screen.getByRole("button", { name: "Try again" });
+    retry.focus();
+    fireEvent.click(retry);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Installing DevAtlas" })).toHaveFocus();
+    });
   });
 
   it("shows install progress", async () => {
@@ -201,7 +234,9 @@ describe("setup wizard", () => {
 
     await acceptLicense();
 
-    expect(await screen.findByRole("progressbar")).toHaveAttribute("aria-valuenow", "72");
+    expect(
+      await screen.findByRole("progressbar", { name: "Installation progress" }),
+    ).toHaveAttribute("aria-valuenow", "72");
     expect(screen.getByText("Installing… 72%")).toBeInTheDocument();
   });
 });

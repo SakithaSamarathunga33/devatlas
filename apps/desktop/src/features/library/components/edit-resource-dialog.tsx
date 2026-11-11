@@ -1,16 +1,32 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { CheckboxList, CheckboxListItem } from "@astryxdesign/core/CheckboxList";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Selector } from "@astryxdesign/core/Selector";
+import { Text } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Modal } from "@/components/shared/modal";
-import { Button } from "@/components/ui/button";
 import { groupsQueryKey, useGroups } from "@/hooks/use-groups";
 import { libraryQueryKey } from "@/hooks/use-library";
 import { CATEGORY_META, STATUS_LABELS } from "@/lib/resource-categories";
-import { fieldClass, selectClass } from "@/lib/styles";
 import { describeError } from "@/services/ipc";
 import { updateResource } from "@/services/organizer.service";
 import { readingStatuses, resourceCategories, type Resource } from "@/types/library.types";
 import type { Group } from "@/types/organizer.types";
+
+const CATEGORY_OPTIONS = [
+  { value: "", label: "Automatic" },
+  ...resourceCategories.map((value) => ({ value, label: CATEGORY_META[value].label })),
+];
+const STATUS_OPTIONS = [
+  { value: "", label: "None" },
+  ...readingStatuses.map((value) => ({ value, label: STATUS_LABELS[value] })),
+];
 
 /** Edits what DevAtlas adds to a link: its category, status, tags, note and collections. */
 export function EditResourceDialog({
@@ -52,124 +68,88 @@ export function EditResourceDialog({
     },
   });
 
+  // Saving replaces the link's groups, so it must wait until they are known.
+  const canSave = groups.isSuccess && !save.isPending;
+
   return (
-    <Modal title="Edit link" onClose={onClose}>
-      <p className="mt-1 truncate text-sm text-muted-foreground">{resource.title}</p>
-      <form
-        className="mt-4 flex flex-col gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          save.mutate();
-        }}
-      >
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Category
-          <select
-            value={category}
-            onChange={(event) => {
-              setCategory(event.target.value);
-            }}
-            className={selectClass}
-          >
-            <option value="">Automatic</option>
-            {resourceCategories.map((value) => (
-              <option key={value} value={value}>
-                {CATEGORY_META[value].label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Status
-          <select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-            }}
-            className={selectClass}
-          >
-            <option value="">None</option>
-            {readingStatuses.map((value) => (
-              <option key={value} value={value}>
-                {STATUS_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex flex-col gap-1.5">
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Tags
-            <input
-              value={tags}
-              onChange={(event) => {
-                setTags(event.target.value);
-              }}
-              placeholder="react, charts, client"
-              className={fieldClass}
+    <Modal purpose="form" title="Edit link" onClose={onClose}>
+      <VStack gap={4}>
+        <Text type="supporting" maxLines={1}>
+          {resource.title}
+        </Text>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            // Astryx's Save stays enabled for the browser (aria-disabled), so check here too.
+            if (canSave) save.mutate();
+          }}
+        >
+          <VStack gap={4}>
+            <Selector
+              label="Category"
+              options={CATEGORY_OPTIONS}
+              value={category}
+              onChange={setCategory}
+              width="100%"
             />
-          </label>
-          <p className="text-xs text-muted-foreground">Separate with commas.</p>
-        </div>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Note
-          <textarea
-            value={note}
-            onChange={(event) => {
-              setNote(event.target.value);
-            }}
-            rows={3}
-            className={fieldClass}
-          />
-        </label>
+            <Selector
+              label="Status"
+              options={STATUS_OPTIONS}
+              value={status}
+              onChange={setStatus}
+              width="100%"
+            />
+            <TextInput
+              label="Tags"
+              description="Separate with commas."
+              placeholder="react, charts, client"
+              value={tags}
+              onChange={setTags}
+            />
+            <TextArea label="Note" rows={3} value={note} onChange={setNote} />
 
-        {groups.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            Collections couldn&apos;t be loaded.
-          </p>
-        )}
-        {groups.isSuccess && (
-          <fieldset>
-            <legend className="text-sm font-medium">Collections</legend>
-            {groups.data.length === 0 ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                None yet. Create one on the Collections page.
-              </p>
-            ) : (
-              <div className="mt-1.5 flex flex-col gap-1">
-                {groups.data.map((group) => (
-                  <label key={group.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={isMember(group)}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setToggled((current) => ({ ...current, [group.id]: checked }));
-                      }}
-                      className="size-4 accent-primary"
-                    />
-                    {group.name}
-                  </label>
-                ))}
-              </div>
+            {groups.isError && (
+              <Banner role="alert" status="error" title="Collections couldn't be loaded." />
             )}
-          </fieldset>
-        )}
+            {groups.isSuccess && (
+              <CheckboxList
+                label="Collections"
+                description={
+                  groups.data.length === 0
+                    ? "None yet. Create one on the Collections page."
+                    : undefined
+                }
+                density="compact"
+                value={groups.data.filter(isMember).map((group) => group.id)}
+                onChange={(ids) => {
+                  setToggled(
+                    Object.fromEntries(
+                      groups.data.map((group) => [group.id, ids.includes(group.id)]),
+                    ),
+                  );
+                }}
+              >
+                {groups.data.map((group) => (
+                  <CheckboxListItem key={group.id} value={group.id} label={group.name} />
+                ))}
+              </CheckboxList>
+            )}
 
-        {save.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {describeError(save.error).replace(/^.*?failed: /, "")}
-          </p>
-        )}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          {/* Saving replaces the link's groups, so it must wait until they are known. */}
-          <Button type="submit" disabled={save.isPending || !groups.isSuccess}>
-            Save
-          </Button>
-        </div>
-      </form>
+            {save.isError && (
+              <Banner
+                role="alert"
+                status="error"
+                title="Couldn't save the link"
+                description={describeError(save.error).replace(/^.*?failed: /, "")}
+              />
+            )}
+            <HStack gap={2} hAlign="end">
+              <Button variant="ghost" label="Cancel" onClick={onClose} />
+              <Button type="submit" variant="primary" label="Save" isDisabled={!canSave} />
+            </HStack>
+          </VStack>
+        </form>
+      </VStack>
     </Modal>
   );
 }

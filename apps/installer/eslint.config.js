@@ -7,7 +7,13 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig([
-  globalIgnores(["dist", "coverage", "src-tauri"]),
+  globalIgnores([
+    "dist",
+    "coverage",
+    "src-tauri",
+    "src/astryx-themes.ts",
+    "src/themes/*/devatlas.*",
+  ]),
   {
     files: ["**/*.{ts,tsx}"],
     extends: [

@@ -1,13 +1,21 @@
-import { CircleAlert } from "lucide-react";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { Text } from "@astryxdesign/core/Text";
+import { ToggleButton } from "@astryxdesign/core/ToggleButton";
+import { VStack } from "@astryxdesign/core/VStack";
+import { Compass } from "lucide-react";
+import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceCard } from "@/features/library";
 import { useLibrary } from "@/hooks/use-library";
 import { ECOSYSTEMS, ecosystemsOf } from "@/lib/ecosystems";
-import { cn } from "@/lib/utils";
 import type { Resource } from "@/types/library.types";
 
 import { useRemovedSuggestions, useSuggestionActions } from "../hooks/use-suggestions";
@@ -15,6 +23,7 @@ import { SUGGESTED_LINKS, suggestionId, type SuggestedLink } from "../suggested-
 import { SuggestedCard } from "./suggested-card";
 
 const SUGGESTED_IDS = new Set(SUGGESTED_LINKS.map(({ url }) => suggestionId(url)));
+const CARD_GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3";
 
 /** Browses the library and suggested links by ecosystem. The chosen one lives in `?ecosystem=`. */
 export function ExplorerPage() {
@@ -27,7 +36,7 @@ export function ExplorerPage() {
   const restorable = removedIds.filter((id) => SUGGESTED_IDS.has(id) && !libraryIds.has(id));
 
   return (
-    <div className="w-full px-5 pt-5 pb-16 lg:px-8">
+    <VStack gap={5} padding={6}>
       <PageHeader
         title="Explorer"
         description="Your library and suggested starting points, by language and framework."
@@ -35,31 +44,24 @@ export function ExplorerPage() {
         {restorable.length > 0 && (
           <Button
             variant="ghost"
+            label={`Restore ${String(restorable.length)} removed`}
             onClick={() => {
               restore(restorable);
             }}
-          >
-            Restore {restorable.length} removed
-          </Button>
+          />
         )}
       </PageHeader>
-      {(library.isPending || removed.isPending) && (
-        <div role="status" aria-busy="true" className="mt-5">
-          <span className="sr-only">Loading</span>
-          <Skeleton className="h-10 w-96 rounded-lg" />
-        </div>
-      )}
+      {(library.isPending || removed.isPending) && <BrowserSkeleton />}
       {library.isError && library.data === undefined && (
-        <p role="alert" className="mt-8 flex items-center gap-2 text-sm text-destructive">
-          <CircleAlert className="size-4 shrink-0" aria-hidden />
-          {library.error.message}
-        </p>
+        <Banner
+          role="alert"
+          status="error"
+          title="Your library couldn't be read"
+          description={library.error.message.replace(/^.*?failed: /, "")}
+        />
       )}
       {removed.isError && (
-        <p role="alert" className="mt-8 flex items-center gap-2 text-sm text-destructive">
-          <CircleAlert className="size-4 shrink-0" aria-hidden />
-          Suggested links aren&apos;t available right now.
-        </p>
+        <Banner role="alert" status="error" title="Suggested links aren't available right now." />
       )}
       {library.data !== undefined && !removed.isPending && (
         <Browser
@@ -73,7 +75,21 @@ export function ExplorerPage() {
           onRemove={remove}
         />
       )}
-    </div>
+    </VStack>
+  );
+}
+
+function BrowserSkeleton() {
+  return (
+    <VStack role="status" aria-busy="true" gap={5}>
+      <span className="sr-only">Loading</span>
+      <Skeleton height={36} width={384} />
+      <div className={CARD_GRID}>
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton key={index} index={index} height={240} />
+        ))}
+      </div>
+    </VStack>
   );
 }
 
@@ -104,10 +120,12 @@ function Browser({
 
   if (present.length === 0) {
     return (
-      <p className="mt-8 max-w-[65ch] text-sm text-muted-foreground">
-        No ecosystems found yet. Links are grouped by words in their title and address, or by a tag
-        such as &ldquo;rust&rdquo; or &ldquo;react&rdquo;.
-      </p>
+      <EmptyState
+        headingLevel={2}
+        icon={<Icon icon={Compass} />}
+        title="No ecosystems found yet"
+        description="Links are grouped by words in their title and address, or by a tag such as “rust” or “react”."
+      />
     );
   }
   const current = present.find(({ id }) => id === chosen) ?? present[0];
@@ -115,40 +133,52 @@ function Browser({
   const shownSuggestions = suggestions.filter((link) => link.ecosystem === current?.id);
 
   return (
-    <>
-      <div role="group" aria-label="Ecosystem" className="mt-4 flex flex-wrap gap-2">
+    <VStack gap={6}>
+      <HStack role="group" aria-label="Ecosystem" gap={2} wrap="wrap">
         {present.map(({ id, label, count }) => (
-          <button
+          <ToggleButton
             key={id}
-            type="button"
-            aria-pressed={id === current?.id}
-            onClick={() => {
+            size="sm"
+            label={`${label} ${String(count)}`}
+            isPressed={id === current?.id}
+            onPressedChange={() => {
               onChoose(id);
             }}
-            className={cn(
-              "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              id === current?.id
-                ? "border-transparent bg-primary font-medium text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:text-foreground",
-            )}
           >
-            {label}
-            <span className="text-xs tabular-nums">{count}</span>
-          </button>
+            {label}{" "}
+            <Text type="supporting" color="inherit" hasTabularNumbers>
+              {count}
+            </Text>
+          </ToggleButton>
         ))}
-      </div>
-      <ul className="mt-5 grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
-        {shown.map(({ resource }) => (
-          <li key={resource.id}>
-            <ResourceCard resource={resource} />
-          </li>
-        ))}
-        {shownSuggestions.map((link) => (
-          <li key={link.url}>
-            <SuggestedCard link={link} onRemove={onRemove} />
-          </li>
-        ))}
-      </ul>
-    </>
+      </HStack>
+      {shown.length > 0 && (
+        <CardGroup title="In your library">
+          {shown.map(({ resource }) => (
+            <li key={resource.id}>
+              <ResourceCard resource={resource} />
+            </li>
+          ))}
+        </CardGroup>
+      )}
+      {shownSuggestions.length > 0 && (
+        <CardGroup title="Suggested">
+          {shownSuggestions.map((link) => (
+            <li key={link.url}>
+              <SuggestedCard link={link} onRemove={onRemove} />
+            </li>
+          ))}
+        </CardGroup>
+      )}
+    </VStack>
+  );
+}
+
+function CardGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <VStack gap={3}>
+      <Heading level={2}>{title}</Heading>
+      <ul className={CARD_GRID}>{children}</ul>
+    </VStack>
   );
 }

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "@/app/providers/app-providers";
@@ -159,6 +159,29 @@ describe("ExplorerPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/Suggested links aren.t available/);
     expect(await screen.findByRole("link", { name: /Rust notes/ })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: new RegExp(RUST_BOOK) })).not.toBeInTheDocument();
+  });
+
+  it("opens a suggestion in the viewer and remembers where to return", async () => {
+    function Viewer() {
+      const { state } = useLocation() as { state: { from: string } };
+      return <p>Back to {state.from}</p>;
+    }
+    renderExplorer([], [], "/?ecosystem=rust");
+    cleanup();
+    render(
+      <AppProviders>
+        <MemoryRouter initialEntries={["/?ecosystem=rust"]}>
+          <Routes>
+            <Route path="/" element={<ExplorerPage />} />
+            <Route path="/explorer/view" element={<Viewer />} />
+          </Routes>
+        </MemoryRouter>
+      </AppProviders>,
+    );
+
+    fireEvent.click(await screen.findByRole("link", { name: new RegExp(RUST_BOOK) }));
+
+    expect(await screen.findByText("Back to /?ecosystem=rust")).toBeInTheDocument();
   });
 
   it("explains when nothing is left to show", async () => {

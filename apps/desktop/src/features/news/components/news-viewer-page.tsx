@@ -1,5 +1,8 @@
+import { Button } from "@astryxdesign/core/Button";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Icon } from "@astryxdesign/core/Icon";
 import { ArrowLeft } from "lucide-react";
-import { Link, useLocation, useSearchParams } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 import { z } from "zod";
 
 import { SiteViewer } from "@/components/shared/site-viewer";
@@ -34,12 +37,12 @@ export function NewsViewerPage() {
 
   if (!parsed.success) {
     return (
-      <div className="mx-auto max-w-xl px-6 pt-16 text-sm text-muted-foreground">
-        <p>This link can&apos;t be opened. Only web pages (http and https) are shown here.</p>
-        <Link to={backTo} className="mt-4 inline-flex items-center gap-1.5 text-primary">
-          <ArrowLeft className="size-4" aria-hidden />
-          {backLabel}
-        </Link>
+      <div className="mx-auto max-w-xl px-6 pt-16">
+        <EmptyState
+          title="This link can't be opened."
+          description="Only web pages (http and https) are shown here."
+          actions={<Button href={backTo} label={backLabel} icon={<Icon icon={ArrowLeft} />} />}
+        />
       </div>
     );
   }
