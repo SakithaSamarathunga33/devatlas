@@ -7,12 +7,9 @@ systems, libraries and frameworks across ecosystems (React, Vue, Svelte, Rust, G
 
 ## Project status
 
-**Early foundation (v0.1.0).** This repository currently contains the desktop application
-foundation only (milestone DEVATLAS-001):
+**v0.1.0, in active development.** A Windows desktop app (Tauri 2, React 19, a layered Rust
+workspace) with:
 
-- A Tauri 2 desktop shell with a React 19 + TypeScript frontend.
-- A layered Rust workspace (`domain`, `application`, `storage`).
-- One end-to-end Rust ↔ frontend integration: the `get_app_info` command, shown on the dashboard.
 - A **Library** that can read one bookmark folder live (read-only) from Brave, Chrome, Edge, Vivaldi,
   Opera, Opera GX or Firefox, chosen in **Settings**, or no browser at all. Links are cleaned, de-duplicated, and
   sorted into UI components, design inspiration, animation, icons, tools, and cloud consoles.
@@ -27,11 +24,8 @@ foundation only (milestone DEVATLAS-001):
   **For you** filter on News and New repos.
 - **Settings** also holds an optional GitHub token, a dead-link checker, and backup, export and
   import (including any browser's bookmarks file).
-- **AI coding agents**: the installed app doubles as an MCP server (`DevAtlas.exe --mcp`), so
-  Claude Code, Cursor and others can search your library, read your notes ("why it's here"), and
-  see which saved resources match a project's dependencies. Read-only. **Settings → AI agents**
-  shows the `claude mcp add devatlas -s user …` command and the JSON for other agents, pointing at
-  the installed copy, plus how many lookups agents made this week.
+- **AI coding agents (MCP)**: Claude Code, Cursor and other agents can search your library and
+  read why you saved each link. See [Use with AI coding agents](#use-with-ai-coding-agents-mcp).
 - **GitHub stars import**: bring in up to 1,000 repositories you starred, from Settings.
 - **Repos**: new GitHub repositories collecting the most stars today, this week, or this
   month, optionally by language, with one-click **Save** to the Library. Rows expand (click
@@ -53,7 +47,7 @@ foundation only (milestone DEVATLAS-001):
   monthly (TIOBE and PYPL), side by side, with each language's movement over the last year.
 - Linting, formatting, tests, and CI.
 
-AI features and sync are **not implemented yet**.
+There is no built-in AI assistant and no sync.
 
 ## Technology stack
 
@@ -66,7 +60,7 @@ AI features and sync are **not implemented yet**.
 | Forms (upcoming) | React Hook Form + @hookform/resolvers                                          |
 | Charts           | Bklit UI (area chart; d3-scale, d3-shape)                                      |
 | Other            | React Router, Sonner (toasts), date-fns                                        |
-| Rust crates      | serde, tracing, tracing-subscriber, SQLx (SQLite)                              |
+| Rust crates      | serde, tracing, SQLx (SQLite), rmcp (MCP server), reqwest, toml, winreg        |
 | Tooling          | pnpm 10 workspaces, Cargo workspace, ESLint, Prettier, Vitest, rustfmt, Clippy |
 
 TypeScript is pinned to 6.0.x because `typescript-eslint` does not yet support TypeScript 7.
@@ -113,6 +107,64 @@ into New, Fixes and Other changes from the commit messages). Pushes that only ch
 
 The installers are not code-signed yet, so Windows SmartScreen warns before running them. Quit
 any AI agent using DevAtlas before updating, since it keeps `DevAtlas.exe` open.
+
+## Use with AI coding agents (MCP)
+
+DevAtlas includes an [MCP](https://modelcontextprotocol.io) server, so your coding agent can use
+the library you built instead of guessing. Ask it "which date picker did I save?" or "what do I
+have saved for this project's stack?" and it answers from your own links and notes.
+
+The installed app is the server: an agent starts `DevAtlas.exe --mcp` and talks to it over
+stdin/stdout. DevAtlas does not need to be open.
+
+### Connect an agent
+
+Open **Settings → AI coding agents** in DevAtlas. It shows both of these with the real path of
+your installed copy, ready to copy.
+
+**Claude Code** (available in every folder):
+
+```bash
+claude mcp add devatlas -s user -- "C:\Users\<you>\AppData\Local\Programs\DevAtlas\DevAtlas.exe" --mcp
+```
+
+**Cursor, Windsurf, Codex and other agents** read an `mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "devatlas": {
+      "command": "C:\\Users\\<you>\\AppData\\Local\\Programs\\DevAtlas\\DevAtlas.exe",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+Run `claude mcp list` (or the agent's own MCP view) to check that `devatlas` is connected.
+
+### Tools
+
+| Tool                | What the agent gets                                                                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `search_library`    | Saved resources matching every word of a query, each with your "why it's here" note.                                                                                 |
+| `get_resource`      | One resource by id or address: note, tags, collections, reading status, link health and attached code snippets.                                                      |
+| `get_project_stack` | The dependencies of a project in the agent's folder (`package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `requirements.txt`) and which of them you have saved. |
+
+### Privacy and safety
+
+- **Read-only.** The server opens the library database read-only and cannot add, change or delete
+  anything.
+- **Local only.** Nothing leaves your computer: the agent and DevAtlas talk over a local pipe.
+- **Confined.** `get_project_stack` only reads inside the folder the agent was started in. It
+  refuses network paths and skips symbolic links.
+- **Untrusted text is cleaned.** Titles and descriptions from websites have hidden and control
+  characters removed and are marked as data, so a saved page cannot give the agent instructions.
+- Each lookup is counted in `agent-lookups.jsonl` in the app's data folder. Settings shows the
+  count for the last 7 days.
+
+Write the reason you saved a link in its **Why it's here** field (the **Edit** button on any
+Library card): that note is what makes the agent's answers useful.
 
 ## Prerequisites
 
