@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DevAtlas – Local-first bookmark manager for developers, with an MCP server</title>
+    <meta
+      name="description"
+      content="Free, open-source bookmark manager for developers on Windows. Organize browser bookmarks, GitHub stars and saved links in one searchable library, and let Claude Code and Cursor search it over MCP. No account, no cloud."
+    />
+    <link rel="canonical" href="https://sakithasamarathunga33.github.io/devatlas/" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#071114" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="DevAtlas" />
+    <meta property="og:title" content="DevAtlas – local-first bookmark manager for developers" />
+    <meta
+      property="og:description"
+      content="Your browser bookmarks, GitHub stars and saved links in one searchable Windows app, with a read-only MCP server for Claude Code, Cursor and other AI coding agents."
+    />
+    <meta property="og:url" content="https://sakithasamarathunga33.github.io/devatlas/" />
+    <meta
+      property="og:image"
+      content="https://sakithasamarathunga33.github.io/devatlas/social-preview.png"
+    />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="DevAtlas – bookmark manager for developers" />
+    <meta
+      name="twitter:description"
+      content="Bookmarks, GitHub stars and saved links in one local-first library your AI coding agents can read over MCP."
+    />
+    <meta
+      name="twitter:image"
+      content="https://sakithasamarathunga33.github.io/devatlas/social-preview.png"
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "DevAtlas",
+        "description": "Local-first bookmark manager for developers. Organizes browser bookmarks, GitHub stars and saved links into one searchable library, with a read-only MCP server for AI coding agents such as Claude Code and Cursor.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Windows 10, Windows 11",
+        "softwareVersion": "0.1.0",
+        "license": "https://opensource.org/licenses/MIT",
+        "url": "https://sakithasamarathunga33.github.io/devatlas/",
+        "downloadUrl": "https://github.com/SakithaSamarathunga33/devatlas/releases/latest",
+        "codeRepository": "https://github.com/SakithaSamarathunga33/devatlas",
+        "image": "https://sakithasamarathunga33.github.io/devatlas/devatlas-banner.jpg",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": {
+          "@type": "Person",
+          "name": "Sakitha Samarathunga",
+          "url": "https://github.com/SakithaSamarathunga33"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is DevAtlas?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "A free, open-source bookmark manager for developers. It brings your browser bookmarks, GitHub stars and saved links into one searchable desktop library on Windows, with collections, snippets, trending repos, developer news and a dead-link checker."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I let Claude Code or Cursor use my bookmarks?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "DevAtlas includes a read-only MCP (Model Context Protocol) server. Connect it with one command from Settings → AI coding agents, and Claude Code, Cursor, Windsurf or Codex can search your saved links and notes."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I organize my GitHub stars?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Import up to 1,000 starred repositories of any GitHub user from Settings. They join your library, where you can tag them, add notes, group them into collections and see their latest release and star growth."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Which browsers does DevAtlas read bookmarks from?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Brave, Chrome (including signed-in account bookmarks), Edge, Vivaldi, Opera, Opera GX and Firefox. Bookmarks are only read, never changed."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need an account? Is my data uploaded anywhere?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No account and no cloud. Your library lives in a local SQLite database on your computer."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does DevAtlas run on macOS or Linux?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Not yet. DevAtlas is built for Windows 10 and 11. macOS and Linux builds are on the roadmap."
+            }
+          }
+        ]
+      }
+    </script>
+
+    <style>
+      :root {
+        --bg: #071114;
+        --surface: #0d1b1f;
+        --line: #1c2f34;
+        --text: #eef6f6;
+        --muted: #9fb3b5;
+        --accent: #19d3c0;
+        --on-accent: #032421;
+        --code: #0a1619;
+      }
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          --bg: #f6fbfb;
+          --surface: #ffffff;
+          --line: #d8e6e6;
+          --text: #0e1b1d;
+          --muted: #4c6164;
+          --accent: #00796b;
+          --on-accent: #ffffff;
+          --code: #eef5f5;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+      a {
+        color: var(--accent);
+      }
+      .wrap {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+      header.top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 0;
+        gap: 12px;
+      }
+      header.top .brand {
+        font-weight: 700;
+        color: var(--text);
+        text-decoration: none;
+      }
+      header.top nav a {
+        margin-left: 16px;
+        text-decoration: none;
+        color: var(--muted);
+      }
+      header.top nav a:hover {
+        color: var(--text);
+      }
+      .hero {
+        padding: 36px 0 24px;
+      }
+      .hero h1 {
+        font-size: clamp(28px, 5vw, 48px);
+        line-height: 1.12;
+        margin: 0 0 16px;
+        letter-spacing: -0.01em;
+        text-wrap: balance;
+      }
+      .hero h1 span {
+        color: var(--accent);
+      }
+      .lead {
+        font-size: clamp(17px, 2.2vw, 20px);
+        color: var(--muted);
+        max-width: 760px;
+        margin: 0 0 24px;
+      }
+      .cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 28px;
+      }
+      .btn {
+        display: inline-block;
+        padding: 11px 18px;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid var(--line);
+      }
+      .btn.primary {
+        background: var(--accent);
+        color: var(--on-accent);
+        border-color: var(--accent);
+      }
+      .btn.ghost {
+        color: var(--text);
+        background: var(--surface);
+      }
+      img.shot {
+        width: 100%;
+        height: auto;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        display: block;
+      }
+      section {
+        padding: 32px 0;
+        border-top: 1px solid var(--line);
+      }
+      section h2 {
+        font-size: clamp(22px, 3vw, 28px);
+        margin: 0 0 14px;
+      }
+      section > p {
+        max-width: 760px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px;
+      }
+      .card h3 {
+        margin: 0 0 6px;
+        font-size: 17px;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      pre {
+        background: var(--code);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 70px 14px 14px;
+        overflow-x: auto;
+        margin: 10px 0 14px;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 14px;
+      }
+      .copy-row {
+        position: relative;
+      }
+      .copy {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 4px 10px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      ul.ask {
+        margin: 8px 0 0;
+        padding-left: 20px;
+        color: var(--muted);
+      }
+      details {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+      details p {
+        margin: 10px 0 0;
+        color: var(--muted);
+      }
+      footer {
+        padding: 28px 0 40px;
+        color: var(--muted);
+        font-size: 14px;
+        border-top: 1px solid var(--line);
+      }
+      @media (max-width: 560px) {
+        header.top nav a {
+          margin-left: 10px;
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <a class="brand" href="./">DevAtlas</a>
+        <nav>
+          <a href="#mcp">MCP</a><a href="#download">Download</a><a href="#faq">FAQ</a
+          ><a href="https://github.com/SakithaSamarathunga33/devatlas">GitHub</a>
+        </nav>
+      </header>
+
+      <main>
+        <div class="hero">
+          <h1>
+            The <span>bookmark manager for developers</span> that your AI coding agents can read
+          </h1>
+          <p class="lead">
+            DevAtlas turns your browser bookmarks, GitHub stars and saved links into one searchable
+            library on Windows. Organize them into collections, attach code snippets, discover
+            trending repos, and let Claude Code, Cursor and other agents search it over MCP. Free,
+            open source and local-first: no account, no cloud.
+          </p>
+          <div class="cta">
+            <a
+              class="btn primary"
+              href="https://github.com/SakithaSamarathunga33/devatlas/releases/latest"
+              >Download for Windows</a
+            >
+            <a class="btn ghost" href="https://github.com/SakithaSamarathunga33/devatlas"
+              >View on GitHub</a
+            >
+          </div>
+          <img
+            class="shot"
+            src="devatlas-banner.jpg"
+            width="1600"
+            height="534"
+            alt="DevAtlas developer bookmark manager dashboard showing saved resources, top stories, new GitHub repositories and categories"
+          />
+        </div>
+
+        <section aria-labelledby="features">
+          <h2 id="features">Every developer resource in one place</h2>
+          <div class="grid">
+            <div class="card">
+              <h3>Reads your browser bookmarks</h3>
+              <p>
+                Brave, Chrome, Edge, Vivaldi, Opera, Opera GX or Firefox, live and read-only. New
+                saves appear in seconds.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Organize GitHub stars</h3>
+              <p>
+                Import up to 1,000 starred repos, then tag, annotate and track their releases and
+                star growth.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Collections and snippets</h3>
+              <p>
+                Group links into collections and attach code snippets to the links they go with.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Search everything</h3>
+              <p>
+                Ctrl K finds links by title, notes and tags, plus collections, snippets and pages.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Discover</h3>
+              <p>
+                Trending new GitHub repos, star history, Hacker News, 35 official dev blogs and
+                TIOBE/PYPL language rankings.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Keep it healthy</h3>
+              <p>
+                A dead-link checker, one-file backups, and imports from any browser's bookmarks
+                export.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="mcp">
+          <h2 id="mcp">MCP server for Claude Code, Cursor, Windsurf and Codex</h2>
+          <p>
+            DevAtlas doubles as a read-only MCP server, so your coding agent answers from the
+            resources you saved instead of guessing. Ask it things like:
+          </p>
+          <ul class="ask">
+            <li>"Which date picker library did I save?"</li>
+            <li>"What do I have saved for this project's stack?"</li>
+          </ul>
+          <p>Connect Claude Code with one command (Settings shows your exact path):</p>
+          <div class="copy-row">
+            <pre><code id="cmd">claude mcp add devatlas -s user -- "C:\Users\&lt;you&gt;\AppData\Local\Programs\DevAtlas\DevAtlas.exe" --mcp</code></pre>
+            <button class="copy" type="button" data-target="cmd">Copy</button>
+          </div>
+          <p>
+            Agents get three tools: <code>search_library</code>, <code>get_resource</code> and
+            <code>get_project_stack</code>, which matches a project's package.json, Cargo.toml,
+            go.mod or Python dependencies against what you've saved. The server opens your library
+            read-only and nothing leaves your computer.
+          </p>
+        </section>
+
+        <section aria-labelledby="download">
+          <h2 id="download">Download</h2>
+          <p>
+            Get <strong>DevAtlas Setup</strong> from the
+            <a href="https://github.com/SakithaSamarathunga33/devatlas/releases/latest"
+              >latest release</a
+            >. It installs per user with no admin prompt, and updating keeps your library. Windows
+            10 and 11. Releases aren't code-signed yet, so if SmartScreen warns you, choose
+            <em>More info → Run anyway</em>.
+          </p>
+        </section>
+
+        <section aria-labelledby="faq">
+          <h2 id="faq">FAQ</h2>
+          <details open>
+            <summary>What is DevAtlas?</summary>
+            <p>
+              A free, open-source bookmark manager for developers. It brings your browser bookmarks,
+              GitHub stars and saved links into one searchable desktop library on Windows, with
+              collections, snippets, trending repos, developer news and a dead-link checker.
+            </p>
+          </details>
+          <details>
+            <summary>How do I let Claude Code or Cursor use my bookmarks?</summary>
+            <p>
+              DevAtlas includes a read-only MCP (Model Context Protocol) server. Connect it with one
+              command from Settings → AI coding agents, and Claude Code, Cursor, Windsurf or Codex
+              can search your saved links and notes.
+            </p>
+          </details>
+          <details>
+            <summary>How do I organize my GitHub stars?</summary>
+            <p>
+              Import up to 1,000 starred repositories of any GitHub user from Settings. They join
+              your library, where you can tag them, add notes, group them into collections and see
+              their latest release and star growth.
+            </p>
+          </details>
+          <details>
+            <summary>Which browsers does DevAtlas read bookmarks from?</summary>
+            <p>
+              Brave, Chrome (including signed-in account bookmarks), Edge, Vivaldi, Opera, Opera GX
+              and Firefox. Bookmarks are only read, never changed.
+            </p>
+          </details>
+          <details>
+            <summary>Do I need an account? Is my data uploaded anywhere?</summary>
+            <p>
+              No account and no cloud. Your library lives in a local SQLite database on your
+              computer.
+            </p>
+          </details>
+          <details>
+            <summary>Does DevAtlas run on macOS or Linux?</summary>
+            <p>
+              Not yet. DevAtlas is built for Windows 10 and 11. macOS and Linux builds are on the
+              roadmap.
+            </p>
+          </details>
+        </section>
+      </main>
+
+      <footer>
+        <p>
+          DevAtlas is an open-source project by
+          <a href="https://github.com/SakithaSamarathunga33">Sakitha Samarathunga</a>, MIT licensed.
+          Built with Tauri, Rust and React. Product names mentioned belong to their owners; DevAtlas
+          is not affiliated with them.
+        </p>
+      </footer>
+    </div>
+    <script>
+      document.querySelectorAll(".copy").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var t = document.getElementById(b.dataset.target).textContent;
+          try {
+            navigator.clipboard.writeText(t).then(function () {
+              b.textContent = "Copied";
+              setTimeout(function () {
+                b.textContent = "Copy";
+              }, 1500);
+            });
+          } catch (e) {}
+        });
+      });
+    </script>
+  </body>
+</html>
