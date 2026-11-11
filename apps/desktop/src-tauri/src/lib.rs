@@ -37,7 +37,6 @@ pub fn run() -> tauri::Result<()> {
             app.manage(commands::preview::Previews::new(cache_file)?);
             let data_dir = app.path().app_data_dir()?;
             app.manage(commands::library::LibraryStore::new(&data_dir));
-            commands::library::initialize_settings(app.handle());
             app.manage(tauri::async_runtime::block_on(
                 commands::organizer::Organizer::open(&data_dir.join(database_file())),
             ));

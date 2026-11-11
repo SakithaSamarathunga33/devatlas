@@ -4,21 +4,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use devatlas_application::library::{self, LibrarySnapshot, LibrarySource, RawBookmark};
 use devatlas_application::link_health::LinkHealthStore;
 use devatlas_application::organizer::{self, OrganizerStore};
-use devatlas_application::settings::{self, BookmarkSettings, Browser, SettingsStore};
+use devatlas_application::settings::{self, BookmarkSettings, SettingsStore};
 use devatlas_domain::resource::Resource;
 use devatlas_storage::browsers;
 use devatlas_storage::library_memory::JsonLibraryMemory;
-use devatlas_storage::paths;
 use devatlas_storage::saved_links::JsonSavedLinks;
 use devatlas_storage::settings::JsonSettings;
-use tauri::{AppHandle, Manager, Runtime, State};
+use tauri::State;
 use tokio::sync::Mutex;
 
 use super::organizer::Organizer;
 use super::preview::Previews;
-
-/// The folder existing installs read before bookmark settings existed.
-const ORIGINAL_FOLDER: &str = "develop";
 
 /// Saved links, library memory and settings, plus a lock: every command read-modify-writes
 /// them.
@@ -37,29 +33,6 @@ impl LibraryStore {
             settings: JsonSettings::new(data_dir.join("settings.json")),
             lock: Mutex::new(()),
         }
-    }
-}
-
-/// Chooses the bookmark source once, on the first run after settings were introduced, so a
-/// browser that's briefly unreadable later can't silently switch the library off.
-pub fn initialize_settings<R: Runtime>(app: &AppHandle<R>) {
-    let store = app.state::<LibraryStore>();
-    if !matches!(store.settings.load(), Ok(None)) {
-        return;
-    }
-    let has_brave = paths::browser_user_data_dir(Browser::Brave)
-        .is_some_and(|dir| dir.join("Default").join("Bookmarks").is_file());
-    let initial = if has_brave {
-        BookmarkSettings {
-            browser: Some(Browser::Brave),
-            profile: "Default".to_owned(),
-            folder: ORIGINAL_FOLDER.to_owned(),
-        }
-    } else {
-        BookmarkSettings::default()
-    };
-    if let Err(error) = store.settings.save(&initial) {
-        tracing::warn!(%error, "could not store the initial settings");
     }
 }
 

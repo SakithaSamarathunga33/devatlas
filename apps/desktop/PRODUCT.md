@@ -23,8 +23,8 @@ news, and language trends without leaving the app.
 
 ## Positioning
 
-Reads the developer's existing Brave bookmarks (the `develop` folder) live and read-only, sorts them
-into categories automatically, and opens sites inside the app — no import step, no account, no
+Starts empty. Each developer adds links themselves or picks a browser, profile and bookmark folder
+in Settings, which DevAtlas then reads live and read-only, sorts into categories automatically, and opens sites inside the app — no import step, no account, no
 cloud. Discovery, News, and Rankings sit next to the personal library so "what I have" and "what's
 new" live in one place.
 
