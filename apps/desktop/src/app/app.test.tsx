@@ -90,7 +90,7 @@ function mockBackend(
 // Dashboard sections fade in with Motion, which does not animate under jsdom, so these
 // tests assert presence rather than visibility.
 describe("App", () => {
-  it("renders the shell, window controls and backend status", async () => {
+  it("renders the shell and window controls with no status bar", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
     render(<App />);
@@ -106,9 +106,31 @@ describe("App", () => {
     expect(screen.queryByRole("region", { name: "Coming soon" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Minimize" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
-    expect(await screen.findByText("DevAtlas 0.1.0 · Windows")).toBeInTheDocument();
-    expect(screen.getByText("Backend connected")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("check_for_update");
+    });
+    // The bar said "Connecting to backend" while loading, then "Backend connected".
+    expect(screen.queryByText(/backend/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/DevAtlas 0\.1\.0/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Update to/ })).not.toBeInTheDocument();
+  });
+
+  it("puts the collapse button above the pages and the update above Settings", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO), RELEASE);
+
+    render(<App />);
+
+    const primary = screen.getByRole("navigation", { name: "Primary" });
+    const collapse = within(primary).getByRole("button", { name: /collapse/i });
+    const dashboard = within(primary).getByRole("link", { name: "Dashboard" });
+    const update = await within(primary).findByRole("button", {
+      name: "Update to v0.1.0-build.24",
+    });
+    const settings = within(primary).getByRole("link", { name: "Settings" });
+    const isBefore = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(isBefore(collapse, dashboard)).toBe(true);
+    expect(isBefore(update, settings)).toBe(true);
   });
 
   it("syncs GitHub stars in the background when the app starts", async () => {
@@ -134,8 +156,8 @@ describe("App", () => {
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("install_update");
     });
-    expect(screen.getByRole("button", { name: /Update to v0.1.0-build.24/ })).toHaveAttribute(
-      "aria-busy",
+    expect(await screen.findByRole("button", { name: "Updating…" })).toHaveAttribute(
+      "aria-disabled",
       "true",
     );
   });
@@ -270,14 +292,6 @@ describe("App", () => {
     expect(screen.queryByRole("region", { name: "Recent activity" })).not.toBeInTheDocument();
     // The ring only appears while there is something left to review, and says what it measures.
     expect(within(breakdown).getByRole("img", { name: /reviewed/ })).toBeInTheDocument();
-  });
-
-  it("reports an unreachable backend in the status bar", async () => {
-    mockBackend(() => Promise.reject(new Error("Command get_app_info not allowed by ACL")));
-
-    render(<App />);
-
-    expect(await screen.findByText("Backend unavailable")).toBeInTheDocument();
   });
 
   it("opens a news link in the in-app viewer instead of falling back to the dashboard", async () => {

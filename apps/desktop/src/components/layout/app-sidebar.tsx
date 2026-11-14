@@ -1,4 +1,9 @@
-import { SideNav, SideNavItem, SideNavSection } from "@astryxdesign/core/SideNav";
+import {
+  SideNav,
+  SideNavCollapseButton,
+  SideNavItem,
+  SideNavSection,
+} from "@astryxdesign/core/SideNav";
 import { useLocation } from "react-router";
 
 import {
@@ -6,6 +11,7 @@ import {
   secondaryNavigation,
   type NavigationItem,
 } from "@/components/layout/navigation";
+import { UpdateNavItem } from "@/components/layout/update-nav-item";
 import { useUiStore } from "@/stores/ui-store";
 
 function isActive(to: string, pathname: string): boolean {
@@ -33,10 +39,17 @@ export function AppSidebar() {
   return (
     <SideNav
       aria-label="Primary"
-      collapsible={{ isCollapsed: collapsed, onCollapsedChange: toggleSidebar }}
-      footer={secondaryNavigation.map((item) => (
-        <NavItem key={item.label} item={item} pathname={pathname} />
-      ))}
+      // The collapse button sits above the pages instead of in a bottom icon bar.
+      collapsible={{ isCollapsed: collapsed, onCollapsedChange: toggleSidebar, hasButton: false }}
+      topContent={<SideNavCollapseButton />}
+      footer={
+        <>
+          <UpdateNavItem />
+          {secondaryNavigation.map((item) => (
+            <NavItem key={item.label} item={item} pathname={pathname} />
+          ))}
+        </>
+      }
     >
       <SideNavSection title="Pages" isHeaderHidden>
         {primaryNavigation.map((item) => (
