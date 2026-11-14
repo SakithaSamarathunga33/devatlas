@@ -4,6 +4,8 @@ use tauri_build::{AppManifest, Attributes};
 /// command must be granted explicitly in `capabilities/` (least privilege).
 const COMMANDS: &[&str] = &[
     "get_app_info",
+    "check_for_update",
+    "install_update",
     "list_library",
     "mark_resource_opened",
     "add_link",

@@ -1,7 +1,7 @@
 name: Release
 
-# Publishes the Windows installers CI built for every push to main, with notes listing the
-# commits since the previous release.
+# Publishes DevAtlas Setup and the signed in-app update that CI built for every push to main,
+# with notes listing the commits since the previous release.
 on:
   workflow_run:
     workflows: [CI]
@@ -22,6 +22,9 @@ jobs:
     # Only pushes whose checks and Windows build passed; pull requests never release.
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
+    # Holds the update signing key, and only `main` may use it. This workflow always runs from
+    # the default branch's copy, so a pull request can't edit it to read the key.
+    environment: release
     env:
       HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
       RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
@@ -45,6 +48,17 @@ jobs:
           version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
           echo "TAG=v${version}-build.${RUN_NUMBER}" >> "$GITHUB_ENV"
 
+      # The in-app update: the app alone, gzipped (about 9 MB). It is signed under its final
+      # name, which the signature's trusted comment records; installed copies check the
+      # signature and that name, so an old package can't be re-served as a newer release.
+      - name: Package and sign the update
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: |
+          gzip -9 -c dist/devatlas-desktop.exe > "dist/DevAtlas-Update-${TAG}.gz"
+          npx --yes @tauri-apps/cli@2.12.4 signer sign "dist/DevAtlas-Update-${TAG}.gz"
+
       - name: Write release notes
         run: bash scripts/release-notes.sh "$HEAD_SHA" "$GITHUB_REPOSITORY" > notes.md
 
@@ -55,8 +69,11 @@ jobs:
             exit 0
           fi
           mv dist/devatlas-installer.exe "dist/DevAtlas-Setup-${TAG}.exe"
+          # DevAtlas downloads the update by exactly these names.
           gh release create "$TAG" \
             "dist/DevAtlas-Setup-${TAG}.exe" \
+            "dist/DevAtlas-Update-${TAG}.gz" \
+            "dist/DevAtlas-Update-${TAG}.gz.sig" \
             --target "$HEAD_SHA" \
             --title "DevAtlas ${TAG}" \
             --notes-file notes.md

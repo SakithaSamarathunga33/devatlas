@@ -11,6 +11,8 @@ publish.workspace = true
 devatlas-domain.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+minisign-verify.workspace = true
+base64.workspace = true
 url.workspace = true
 
 [dev-dependencies]

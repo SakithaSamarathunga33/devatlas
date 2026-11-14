@@ -13,6 +13,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
+repository = "https://github.com/SakithaSamarathunga33/devatlas"
 publish = false
 
 [workspace.dependencies]
@@ -57,6 +58,10 @@ tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 thiserror = "2"
+# Self-update: checks the update's minisign signature (keys from `tauri signer`), and unpacks it.
+minisign-verify = "0.2"
+base64 = "0.22"
+flate2 = "1"
 tokio = { version = "1", features = ["net", "rt", "sync", "time"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"

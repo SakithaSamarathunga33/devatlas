@@ -30,6 +30,22 @@ fn installed_app_at(_key: &str) -> Option<PathBuf> {
     None
 }
 
+/// Records an updated version in the installer's Add/Remove Programs entry.
+#[cfg(windows)]
+pub fn set_installed_version(version: &str) -> std::io::Result<()> {
+    use winreg::RegKey;
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_SET_VALUE};
+
+    RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey_with_flags(UNINSTALL_KEY, KEY_SET_VALUE)?
+        .set_value("DisplayVersion", &version)
+}
+
+#[cfg(not(windows))]
+pub fn set_installed_version(_version: &str) -> std::io::Result<()> {
+    Ok(())
+}
+
 #[cfg(all(test, windows))]
 mod tests {
     use winreg::RegKey;

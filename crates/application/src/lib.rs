@@ -19,3 +19,4 @@ pub mod snippets;
 pub mod star_history;
 pub mod stars;
 pub mod suggestions;
+pub mod updates;

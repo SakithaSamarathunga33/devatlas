@@ -42,7 +42,7 @@ allow-list (GitHub Search API, Hacker News, 35 official blogs, TIOBE/PYPL).
   of links), Repos (new GitHub repos by period and language, Star History rankings, Save to
   Library, star history, Saved repos with latest release and star growth), News (Hacker News front
   page + official blogs), Languages (TIOBE and PYPL side by side), Settings (bookmark source).
-- Also shipped: Ctrl K search, Snippets, Explorer, reading status, Rediscover, For you, link checker, backup and import.
+- Also shipped: Ctrl K search, Snippets, Explorer, reading status, Rediscover, For you, link checker, backup and import, one-click update (checks DevAtlas's GitHub releases, installs a signed 9 MB update and restarts).
 - Not built: AI features, sync. A browser extension was considered and dropped: links can be added
   in the app.
 - Browsers are never written to. GitHub data is cached (15 min trending, 1 h repo details); feeds 30 min.

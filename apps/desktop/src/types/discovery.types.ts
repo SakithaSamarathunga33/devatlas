@@ -22,17 +22,19 @@ export type GithubRepo = z.infer<typeof githubRepoSchema>;
 
 export const githubReposSchema = z.array(githubRepoSchema);
 
+/** A repository's newest release; mirrors `devatlas_application::discovery::RepoRelease`. */
+export const repoReleaseSchema = z.object({
+  tag: z.string().min(1),
+  name: z.string().nullable(),
+  url: z.url().startsWith("https://github.com/"),
+  publishedAt: z.iso.datetime({ offset: true }),
+});
+export type RepoRelease = z.infer<typeof repoReleaseSchema>;
+
 /** IPC contract for `get_repo_activity`; mirrors
  * `devatlas_application::discovery::RepoActivity`. */
 export const repoActivitySchema = z.object({
-  latestRelease: z
-    .object({
-      tag: z.string().min(1),
-      name: z.string().nullable(),
-      url: z.url().startsWith("https://github.com/"),
-      publishedAt: z.iso.datetime({ offset: true }),
-    })
-    .nullable(),
+  latestRelease: repoReleaseSchema.nullable(),
   starsGained: z.object({ count: z.number().int(), days: z.number().int() }).nullable(),
 });
 export type RepoActivity = z.infer<typeof repoActivitySchema>;

@@ -88,10 +88,17 @@ jobs:
       # Builds DevAtlas (frontend typecheck + Vite, release exe), then DevAtlas Setup with that
       # exe embedded: the one installer a release ships.
       - run: pnpm build:installer
+        env:
+          # The app compares this with the newest release tag (v<version>-build.<run>) to
+          # tell the user an update exists; release.yml names the release after this run.
+          DEVATLAS_BUILD: ${{ github.run_number }}
 
+      # Setup, plus the app alone: release.yml packs and signs that as the in-app update.
       - uses: actions/upload-artifact@v7
         with:
           name: devatlas-windows-installers
-          path: target/release/devatlas-installer.exe
+          path: |
+            target/release/devatlas-installer.exe
+            target/release/devatlas-desktop.exe
           if-no-files-found: error
           retention-days: 7

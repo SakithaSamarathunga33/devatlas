@@ -44,12 +44,15 @@ pub fn run() -> tauri::Result<()> {
             app.manage(commands::settings::Secrets::new());
             commands::settings::load_github_token(app.handle());
             app.manage(commands::news::News::new()?);
+            commands::app_info::remove_previous_version();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::agent::get_agent_connection,
             commands::agent::import_github_stars,
             commands::app_info::get_app_info,
+            commands::app_info::check_for_update,
+            commands::app_info::install_update,
             commands::discovery::list_trending_repos,
             commands::discovery::get_github_repo,
             commands::discovery::get_repo_activity,

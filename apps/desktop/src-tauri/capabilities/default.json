@@ -5,6 +5,8 @@
   "webviews": ["main"],
   "permissions": [
     "allow-get-app-info",
+    "allow-check-for-update",
+    "allow-install-update",
     "allow-list-library",
     "allow-mark-resource-opened",
     "allow-add-link",

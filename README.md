@@ -368,13 +368,21 @@ embedded until `pnpm build:installer` has run once.
 Every push to `main` that passes CI publishes a release. Nothing to tag by hand.
 
 1. `ci.yml` runs the frontend checks (Ubuntu), the Rust checks (Windows), then the Windows build,
-   which uploads DevAtlas Setup.
-2. When CI succeeds on a push, `release.yml` downloads it.
+   which uploads DevAtlas Setup and the app on its own.
+2. When CI succeeds on a push, `release.yml` downloads them, gzips the app into the in-app
+   update and signs it with `TAURI_SIGNING_PRIVATE_KEY`, a secret of the repository's `release`
+   environment that only `main` can use.
 3. It names the release `v<version>-build.<CI run>` (the version comes from `Cargo.toml`).
 4. `scripts/release-notes.sh` writes the notes: every commit since the previous release, grouped
    into **New**, **Fixes** and **Other changes**, each with its message body.
-5. It publishes the GitHub release with DevAtlas Setup attached. A re-run never duplicates a
-   release.
+5. It publishes the GitHub release with DevAtlas Setup and the update attached. A re-run never
+   duplicates a release.
+
+The update key pair was made with `pnpm --filter @devatlas/desktop tauri signer generate`. Its
+public half is `apps/desktop/src-tauri/update-signing.pub`, built into the app; the private half
+lives only in that environment secret and the owner's backup. Installed copies refuse any update
+not signed with it, so a lost private key means users reinstall once with DevAtlas Setup after a
+new key is made.
 
 Pushes that only change docs (Markdown files, `docs/`, `LICENSE`) skip CI and publish nothing.
 Pull requests run every check but never release.
@@ -384,9 +392,12 @@ Pull requests run every check but never release.
 Download from the [Releases](https://github.com/SakithaSamarathunga33/devatlas/releases) page:
 
 - `DevAtlas-Setup-<tag>.exe`: the setup wizard, the only installer a release ships.
+- `DevAtlas-Update-<tag>.gz` and its `.sig`: the in-app update. You don't download these.
 
-Run the new installer over the old one to update; your library is kept. There is no in-app
-updater, so check the Releases page.
+DevAtlas checks for a newer release at start and every 6 hours. When one exists, the status bar
+shows **Update to &lt;tag&gt;**. Pressing it downloads the signed update (about 9 MB), checks the
+signature, replaces the app and restarts it; your library is kept. This works for copies
+installed with DevAtlas Setup. Running a newer DevAtlas Setup over the old one also updates.
 
 ---
 

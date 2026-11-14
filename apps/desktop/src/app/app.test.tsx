@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
@@ -13,7 +14,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
   isTauri: () => true,
 }));
-vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resolve()) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(() => Promise.resolve(vi.fn())) }));
 
 const invokeMock = vi.mocked(invoke);
@@ -62,9 +63,22 @@ const STORY = {
   publishedAt: Date.now() - 3_600_000,
 };
 
-function mockBackend(appInfo: () => Promise<unknown>) {
+const RELEASE = {
+  tag: "v0.1.0-build.24",
+  name: "DevAtlas v0.1.0-build.24",
+  url: "https://github.com/owner/devatlas/releases/tag/v0.1.0-build.24",
+  publishedAt: "2026-11-14T10:00:00Z",
+};
+
+function mockBackend(
+  appInfo: () => Promise<unknown>,
+  update: unknown = null,
+  install: () => Promise<unknown> = () => Promise.resolve(null),
+) {
   invokeMock.mockImplementation((command) => {
     if (command === "get_app_info") return appInfo();
+    if (command === "check_for_update") return Promise.resolve(update);
+    if (command === "install_update") return install();
     if (command === "list_library") return Promise.resolve(LIBRARY);
     if (command === "list_trending_repos") return Promise.resolve([TRENDING]);
     if (command === "list_top_stories") return Promise.resolve([STORY]);
@@ -93,6 +107,43 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
     expect(await screen.findByText("DevAtlas 0.1.0 · Windows")).toBeInTheDocument();
     expect(screen.getByText("Backend connected")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Update to/ })).not.toBeInTheDocument();
+  });
+
+  it("installs a newer release when Update is pressed", async () => {
+    mockBackend(
+      () => Promise.resolve(APP_INFO),
+      RELEASE,
+      () => new Promise(() => {}),
+    );
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Update to v0.1.0-build.24" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("install_update");
+    });
+    expect(screen.getByRole("button", { name: /Update to v0.1.0-build.24/ })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+  });
+
+  it("explains a failed update and offers the release page instead", async () => {
+    mockBackend(
+      () => Promise.resolve(APP_INFO),
+      RELEASE,
+      () =>
+        Promise.reject(new Error("The update's signature didn't match, so it wasn't installed.")),
+    );
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Update to v0.1.0-build.24" }));
+
+    expect(await screen.findByText("Couldn't update DevAtlas")).toBeInTheDocument();
+    expect(screen.getByText(/signature didn't match/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open release page" }));
+    expect(vi.mocked(openUrl)).toHaveBeenCalledWith(RELEASE.url);
   });
 
   it("names the icon-only pages when the sidebar is collapsed", () => {

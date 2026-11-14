@@ -6,6 +6,7 @@
 //! use cases.
 
 pub mod agent_usage;
+pub mod app_update;
 pub mod backup_file;
 pub mod browsers;
 pub mod chromium;
