@@ -143,6 +143,49 @@ describe("App", () => {
     });
   });
 
+  it("checks for updates on request and says when DevAtlas is up to date", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+
+    render(<App />);
+    const primary = screen.getByRole("navigation", { name: "Primary" });
+    fireEvent.click(await within(primary).findByRole("button", { name: "Check for updates" }));
+
+    expect(await screen.findByText("DevAtlas is up to date")).toBeInTheDocument();
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "check_for_update"),
+    ).toHaveLength(2);
+  });
+
+  it("offers the update a manual check finds", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+
+    render(<App />);
+    const check = await screen.findByRole("button", { name: "Check for updates" });
+    mockBackend(() => Promise.resolve(APP_INFO), RELEASE);
+    fireEvent.click(check);
+
+    expect(
+      await screen.findByRole("button", { name: "Update to v0.1.0-build.24" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check for updates" })).not.toBeInTheDocument();
+  });
+
+  it("explains a manual check that fails", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+
+    render(<App />);
+    const check = await screen.findByRole("button", { name: "Check for updates" });
+    invokeMock.mockImplementation((command) =>
+      command === "check_for_update"
+        ? Promise.reject(new Error("GitHub's request limit was reached."))
+        : Promise.resolve(null),
+    );
+    fireEvent.click(check);
+
+    expect(await screen.findByText("Couldn't check for updates")).toBeInTheDocument();
+    expect(screen.getByText(/request limit/)).toBeInTheDocument();
+  });
+
   it("installs a newer release when Update is pressed", async () => {
     mockBackend(
       () => Promise.resolve(APP_INFO),

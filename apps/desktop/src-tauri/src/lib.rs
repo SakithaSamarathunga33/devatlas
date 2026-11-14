@@ -23,12 +23,28 @@ pub(crate) const fn database_file() -> &'static str {
     }
 }
 
+/// Brings the open window forward when DevAtlas is launched again, instead of opening another.
+fn focus_main_window(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    // Each step only fails if the window is already closing.
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
 /// Builds and runs the desktop application until the last window closes.
 pub fn run() -> tauri::Result<()> {
     init_tracing();
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting DevAtlas");
 
     tauri::Builder::default()
+        // First, so a second launch hands over to this window before anything else starts.
+        // `--mcp` runs never get here: agents' servers are separate processes by design.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            focus_main_window(app);
+        }))
         .plugin(tauri_plugin_opener::init())
         // Used from Rust only, so paths never come from the webview; no capability is granted.
         .plugin(tauri_plugin_dialog::init())

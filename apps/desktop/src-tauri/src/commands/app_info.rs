@@ -59,6 +59,8 @@ pub async fn install_update(app: AppHandle, discovery: State<'_, Discovery>) -> 
     };
     tracing::info!("updated; restarting");
     // The flag stays set: this copy is now `.old` and must not try to swap again.
+    // Release the one-window lock first, or the new copy would hand over to this one and quit.
+    tauri_plugin_single_instance::destroy(&app);
     std::process::Command::new(installed.exe())
         .spawn()
         .map_err(|error| {
