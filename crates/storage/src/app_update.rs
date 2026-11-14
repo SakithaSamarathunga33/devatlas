@@ -23,6 +23,8 @@ const DOWNLOAD_HOSTS: [&str; 3] = [
 ];
 /// Largest app the package may unpack to; the app is about 25 MB.
 const MAX_APP_BYTES: u64 = 256 * 1024 * 1024;
+/// How many replaced copies may still be running at once (each under an agent server).
+const MAX_ASIDE: usize = 8;
 const USER_AGENT: &str = concat!("DevAtlas/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Debug, thiserror::Error)]
@@ -116,12 +118,15 @@ impl InstalledApp {
 
     /// Deletes the copy the last update set aside. It may still be running right after an
     /// update; then it stays until the next start.
+    /// Deletes every copy earlier updates set aside. One still running (right after an update,
+    /// or under an AI agent's `--mcp` server) stays until a later start.
     pub fn remove_previous(&self) {
-        let previous = aside(&self.exe, "old");
-        if let Err(error) = fs::remove_file(&previous)
-            && error.kind() != io::ErrorKind::NotFound
-        {
-            tracing::debug!(%error, "the previous version is still in use");
+        for previous in aside_names(&self.exe) {
+            if let Err(error) = fs::remove_file(&previous)
+                && error.kind() != io::ErrorKind::NotFound
+            {
+                tracing::debug!(%error, path = %previous.display(), "a previous version is still in use");
+            }
         }
     }
 }
@@ -153,19 +158,21 @@ fn aside(exe: &Path, suffix: &str) -> PathBuf {
 }
 
 /// Unpacks the gzipped app next to `exe`, then swaps it in. Windows lets a running program be
-/// renamed but not overwritten, so the running copy moves aside to `.old` first. Any failure
+/// renamed but not overwritten, so the running copy moves aside to a free `.old` name first. Any failure
 /// leaves the original in place.
 fn replace_exe(exe: &Path, package: &[u8]) -> io::Result<()> {
     let new = aside(exe, "new");
-    let old = aside(exe, "old");
-    let unpacked = unpack(package, &new).and_then(|()| match fs::remove_file(&old) {
-        Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
-        _ => fs::rename(exe, &old),
+    let set_aside = unpack(package, &new).and_then(|()| {
+        let old = free_aside(exe)?;
+        fs::rename(exe, &old).map(|()| old)
     });
-    if let Err(error) = unpacked {
-        let _ = fs::remove_file(&new);
-        return Err(error);
-    }
+    let old = match set_aside {
+        Ok(old) => old,
+        Err(error) => {
+            let _ = fs::remove_file(&new);
+            return Err(error);
+        }
+    };
     if let Err(error) = fs::rename(&new, exe) {
         if let Err(restore) = fs::rename(&old, exe) {
             // DevAtlas.exe is now missing; running DevAtlas Setup again repairs it.
@@ -175,6 +182,31 @@ fn replace_exe(exe: &Path, package: &[u8]) -> io::Result<()> {
         return Err(error);
     }
     Ok(())
+}
+
+/// Names a running copy can be set aside under: `DevAtlas.exe.old`, then `.old-2` … `.old-8`.
+/// Setup uses the same names.
+fn aside_names(exe: &Path) -> impl Iterator<Item = PathBuf> + '_ {
+    (1..=MAX_ASIDE).map(move |n| match n {
+        1 => aside(exe, "old"),
+        n => aside(exe, &format!("old-{n}")),
+    })
+}
+
+/// The first aside name that is free, deleting a leftover copy there if it no longer runs. A
+/// name stays taken while an AI agent's `--mcp` server still runs the copy under it.
+fn free_aside(exe: &Path) -> io::Result<PathBuf> {
+    aside_names(exe)
+        .find(|path| match fs::remove_file(path) {
+            Ok(()) => true,
+            Err(error) => error.kind() == io::ErrorKind::NotFound,
+        })
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::ResourceBusy,
+                "older copies of DevAtlas are still running. Restart your AI coding agents, then try again.",
+            )
+        })
 }
 
 fn unpack(package: &[u8], to: &Path) -> io::Result<()> {
@@ -240,6 +272,47 @@ mod tests {
         assert_eq!(fs::read(&exe).unwrap(), b"old app");
         assert!(!dir.join("DevAtlas.exe.new").exists());
         assert!(!dir.join("DevAtlas.exe.old").exists());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Starts a real program from `path` (a copy of PING), as an agent's `DevAtlas.exe --mcp`
+    /// keeps the app running with no window. Windows then refuses to delete or overwrite it.
+    #[cfg(windows)]
+    fn run_from(path: &Path) -> std::process::Child {
+        let system32 = PathBuf::from(std::env::var_os("SystemRoot").unwrap()).join("System32");
+        fs::copy(system32.join("PING.EXE"), path).unwrap();
+        std::process::Command::new(path)
+            .args(["-n", "30", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    }
+
+    /// An agent server started before the last update still runs the copy set aside as `.old`,
+    /// and another runs the current copy: the update must still go through.
+    #[cfg(windows)]
+    #[test]
+    fn updates_while_agent_servers_run_the_current_and_an_earlier_copy() {
+        let (dir, exe) = installed("agents");
+        let mut earlier = run_from(&dir.join("DevAtlas.exe.old"));
+        let mut current = run_from(&exe);
+
+        let result = replace_exe(&exe, &gzip(b"new app"));
+
+        let app = InstalledApp { exe: exe.clone() };
+        for child in [&mut earlier, &mut current] {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(fs::read(&exe).unwrap(), b"new app");
+        assert!(
+            dir.join("DevAtlas.exe.old-2").exists(),
+            "the busy copy moves to a free name"
+        );
+        app.remove_previous();
+        assert!(!dir.join("DevAtlas.exe.old").exists());
+        assert!(!dir.join("DevAtlas.exe.old-2").exists());
         fs::remove_dir_all(dir).unwrap();
     }
 

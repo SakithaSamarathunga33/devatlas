@@ -39,7 +39,9 @@ pub enum InstallError {
         #[source]
         source: io::Error,
     },
-    #[error("DevAtlas is running. Close it, then try again.")]
+    #[error(
+        "DevAtlas is running. Close it, and restart any AI coding agents that use it, then try again."
+    )]
     AppRunning,
     #[error("Could not create the shortcut {}: {message}", path.display())]
     Shortcut { path: PathBuf, message: String },
@@ -175,15 +177,51 @@ fn extract(
         let _ = fs::remove_file(&partial);
         return Err(io_error("write", target)(source));
     }
-    fs::rename(&partial, target).map_err(|source| {
+    let placed = fs::rename(&partial, target).or_else(|source| {
+        // Windows won't replace a running exe (an AI agent's `--mcp` server keeps DevAtlas
+        // running with no window) but will rename it: move it aside, then put the new one in.
+        if source.kind() == io::ErrorKind::PermissionDenied {
+            move_aside_and_place(&partial, target)
+        } else {
+            Err(source)
+        }
+    });
+    placed.map_err(|source| {
         let _ = fs::remove_file(&partial);
-        // Windows refuses to replace an exe that is running.
         if source.kind() == io::ErrorKind::PermissionDenied {
             InstallError::AppRunning
         } else {
             io_error("replace", target)(source)
         }
     })
+}
+
+/// Renames the running `target` aside (DevAtlas deletes it on its next start) and moves
+/// `partial` into its place, putting the original back if that last step fails.
+fn move_aside_and_place(partial: &Path, target: &Path) -> io::Result<()> {
+    let old = free_aside(target)?;
+    fs::rename(target, &old)?;
+    fs::rename(partial, target).inspect_err(|_| {
+        let _ = fs::rename(&old, target);
+    })
+}
+
+/// How many replaced copies may still be running at once (each under an agent server).
+const MAX_ASIDE: u8 = 8;
+
+/// The first free aside name, `DevAtlas.exe.old` then `.old-2` … `.old-8` (the names DevAtlas
+/// cleans up), deleting a leftover copy there unless an agent server still runs it.
+fn free_aside(target: &Path) -> io::Result<PathBuf> {
+    (1..=MAX_ASIDE)
+        .map(|n| match n {
+            1 => target.with_extension("exe.old"),
+            n => target.with_extension(format!("exe.old-{n}")),
+        })
+        .find(|path| match fs::remove_file(path) {
+            Ok(()) => true,
+            Err(error) => error.kind() == io::ErrorKind::NotFound,
+        })
+        .ok_or_else(|| io::Error::from(io::ErrorKind::PermissionDenied))
 }
 
 fn write_chunked(path: &Path, payload: &[u8], report: &mut dyn FnMut(Progress)) -> io::Result<()> {
@@ -331,6 +369,64 @@ mod tests {
         assert_eq!(percents.len(), 4);
         assert!(percents.windows(2).all(|w| w[0] < w[1]));
         assert_eq!(percents.last(), Some(&EXTRACT_END));
+    }
+
+    /// An AI agent's `DevAtlas.exe --mcp` server can keep the installed app running with no
+    /// window open; installing must still succeed.
+    #[cfg(windows)]
+    #[test]
+    fn replaces_an_app_that_is_still_running() {
+        let temp = TempDir::new("running");
+        let target = temp.0.join(APP_EXE);
+        let system32 = PathBuf::from(std::env::var_os("SystemRoot").unwrap()).join("System32");
+        fs::copy(system32.join("PING.EXE"), &target).unwrap();
+        let mut running = std::process::Command::new(&target)
+            .args(["-n", "30", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+
+        let result = extract(b"new app", &target, &mut |_| {});
+
+        let _ = running.kill();
+        let _ = running.wait();
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(fs::read(&target).unwrap(), b"new app");
+        assert!(
+            target.with_extension("exe.old").exists(),
+            "the running copy moves aside"
+        );
+        assert!(!target.with_extension("exe.partial").exists());
+    }
+
+    /// An agent server started before an earlier update still runs the copy set aside as
+    /// `DevAtlas.exe.old`; that must not block installing again.
+    #[cfg(windows)]
+    #[test]
+    fn replaces_the_app_while_an_earlier_copy_set_aside_still_runs() {
+        let temp = TempDir::new("running-old");
+        let target = temp.0.join(APP_EXE);
+        let system32 = PathBuf::from(std::env::var_os("SystemRoot").unwrap()).join("System32");
+        let run = |path: &Path| {
+            fs::copy(system32.join("PING.EXE"), path).unwrap();
+            std::process::Command::new(path)
+                .args(["-n", "30", "127.0.0.1"])
+                .stdout(std::process::Stdio::null())
+                .spawn()
+                .unwrap()
+        };
+        let mut earlier = run(&target.with_extension("exe.old"));
+        let mut current = run(&target);
+
+        let result = extract(b"new app", &target, &mut |_| {});
+
+        for child in [&mut earlier, &mut current] {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(fs::read(&target).unwrap(), b"new app");
+        assert!(target.with_extension("exe.old-2").exists());
     }
 
     #[test]
