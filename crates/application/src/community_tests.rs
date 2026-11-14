@@ -180,6 +180,23 @@ fn preview_keeps_https_links_and_counts_the_rest() {
 }
 
 #[test]
+fn preview_drops_secrets_a_link_can_carry() {
+    let secret = item(
+        "Report",
+        "https://user:pw@files.example.test/report.pdf?X-Amz-Signature=SIG#access_token=TOKEN",
+    );
+    let id = secret.resource.id.clone();
+
+    let preview = share_preview(&group(&[id.as_str()]), &[secret], None);
+
+    // The preview shows only title and host, so nothing it doesn't show may be published.
+    assert_eq!(
+        preview.links[0].url,
+        "https://files.example.test/report.pdf"
+    );
+}
+
+#[test]
 fn publishing_sends_only_titles_and_urls_and_remembers_the_copy() {
     let source = FakeSource::default();
     let shares = FakeShares::default();

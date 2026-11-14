@@ -366,7 +366,13 @@ pub fn share_preview(
     let mut skipped = 0;
     for resource in members {
         match https_url(&resource.url) {
-            Some(url) => {
+            Some(mut url) => {
+                // The preview shows only title and host, so nothing beyond them goes public:
+                // queries, fragments and credentials can hold tokens (signed links, share keys).
+                url.set_query(None);
+                url.set_fragment(None);
+                let _ = url.set_username("");
+                let _ = url.set_password(None);
                 let host = host_of(&url);
                 let title = optional_text(Some(&resource.title), MAX_LINK_TITLE_CHARS)
                     .unwrap_or_else(|| host.clone());

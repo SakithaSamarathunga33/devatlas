@@ -79,6 +79,14 @@ describe("Shared collection", () => {
     expect(screen.queryByRole("button", { name: "Report" })).not.toBeInTheDocument();
   });
 
+  it("never fetches another user's links just because the collection was opened", async () => {
+    renderPage(USER);
+
+    expect(await screen.findByRole("link", { name: "Tokio" })).toBeInTheDocument();
+    // A preview would request each link's site, telling its owner who looked and when.
+    expect(invoke).not.toHaveBeenCalledWith("get_resource_preview", expect.anything());
+  });
+
   it("adds a link to the library", async () => {
     renderPage(USER);
 

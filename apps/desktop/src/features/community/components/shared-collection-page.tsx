@@ -20,7 +20,6 @@ import { SaveRepoButton } from "@/features/discovery";
 import { SiteIcon } from "@/features/library";
 import { WebLink } from "@/features/news";
 import { libraryQueryKey, useLibrary } from "@/hooks/use-library";
-import { useResourcePreview } from "@/hooks/use-resource-preview";
 import { addLink } from "@/services/library.service";
 import type { SharedCollection, SharedLink } from "@/types/community.types";
 
@@ -31,17 +30,12 @@ import { ReportDialog, UnshareDialog } from "./collection-dialogs";
 import { CommunitySignInGate } from "./community-sign-in-gate";
 import { FollowButton, FollowerCount } from "./follow-button";
 
+/** No preview fetch: requesting another user's links would tell them who opened the collection
+ * and when, so each row shows the host's initial instead. */
 function SharedLinkRow({ link, isSaved }: { link: SharedLink; isSaved: boolean }) {
-  const preview = useResourcePreview(link.url);
   return (
     <ListItem
-      startContent={
-        <SiteIcon
-          icon={preview.data?.icon ?? null}
-          host={link.host}
-          className="size-9 rounded-lg text-sm"
-        />
-      }
+      startContent={<SiteIcon icon={null} host={link.host} className="size-9 rounded-lg text-sm" />}
       label={
         <Text weight="medium" maxLines={1}>
           <WebLink href={link.url}>{link.title}</WebLink>
