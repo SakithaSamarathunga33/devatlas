@@ -49,14 +49,23 @@ export function SiteViewer({ url, host, backTo, backLabel }: SiteViewerProps) {
       if (active) setError(describeError(cause));
     });
 
-    const syncBounds = () => {
-      setViewerBounds(boundsOf(frame)).catch((cause: unknown) => {
-        console.warn("Could not resize the site viewer.", cause);
-      });
+    // The native view sits over the frame, so it must follow the frame's position as well as
+    // its size: collapsing the sidebar moves the frame without resizing it, which no
+    // ResizeObserver reports. Measuring each frame is cheap; IPC runs only on a change.
+    let sent = JSON.stringify(boundsOf(frame));
+    let tick = 0;
+    const followFrame = () => {
+      const bounds = boundsOf(frame);
+      const key = JSON.stringify(bounds);
+      if (key !== sent) {
+        sent = key;
+        setViewerBounds(bounds).catch((cause: unknown) => {
+          console.warn("Could not resize the site viewer.", cause);
+        });
+      }
+      tick = requestAnimationFrame(followFrame);
     };
-    const observer = new ResizeObserver(syncBounds);
-    observer.observe(frame);
-    window.addEventListener("resize", syncBounds);
+    tick = requestAnimationFrame(followFrame);
 
     const unlisten = onViewerPageLoad((event) => {
       if (active) setPage(event);
@@ -64,8 +73,7 @@ export function SiteViewer({ url, host, backTo, backLabel }: SiteViewerProps) {
 
     return () => {
       active = false;
-      observer.disconnect();
-      window.removeEventListener("resize", syncBounds);
+      cancelAnimationFrame(tick);
       void unlisten.then((stop) => {
         stop();
       });

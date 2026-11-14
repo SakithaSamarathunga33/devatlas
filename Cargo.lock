@@ -934,17 +934,20 @@ dependencies = [
 name = "devatlas-storage"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "devatlas-application",
  "devatlas-domain",
  "dirs",
  "feed-rs",
  "flate2",
  "futures-util",
+ "getrandom 0.4.3",
  "keyring",
  "reqwest",
  "scraper",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "sqlx",
  "thiserror 2.0.21",
  "tokio",

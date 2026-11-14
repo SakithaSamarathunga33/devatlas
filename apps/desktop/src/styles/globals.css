@@ -63,6 +63,25 @@
   --glass: rgb(21 21 28 / 0.72);
   --glass-edge: rgb(255 255 255 / 0.07);
   --shadow-soft: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -12px rgb(0 0 0 / 0.6);
+  /*
+   * Frosted panels (`.glass-panel`): a faint white-and-indigo film over the aurora, a hairline
+   * border and a lit top edge. Text on it stays primary/secondary, which keep 4.5:1 over the
+   * darkest and lightest point the blurred aurora can reach.
+   */
+  --glass-fill:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-text-primary) 9%, transparent),
+      color-mix(in oklab, var(--color-accent) 6%, transparent)
+    ),
+    color-mix(in oklab, var(--color-background-card) 55%, transparent);
+  --glass-border: color-mix(in oklab, var(--color-text-primary) 12%, transparent);
+  --glass-highlight: color-mix(in oklab, var(--color-text-primary) 16%, transparent);
+  --glass-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.55), 0 2px 6px -2px rgb(0 0 0 / 0.3);
+  /* The page's glow behind the glass: indigo, violet and teal, low and still. */
+  --glass-glow-1: color-mix(in oklab, var(--gradient-from) 34%, transparent);
+  --glass-glow-2: color-mix(in oklab, var(--category-animation) 24%, transparent);
+  --glass-glow-3: color-mix(in oklab, var(--color-border-teal) 18%, transparent);
 
   --image-outline: rgb(255 255 255 / 0.08);
   /* Icons and initials on the tinted category tiles. */
@@ -135,6 +154,18 @@
   --glass: rgb(255 255 255 / 0.72);
   --glass-edge: rgb(255 255 255 / 0.9);
   --shadow-soft: 0 1px 2px rgb(29 29 31 / 0.04), 0 12px 32px -16px rgb(29 29 31 / 0.18);
+  /* Light glass: white film with a darker hairline, so the panel edge still reads on #f5f5f7. */
+  --glass-fill: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-background-card) 82%, transparent),
+    color-mix(in oklab, var(--color-background-card) 62%, transparent)
+  );
+  --glass-border: color-mix(in oklab, var(--color-text-primary) 9%, transparent);
+  --glass-highlight: var(--color-background-card);
+  --glass-shadow: 0 20px 40px -24px rgb(29 29 31 / 0.22), 0 1px 3px rgb(29 29 31 / 0.06);
+  --glass-glow-1: color-mix(in oklab, var(--gradient-from) 20%, transparent);
+  --glass-glow-2: color-mix(in oklab, var(--category-animation) 14%, transparent);
+  --glass-glow-3: color-mix(in oklab, var(--color-border-teal) 22%, transparent);
 
   --image-outline: rgb(29 29 31 / 0.08);
   --tile-icon: #1d1d1f;
@@ -336,6 +367,10 @@
   :root[data-theme="light"] {
     --aurora: none;
     --glass: var(--card);
+    --glass-fill: var(--card);
+    --glass-glow-1: transparent;
+    --glass-glow-2: transparent;
+    --glass-glow-3: transparent;
   }
 }
 
@@ -344,6 +379,8 @@
   :root,
   :root[data-theme="light"] {
     --aurora: none;
+    --glass-fill: var(--card);
+    --glass-border: var(--color-border-emphasized);
   }
 }
 
@@ -355,4 +392,206 @@
       inset 1px 1px 0 var(--glass-edge),
       var(--shadow-soft);
   }
+
+  /*
+   * Frosted glass: blurs whatever glows behind it. Without backdrop-filter it is a solid card,
+   * since an unblurred translucent panel over a glow would hurt text contrast.
+   */
+  .glass-panel {
+    position: relative;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-glass, 1.5rem);
+    background: var(--card);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      var(--glass-shadow);
+  }
+
+  @supports (backdrop-filter: blur(1px)) {
+    .glass-panel {
+      background: var(--glass-fill);
+      backdrop-filter: blur(18px) saturate(140%);
+    }
+  }
+
+  /* A small tinted tile holding an icon, on or beside glass. Size it with the caller. */
+  .glass-chip {
+    display: grid;
+    place-items: center;
+    border-radius: 0.75rem;
+    border: 1px solid var(--glass-border);
+    background: color-mix(in oklab, var(--color-accent) 16%, transparent);
+  }
+
+  /* A hairline between bands inside a glass panel. */
+  .glass-divider {
+    height: 1px;
+    background: var(--glass-border);
+  }
+
+  /*
+   * Follow toggle (features/community/follow-button.tsx), adapted from Uiverse.io
+   * "popular-puma-87" by Priyanshu02020 (MIT): a glass pill with a heart and its label, and a
+   * count cell whose number slides to the new value. `--static` is the owner's count-only view.
+   */
+  .follow-button {
+    display: inline-flex;
+    align-items: stretch;
+    height: 2.5rem;
+    min-width: 8.5rem;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+    border-radius: 0.875rem;
+    background: var(--glass-fill);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      var(--glass-shadow);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 150ms ease-out;
+  }
+
+  button.follow-button:hover {
+    border-color: color-mix(in oklab, var(--color-text-primary) 26%, transparent);
+  }
+
+  .follow-button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  .follow-button--static {
+    cursor: default;
+    color: var(--color-text-secondary);
+  }
+
+  .follow-button__main {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+
+  .follow-button__icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: var(--color-icon-secondary);
+    transition: fill 200ms ease-out;
+  }
+
+  .follow-button[aria-pressed="true"] .follow-button__icon {
+    fill: var(--color-icon-red);
+  }
+
+  .follow-button[data-clicked][aria-pressed="true"] .follow-button__icon {
+    animation: follow-button-pop 250ms ease-out;
+  }
+
+  .follow-button__count {
+    /* How far a number travels: in from below when the count grows, from above when it shrinks. */
+    --follow-slide: 2.5rem;
+    display: grid;
+    place-items: center;
+    min-width: 2.75rem;
+    padding-inline: 0.625rem;
+    border-inline-start: 1px solid var(--glass-border);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    transition: color 200ms ease-out;
+  }
+
+  .follow-button__count[data-direction="down"] {
+    --follow-slide: -2.5rem;
+  }
+
+  .follow-button[aria-pressed="true"] .follow-button__count {
+    color: var(--color-text-primary);
+  }
+
+  .follow-button__number {
+    grid-area: 1 / 1;
+  }
+
+  .follow-button__number--in {
+    animation: follow-button-in 400ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+
+  .follow-button__number--out {
+    animation: follow-button-out 400ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+
+  @keyframes follow-button-in {
+    from {
+      transform: translateY(var(--follow-slide));
+    }
+  }
+
+  @keyframes follow-button-out {
+    to {
+      transform: translateY(calc(var(--follow-slide) * -1));
+    }
+  }
+
+  @keyframes follow-button-pop {
+    0% {
+      transform: scale(0.5);
+    }
+    60% {
+      transform: scale(1.2);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .follow-button[data-clicked][aria-pressed] .follow-button__icon,
+    .follow-button__count .follow-button__number {
+      animation: none;
+    }
+
+    .follow-button__count .follow-button__number--out {
+      visibility: hidden;
+    }
+  }
+
+  /* The window's aurora on a full-window screen drawn outside AppShell (the welcome). */
+  .aurora-backdrop {
+    background-color: var(--background);
+    background-image: var(--aurora);
+  }
+
+  /* Still light behind glass panels; the parent needs `position: relative` and `isolate`. */
+  .glass-glow {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+      radial-gradient(42rem 26rem at 8% -6%, var(--glass-glow-1), transparent 70%),
+      radial-gradient(36rem 24rem at 92% 4%, var(--glass-glow-2), transparent 70%),
+      radial-gradient(40rem 28rem at 60% 62%, var(--glass-glow-3), transparent 72%);
+  }
+}
+
+/* Theme toggle reveal (lib/theme-transition.ts): set only while a theme change animates, so
+   other view transitions keep their defaults. */
+html[data-theme-reveal="active"]::view-transition-old(root),
+html[data-theme-reveal="active"]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html[data-theme-reveal="active"]::view-transition-new(root) {
+  clip-path: var(--theme-reveal-from);
+}
+
+html[data-theme-reveal="active"]::view-transition-group(root) {
+  animation-duration: var(--theme-reveal-duration);
 }

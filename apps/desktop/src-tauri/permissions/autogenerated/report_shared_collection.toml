@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-report-shared-collection"
+description = "Enables the report_shared_collection command without any pre-configured scope."
+commands.allow = ["report_shared_collection"]
+
+[[permission]]
+identifier = "deny-report-shared-collection"
+description = "Denies the report_shared_collection command without any pre-configured scope."
+commands.deny = ["report_shared_collection"]

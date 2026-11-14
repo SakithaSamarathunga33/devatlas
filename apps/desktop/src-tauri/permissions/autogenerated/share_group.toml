@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-share-group"
+description = "Enables the share_group command without any pre-configured scope."
+commands.allow = ["share_group"]
+
+[[permission]]
+identifier = "deny-share-group"
+description = "Denies the share_group command without any pre-configured scope."
+commands.deny = ["share_group"]

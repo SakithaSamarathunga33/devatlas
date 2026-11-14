@@ -4,7 +4,8 @@ import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { useTopStories } from "../hooks/use-news";
 import { StoryList, StoryListSkeleton } from "./story-card";
 
-const SHOWN = 4;
+/** Three rows once the dashboard's wide enough for two columns. */
+const SHOWN = 6;
 
 /** The top Hacker News stories, for the dashboard. Shares its cache with the News page. */
 export function NewsPreview() {

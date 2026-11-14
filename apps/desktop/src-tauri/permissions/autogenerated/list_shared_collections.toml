@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-list-shared-collections"
+description = "Enables the list_shared_collections command without any pre-configured scope."
+commands.allow = ["list_shared_collections"]
+
+[[permission]]
+identifier = "deny-list-shared-collections"
+description = "Denies the list_shared_collections command without any pre-configured scope."
+commands.deny = ["list_shared_collections"]

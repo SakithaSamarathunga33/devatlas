@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-community-sign-in"
+description = "Enables the community_sign_in command without any pre-configured scope."
+commands.allow = ["community_sign_in"]
+
+[[permission]]
+identifier = "deny-community-sign-in"
+description = "Denies the community_sign_in command without any pre-configured scope."
+commands.deny = ["community_sign_in"]

@@ -17,8 +17,12 @@ import type { TopStory } from "@/types/news.types";
 import { siteHost } from "../news-links";
 import { WebLink } from "./web-link";
 
-/** Two columns once the enclosing `@container` is wide enough, one otherwise. */
-const STORY_LIST = "grid gap-1 @3xl:grid-cols-2";
+/**
+ * Two columns once the enclosing `@container` is wide enough, one otherwise. Dividers sit under
+ * every row but the last; in two columns the last row's left story drops its line too.
+ */
+const STORY_LIST =
+  "grid @3xl:grid-cols-2 @3xl:gap-x-8! @3xl:[&>li:nth-last-child(2):nth-child(odd)]:border-b-0!";
 
 /** A page's preview image (or its icon), from the same on-disk cache as library cards. */
 function PreviewImage({ url }: { url: string }) {
@@ -44,7 +48,7 @@ function PreviewImage({ url }: { url: string }) {
 /** Top stories as compact rows, shared by the dashboard and the News page. */
 export function StoryList({ stories }: { stories: readonly TopStory[] }) {
   return (
-    <List aria-label="Top stories" className={STORY_LIST}>
+    <List aria-label="Top stories" hasDividers className={STORY_LIST}>
       {stories.map((story) => (
         <StoryRow key={story.discussionUrl} story={story} />
       ))}
@@ -54,7 +58,7 @@ export function StoryList({ stories }: { stories: readonly TopStory[] }) {
 
 export function StoryListSkeleton({ rows }: { rows: number }) {
   return (
-    <div role="status" aria-busy="true" className={STORY_LIST}>
+    <div role="status" aria-busy="true" className={`${STORY_LIST} gap-2`}>
       <VisuallyHidden>Loading top stories</VisuallyHidden>
       {Array.from({ length: rows }, (_, index) => (
         <Skeleton key={index} height={76} index={index} />

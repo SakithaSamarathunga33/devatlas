@@ -14,12 +14,13 @@ import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Link2, ListChecks, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Link2, ListChecks, Pencil, Plus, Search, Share2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
 import { Modal } from "@/components/shared/modal";
 import { PageHeader } from "@/components/shared/page-header";
+import { ShareDialog } from "@/features/community";
 import { ResourceCard } from "@/features/library";
 import { groupsQueryKey, useGroups } from "@/hooks/use-groups";
 import { useLibrary } from "@/hooks/use-library";
@@ -144,7 +145,7 @@ export function CollectionsPage() {
   );
 }
 
-type Dialog = "links" | "edit" | "delete" | null;
+type Dialog = "links" | "edit" | "delete" | "share" | null;
 
 export function CollectionDetailPage() {
   const { title, singular, path } = COPY;
@@ -210,6 +211,13 @@ export function CollectionDetailPage() {
               setDialog("links");
             }}
           />
+          <Button
+            label="Share to Community"
+            icon={<Icon icon={Share2} />}
+            onClick={() => {
+              setDialog("share");
+            }}
+          />
           <IconButton
             variant="ghost"
             label={`Edit ${singular}`}
@@ -252,6 +260,7 @@ export function CollectionDetailPage() {
       )}
       {dialog === "edit" && <GroupFormDialog group={group} onClose={closeDialog} />}
       {dialog === "delete" && <DeleteDialog group={group} onClose={closeDialog} />}
+      {dialog === "share" && <ShareDialog groupId={group.id} onClose={closeDialog} />}
     </VStack>
   );
 }

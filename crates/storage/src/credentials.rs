@@ -4,7 +4,7 @@
 use devatlas_application::settings::SecretStore;
 use keyring::Entry;
 
-const ACCOUNT: &str = "github-token";
+const GITHUB_TOKEN_ACCOUNT: &str = "github-token";
 
 #[derive(Debug, thiserror::Error)]
 #[error("the credential store could not be used: {0}")]
@@ -13,15 +13,22 @@ pub struct CredentialError(#[from] keyring::Error);
 /// One secret under a service name; dev and release builds use different ones.
 pub struct KeyringSecret {
     service: &'static str,
+    account: &'static str,
 }
 
 impl KeyringSecret {
+    /// The GitHub token.
     pub fn new(service: &'static str) -> Self {
-        Self { service }
+        Self::for_account(service, GITHUB_TOKEN_ACCOUNT)
+    }
+
+    /// Another secret of the same service, under its own account name.
+    pub fn for_account(service: &'static str, account: &'static str) -> Self {
+        Self { service, account }
     }
 
     fn entry(&self) -> Result<Entry, keyring::Error> {
-        Entry::new(self.service, ACCOUNT)
+        Entry::new(self.service, self.account)
     }
 }
 

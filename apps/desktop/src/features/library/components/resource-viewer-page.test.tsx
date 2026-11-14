@@ -70,6 +70,24 @@ describe("ResourceViewerPage", () => {
     });
   });
 
+  it("moves the site with its frame when the layout shifts without resizing it", async () => {
+    renderViewer("/library/motion.dev%2Fdocs");
+    await vi.waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("viewer_open", expect.anything());
+    });
+
+    // The sidebar collapses: the frame slides left, keeping its size.
+    const moved = { left: 64, top: 48, width: 0, height: 0 } as DOMRect;
+    const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(moved);
+
+    await vi.waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("viewer_set_bounds", {
+        bounds: { x: 64, y: 48, width: 0, height: 0 },
+      });
+    });
+    spy.mockRestore();
+  });
+
   it("offers browser-style controls and the system browser as a fallback", async () => {
     renderViewer("/library/motion.dev%2Fdocs");
     await screen.findByRole("button", { name: "Reload" });

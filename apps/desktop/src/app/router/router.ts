@@ -1,8 +1,9 @@
 import { createBrowserRouter, redirect, type RouteObject } from "react-router";
 
 import { AppLayout } from "@/app/layouts/app-layout";
+import { CommunityPage, SharedCollectionPage } from "@/features/community";
 import { DashboardPage } from "@/features/dashboard";
-import { DiscoveryPage } from "@/features/discovery";
+import { DiscoveryPage, SavedReposPage } from "@/features/discovery";
 import { ExplorerPage } from "@/features/explorer";
 import { LibraryPage, ResourceViewerPage } from "@/features/library";
 import { NewsPage, NewsViewerPage, RankingsPage } from "@/features/news";
@@ -22,6 +23,10 @@ export const routes: RouteObject[] = [
       {
         path: "library",
         Component: LibraryPage,
+      },
+      {
+        path: "saved-repos",
+        Component: SavedReposPage,
       },
       {
         path: "library/:resourceId",
@@ -54,6 +59,14 @@ export const routes: RouteObject[] = [
       {
         path: "collections/:groupId",
         Component: CollectionDetailPage,
+      },
+      {
+        path: "community",
+        Component: CommunityPage,
+      },
+      {
+        path: "community/:collectionId",
+        Component: SharedCollectionPage,
       },
       {
         path: "explorer",

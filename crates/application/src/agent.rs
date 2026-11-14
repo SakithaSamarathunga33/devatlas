@@ -31,7 +31,7 @@ fn is_hidden(c: char) -> bool {
 
 /// Untrusted text made safe to hand to an agent: no control or hidden characters, single
 /// spaces, at most `max` characters.
-pub(crate) fn clean_text(text: &str, max: usize) -> String {
+pub fn clean_text(text: &str, max: usize) -> String {
     let visible: String = text
         .chars()
         .filter(|&c| !is_hidden(c))

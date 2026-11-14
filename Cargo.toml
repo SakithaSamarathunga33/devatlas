@@ -63,6 +63,10 @@ thiserror = "2"
 # Self-update: checks the update's minisign signature (keys from `tauri signer`), and unpacks it.
 minisign-verify = "0.2"
 base64 = "0.22"
+# Community sign-in (PKCE): SHA-256 of the code verifier, and OS randomness for the verifier.
+# Both are already in the tree (sqlx, uuid), so no new crates are downloaded.
+sha2 = "0.10"
+getrandom = "0.4"
 flate2 = "1"
 tokio = { version = "1", features = ["net", "rt", "sync", "time"] }
 tracing = "0.1"

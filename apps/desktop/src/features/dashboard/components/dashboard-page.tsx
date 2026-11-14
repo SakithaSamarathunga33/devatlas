@@ -1,5 +1,4 @@
 import { Banner } from "@astryxdesign/core/Banner";
-import { Divider } from "@astryxdesign/core/Divider";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack } from "@astryxdesign/core/HStack";
@@ -7,12 +6,11 @@ import { Icon } from "@astryxdesign/core/Icon";
 import { Link as AstryxLink } from "@astryxdesign/core/Link";
 import { List, ListItem } from "@astryxdesign/core/List";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
-import { Section } from "@astryxdesign/core/Section";
 import { Skeleton } from "@astryxdesign/core/Skeleton";
 import { Text } from "@astryxdesign/core/Text";
 import { VStack } from "@astryxdesign/core/VStack";
 import { formatDistanceToNowStrict, startOfMonth, subMonths } from "date-fns";
-import { ArrowRight, Bookmark, ChevronRight, Flame, FolderOpen, History } from "lucide-react";
+import { ArrowRight, Bookmark, ChevronRight, Flame, FolderOpen } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { Link } from "react-router";
 
@@ -21,7 +19,6 @@ import { SiteIcon } from "@/features/library";
 import { NewsPreview } from "@/features/news";
 import { useLibrary } from "@/hooks/use-library";
 import { useResourcePreview } from "@/hooks/use-resource-preview";
-import { rediscoverable } from "@/lib/ecosystems";
 import { CATEGORY_META, countByCategory } from "@/lib/resource-categories";
 import { cn } from "@/lib/utils";
 import type { Resource } from "@/types/library.types";
@@ -66,12 +63,19 @@ function newestFirst(resources: readonly Resource[]): Resource[] {
   return [...resources].sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));
 }
 
+/** The hero's one line about the library; nothing once it has failed (the banner explains). */
+function heroSummary(state: LibraryState, resources: readonly Resource[]): string | null {
+  if (state === "loading") return "Reading your library…";
+  if (state === "failed") return null;
+  return librarySummary(resources, new Date());
+}
+
 function resourcePath(resource: Resource): string {
   return `/library/${encodeURIComponent(resource.id)}`;
 }
 
-/** Three bands: the greeting, the library at a glance, then what's new outside it beside a
- * rail of the library itself. */
+/** A frosted hero (greeting and the library at a glance) over a still aurora, then glass panels:
+ * what's new outside the library beside a rail of the library itself. */
 export function DashboardPage() {
   const library = useLibrary();
   const resources = library.data?.resources ?? [];
@@ -79,23 +83,25 @@ export function DashboardPage() {
     library.data !== undefined ? "ready" : library.isError ? "failed" : "loading";
 
   return (
-    <div className="mx-auto w-full max-w-[1600px]">
-      <VStack gap={6} padding={6}>
-        <WelcomeHero
-          summary={library.data === undefined ? null : librarySummary(resources, new Date())}
-        />
-        {library.isError && library.data === undefined && (
-          <Banner
-            role="alert"
-            status="error"
-            title="Your library couldn't be read"
-            description={library.error.message.replace(/^.*?failed: /, "")}
-          />
-        )}
-        {state === "loading" && <OverviewSkeleton />}
-        {state === "ready" && <LibraryOverview resources={resources} />}
-        <Divider />
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="relative isolate min-h-full">
+      <div aria-hidden className="glass-glow" />
+      <div className="mx-auto w-full max-w-[1600px] px-6 pt-6 pb-10">
+        <div className="glass-panel px-8 pt-8 pb-7">
+          <WelcomeHero summary={heroSummary(state, resources)} />
+          <div aria-hidden className="glass-divider my-7" />
+          {library.isError && library.data === undefined && (
+            <Banner
+              role="alert"
+              status="error"
+              title="Your library couldn't be read"
+              description={library.error.message.replace(/^.*?failed: /, "")}
+            />
+          )}
+          {state === "loading" && <OverviewSkeleton />}
+          {state === "ready" && <LibraryOverview resources={resources} />}
+        </div>
+
+        <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <VStack gap={6} className="min-w-0">
             <Panel title="Top stories" icon={Flame} viewAll="/news">
               <NewsPreview />
@@ -105,23 +111,20 @@ export function DashboardPage() {
             </Panel>
           </VStack>
 
-          <Section variant="transparent" padding={0}>
-            <VStack gap={6}>
-              <Panel title="Latest saves" icon={Bookmark} viewAll="/library">
-                <LibrarySlot state={state}>
-                  <LatestSaves resources={resources} />
-                </LibrarySlot>
-              </Panel>
-              <Rediscover resources={resources} />
-              <Panel title="Categories" icon={FolderOpen} viewAll="/library">
-                <LibrarySlot state={state}>
-                  <Collections resources={resources} />
-                </LibrarySlot>
-              </Panel>
-            </VStack>
-          </Section>
+          <VStack gap={6} className="min-w-0">
+            <Panel title="Latest saves" icon={Bookmark} viewAll="/library">
+              <LibrarySlot state={state}>
+                <LatestSaves resources={resources} />
+              </LibrarySlot>
+            </Panel>
+            <Panel title="Categories" icon={FolderOpen} viewAll="/library">
+              <LibrarySlot state={state}>
+                <Collections resources={resources} />
+              </LibrarySlot>
+            </Panel>
+          </VStack>
         </div>
-      </VStack>
+      </div>
     </div>
   );
 }
@@ -137,29 +140,33 @@ function panelId(title: string): string {
   return `panel-${title.toLowerCase().replaceAll(" ", "-")}`;
 }
 
-/** A named dashboard region: a heading row, then its list. */
+/** A named dashboard region on glass: an icon chip and heading, then its list. */
 function Panel({ title, icon, viewAll, children }: PanelProps) {
   const id = panelId(title);
   return (
-    <VStack as="section" aria-labelledby={id} gap={2} className="min-w-0">
-      <HStack gap={3} hAlign="between" vAlign="center">
-        <HStack gap={2} vAlign="center">
-          <Icon icon={icon} size="sm" color="accent" />
-          <Heading level={2} id={id}>
-            {title}
-          </Heading>
-        </HStack>
-        {viewAll !== undefined && (
-          <AstryxLink href={viewAll} type="supporting" weight="medium">
-            <span className="inline-flex items-center gap-1">
-              View all
-              <Icon icon={ArrowRight} size="xsm" />
+    <section aria-labelledby={id} className="glass-panel @container min-w-0 p-5 pt-4">
+      <VStack gap={3}>
+        <HStack gap={3} hAlign="between" vAlign="center">
+          <HStack gap={3} vAlign="center">
+            <span className="glass-chip size-8">
+              <Icon icon={icon} size="sm" color="accent" />
             </span>
-          </AstryxLink>
-        )}
-      </HStack>
-      {children}
-    </VStack>
+            <Heading level={2} id={id}>
+              {title}
+            </Heading>
+          </HStack>
+          {viewAll !== undefined && (
+            <AstryxLink href={viewAll} type="supporting" weight="medium">
+              <span className="inline-flex items-center gap-1">
+                View all
+                <Icon icon={ArrowRight} size="xsm" />
+              </span>
+            </AstryxLink>
+          )}
+        </HStack>
+        {children}
+      </VStack>
+    </section>
   );
 }
 
@@ -219,7 +226,7 @@ function LibraryOverview({ resources }: { resources: readonly Resource[] }) {
           )}
           <VStack gap={1}>
             <Heading level={2} id="library-breakdown">
-              <Text type="display-2" display="block" hasTabularNumbers>
+              <Text type="display-1" display="block" hasTabularNumbers>
                 {resources.length}
               </Text>{" "}
               <Text type="supporting">{resources.length === 1 ? "resource" : "resources"}</Text>
@@ -302,21 +309,6 @@ function LatestSaves({ resources }: { resources: readonly Resource[] }) {
         <LatestRow key={resource.id} resource={resource} />
       ))}
     </List>
-  );
-}
-
-/** Old links not opened in months, so saving something isn't the last you see of it. */
-function Rediscover({ resources }: { resources: readonly Resource[] }) {
-  const offered = rediscoverable(resources, new Date().getTime());
-  if (offered.length === 0) return null;
-  return (
-    <Panel title="Rediscover" icon={History}>
-      <List density="compact" edge="outset">
-        {offered.map((resource) => (
-          <LatestRow key={resource.id} resource={resource} />
-        ))}
-      </List>
-    </Panel>
   );
 }
 

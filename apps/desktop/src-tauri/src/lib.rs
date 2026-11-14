@@ -24,7 +24,7 @@ pub(crate) const fn database_file() -> &'static str {
 }
 
 /// Brings the open window forward when DevAtlas is launched again, instead of opening another.
-fn focus_main_window(app: &tauri::AppHandle) {
+pub(crate) fn focus_main_window(app: &tauri::AppHandle) {
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
@@ -60,6 +60,10 @@ pub fn run() -> tauri::Result<()> {
             app.manage(commands::settings::Secrets::new());
             commands::settings::load_github_token(app.handle());
             app.manage(commands::news::News::new()?);
+            app.manage(commands::community::Community::new(
+                app.handle(),
+                &data_dir,
+            )?);
             commands::app_info::remove_previous_version();
             Ok(())
         })
@@ -72,6 +76,19 @@ pub fn run() -> tauri::Result<()> {
             commands::app_info::get_app_info,
             commands::app_info::check_for_update,
             commands::app_info::install_update,
+            commands::community::community_session,
+            commands::community::community_sign_in,
+            commands::community::community_cancel_sign_in,
+            commands::community::community_sign_out,
+            commands::community::list_shared_collections,
+            commands::community::my_shared_collections,
+            commands::community::get_shared_collection,
+            commands::community::preview_group_share,
+            commands::community::share_group,
+            commands::community::unshare_collection,
+            commands::community::report_shared_collection,
+            commands::community::follow_shared_collection,
+            commands::community::unfollow_shared_collection,
             commands::discovery::list_trending_repos,
             commands::discovery::get_github_repo,
             commands::discovery::get_repo_activity,
@@ -83,6 +100,8 @@ pub fn run() -> tauri::Result<()> {
             commands::organizer::set_group_resources,
             commands::settings::get_settings,
             commands::settings::update_settings,
+            commands::settings::get_onboarded,
+            commands::settings::complete_onboarding,
             commands::settings::set_github_token,
             commands::settings::clear_github_token,
             commands::organizer::list_snippets,

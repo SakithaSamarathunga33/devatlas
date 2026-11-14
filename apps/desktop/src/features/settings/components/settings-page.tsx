@@ -26,6 +26,7 @@ import {
 } from "@/services/settings.service";
 import type { BookmarkSettings, SettingsView } from "@/types/settings.types";
 
+import { AccountSettings } from "./account-settings";
 import { AgentConnectionSettings, GithubStarsSettings } from "./agent-settings";
 import { SettingsSection } from "./settings-section";
 
@@ -40,6 +41,8 @@ export function SettingsPage() {
     <VStack padding={6}>
       <VStack gap={6}>
         <PageHeader title="Settings" description="Choose where your library gets its links from." />
+        <AccountSettings />
+        <Divider />
         {view.isPending && (
           <div role="status" aria-busy="true" className="max-w-xl">
             <VisuallyHidden>Loading settings</VisuallyHidden>

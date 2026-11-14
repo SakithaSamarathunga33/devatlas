@@ -7,10 +7,12 @@ import {
 import { useLocation } from "react-router";
 
 import {
-  primaryNavigation,
+  homeNavigation,
+  navigationSections,
   secondaryNavigation,
   type NavigationItem,
 } from "@/components/layout/navigation";
+import { AccountNavItem } from "@/components/layout/account-nav-item";
 import { UpdateNavItem } from "@/components/layout/update-nav-item";
 import { useUiStore } from "@/stores/ui-store";
 
@@ -48,14 +50,21 @@ export function AppSidebar() {
           {secondaryNavigation.map((item) => (
             <NavItem key={item.label} item={item} pathname={pathname} />
           ))}
+          <AccountNavItem />
         </>
       }
     >
-      <SideNavSection title="Pages" isHeaderHidden>
-        {primaryNavigation.map((item) => (
-          <NavItem key={item.label} item={item} pathname={pathname} />
-        ))}
+      <SideNavSection title="Home" isHeaderHidden>
+        <NavItem item={homeNavigation} pathname={pathname} />
       </SideNavSection>
+      {/* Collapsed, SideNav hides the headings; the gap keeps the groups apart. */}
+      {navigationSections.map((section) => (
+        <SideNavSection key={section.title} title={section.title} className="mt-3">
+          {section.items.map((item) => (
+            <NavItem key={item.label} item={item} pathname={pathname} />
+          ))}
+        </SideNavSection>
+      ))}
     </SideNav>
   );
 }

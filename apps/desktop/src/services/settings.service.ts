@@ -16,6 +16,16 @@ export function updateSettings(settings: BookmarkSettings): Promise<SettingsView
   return invokeCommand("update_settings", settingsViewSchema, { settings });
 }
 
+/** Whether the first-launch welcome was answered. */
+export function getOnboarded(): Promise<boolean> {
+  return invokeCommand("get_onboarded", z.boolean());
+}
+
+/** Remembers that the welcome was answered (signed in, or chose to stay local). */
+export function completeOnboarding(): Promise<null> {
+  return invokeCommand("complete_onboarding", z.null());
+}
+
 export function setGithubToken(token: string): Promise<null> {
   return invokeCommand("set_github_token", z.null(), { token });
 }

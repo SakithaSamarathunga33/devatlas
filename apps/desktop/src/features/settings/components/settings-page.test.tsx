@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "@/app/providers/app-providers";
+import type { CommunityUser } from "@/types/community.types";
 import type { SettingsView } from "@/types/settings.types";
 
 import { SettingsPage } from "./settings-page";
@@ -31,6 +32,12 @@ const VIEW: SettingsView = {
 };
 
 let starSyncUser: string | null = null;
+let communityUser: CommunityUser | null = null;
+const OCTOCAT: CommunityUser = {
+  id: "99999999-2222-4333-8444-555555555555",
+  username: "octocat",
+  avatarUrl: "https://avatars.githubusercontent.com/u/583231",
+};
 
 function renderSettings(
   view: SettingsView = VIEW,
@@ -38,6 +45,16 @@ function renderSettings(
 ) {
   vi.mocked(invoke).mockImplementation((command, args) => {
     if (command === "get_settings") return Promise.resolve(view);
+    if (command === "community_session") return Promise.resolve(communityUser);
+    if (command === "community_cancel_sign_in") return Promise.resolve(null);
+    if (command === "community_sign_in") {
+      communityUser = OCTOCAT;
+      return Promise.resolve(OCTOCAT);
+    }
+    if (command === "community_sign_out") {
+      communityUser = null;
+      return Promise.resolve(null);
+    }
     if (command === "update_settings") return save();
     if (command === "set_github_token" || command === "clear_github_token") {
       return Promise.resolve(null);
@@ -322,5 +339,42 @@ describe("SettingsPage", () => {
     fireEvent.click(save());
 
     expect(await screen.findByText("Couldn't save your settings")).toBeInTheDocument();
+  });
+
+  describe("Account", () => {
+    it("shows the signed-in GitHub account and signs out", async () => {
+      communityUser = OCTOCAT;
+      renderSettings();
+
+      expect(await screen.findByRole("heading", { level: 2, name: "Account" })).toBeVisible();
+      expect(await screen.findByText("octocat")).toBeInTheDocument();
+      expect(screen.getByText(/Signed in with GitHub/)).toBeInTheDocument();
+      // The avatar is decorative: the username beside it names the account.
+      const avatar = document.querySelector(`img[src="${OCTOCAT.avatarUrl ?? ""}"]`);
+      expect(avatar).toHaveAttribute("alt", "");
+
+      fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith("community_sign_out");
+      });
+      const signIn = await screen.findByRole("button", { name: "Sign in with GitHub" });
+      expect(signIn).toHaveFocus();
+      expect(screen.getByText(/works fully offline/)).toBeInTheDocument();
+    });
+
+    it("offers GitHub sign-in when signed out, then shows the account", async () => {
+      communityUser = null;
+      renderSettings();
+
+      expect(await screen.findByText(/Not signed in/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Sign in with GitHub" }));
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith("community_sign_in");
+      });
+      expect(await screen.findByRole("button", { name: "Sign out" })).toHaveFocus();
+      expect(screen.getByText("octocat")).toBeInTheDocument();
+    });
   });
 });

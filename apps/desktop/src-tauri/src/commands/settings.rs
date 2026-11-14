@@ -15,15 +15,20 @@ pub struct Secrets {
     github_token: KeyringSecret,
 }
 
+/// The credential store's service name. Dev builds use their own, so they never touch the
+/// installed app's secrets.
+pub(crate) const fn keyring_service() -> &'static str {
+    if cfg!(debug_assertions) {
+        "DevAtlas (dev)"
+    } else {
+        "DevAtlas"
+    }
+}
+
 impl Secrets {
     pub fn new() -> Self {
-        let service = if cfg!(debug_assertions) {
-            "DevAtlas (dev)"
-        } else {
-            "DevAtlas"
-        };
         Self {
-            github_token: KeyringSecret::new(service),
+            github_token: KeyringSecret::new(keyring_service()),
         }
     }
 
@@ -91,9 +96,10 @@ pub async fn update_settings(
     store: State<'_, LibraryStore>,
     secrets: State<'_, Secrets>,
 ) -> Result<SettingsView, String> {
-    let valid = settings::validate(settings).map_err(|error| error.to_string())?;
-    {
+    let valid = {
         let _guard = store.lock.lock().await;
+        let valid =
+            settings::apply_update(&store.settings, settings).map_err(|error| error.to_string())?;
         store.settings.save(&valid).map_err(|error| {
             tracing::warn!(%error, "could not save the settings");
             "DevAtlas couldn't save your settings. Please try again.".to_owned()
@@ -109,11 +115,29 @@ pub async fn update_settings(
         ) {
             tracing::warn!(%error, "could not record the new source's links as seen");
         }
-    }
+        valid
+    };
     Ok(SettingsView {
         settings: valid,
         options: browser_options(),
         has_github_token: secrets.has_token(),
+    })
+}
+
+/// Whether the first-launch welcome was answered. It gates the first paint, so it skips the
+/// library lock: settings are written by rename, so a read never sees half a file.
+#[tauri::command]
+pub async fn get_onboarded(store: State<'_, LibraryStore>) -> Result<bool, String> {
+    Ok(settings::is_onboarded(&store.settings))
+}
+
+/// Remembers that the welcome was answered, so it never shows again.
+#[tauri::command]
+pub async fn complete_onboarding(store: State<'_, LibraryStore>) -> Result<(), String> {
+    let _guard = store.lock.lock().await;
+    settings::complete_onboarding(&store.settings).map_err(|error| {
+        tracing::warn!(%error, "could not save the onboarding answer");
+        "DevAtlas couldn't save your choice. Please try again.".to_owned()
     })
 }
 

@@ -2,6 +2,7 @@
 
 pub mod agent;
 pub mod app_info;
+pub mod community;
 pub mod discovery;
 pub mod library;
 pub mod news;

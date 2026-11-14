@@ -7,6 +7,7 @@
 pub mod agent;
 pub mod app_info;
 pub mod backup;
+pub mod community;
 pub mod discovery;
 pub mod library;
 pub mod link_health;

@@ -22,6 +22,8 @@ const COMMANDS: &[&str] = &[
     "set_group_resources",
     "get_settings",
     "update_settings",
+    "get_onboarded",
+    "complete_onboarding",
     "set_github_token",
     "clear_github_token",
     "list_snippets",
@@ -47,6 +49,19 @@ const COMMANDS: &[&str] = &[
     "viewer_set_bounds",
     "viewer_close",
     "viewer_go",
+    "community_session",
+    "community_sign_in",
+    "community_cancel_sign_in",
+    "community_sign_out",
+    "list_shared_collections",
+    "my_shared_collections",
+    "get_shared_collection",
+    "preview_group_share",
+    "share_group",
+    "unshare_collection",
+    "report_shared_collection",
+    "follow_shared_collection",
+    "unfollow_shared_collection",
 ];
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

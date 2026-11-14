@@ -80,6 +80,10 @@ pub struct BookmarkSettings {
     pub profile: String,
     /// The top-level bookmark folder holding developer links.
     pub folder: String,
+    /// Whether the first-launch welcome was answered (signed in, or chose to stay local).
+    /// Files written before it existed read as `false`, so they see the welcome once.
+    #[serde(default)]
+    pub onboarded: bool,
 }
 
 impl Default for BookmarkSettings {
@@ -88,6 +92,7 @@ impl Default for BookmarkSettings {
             browser: None,
             profile: "Default".to_owned(),
             folder: String::new(),
+            onboarded: false,
         }
     }
 }
@@ -168,7 +173,10 @@ pub fn is_profile_dir(name: &str) -> bool {
 /// Checks a selection coming from the UI, and from disk, since either could be tampered with.
 pub fn validate(settings: BookmarkSettings) -> Result<BookmarkSettings, SettingsError> {
     let Some(browser) = settings.browser else {
-        return Ok(BookmarkSettings::default());
+        return Ok(BookmarkSettings {
+            onboarded: settings.onboarded,
+            ..BookmarkSettings::default()
+        });
     };
     if !browser.is_profile_id(&settings.profile) {
         return Err(SettingsError::InvalidProfile);
@@ -183,8 +191,38 @@ pub fn validate(settings: BookmarkSettings) -> Result<BookmarkSettings, Settings
     })
 }
 
+/// Whether the first-launch welcome was answered. Read from the file as stored, not after
+/// validation, so a bookmark choice that no longer validates doesn't bring the welcome back.
+pub fn is_onboarded<S: SettingsStore>(store: &S) -> bool {
+    matches!(store.load(), Ok(Some(settings)) if settings.onboarded)
+}
+
+/// A bookmark selection from the Settings page. The UI never sends `onboarded`, so the stored
+/// answer is kept rather than reset.
+pub fn apply_update<S: SettingsStore>(
+    store: &S,
+    incoming: BookmarkSettings,
+) -> Result<BookmarkSettings, SettingsError> {
+    validate(BookmarkSettings {
+        onboarded: is_onboarded(store),
+        ..incoming
+    })
+}
+
+/// Records that the first-launch welcome was answered, keeping the rest of the settings.
+pub fn complete_onboarding<S: SettingsStore>(store: &S) -> Result<(), S::Error> {
+    let current = store.load()?.unwrap_or_default();
+    store.save(&BookmarkSettings {
+        onboarded: true,
+        ..current
+    })
+}
+
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::convert::Infallible;
+
     use super::*;
 
     fn settings(browser: Option<Browser>, profile: &str, folder: &str) -> BookmarkSettings {
@@ -192,7 +230,123 @@ mod tests {
             browser,
             profile: profile.to_owned(),
             folder: folder.to_owned(),
+            onboarded: false,
         }
+    }
+
+    #[derive(Default)]
+    struct MemoryStore(RefCell<Option<BookmarkSettings>>);
+
+    impl SettingsStore for MemoryStore {
+        type Error = Infallible;
+
+        fn load(&self) -> Result<Option<BookmarkSettings>, Infallible> {
+            Ok(self.0.borrow().clone())
+        }
+
+        fn save(&self, settings: &BookmarkSettings) -> Result<(), Infallible> {
+            *self.0.borrow_mut() = Some(settings.clone());
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn completing_onboarding_on_a_first_launch_stores_only_the_flag() {
+        let store = MemoryStore::default();
+
+        complete_onboarding(&store).unwrap();
+
+        assert_eq!(
+            store.load().unwrap(),
+            Some(BookmarkSettings {
+                onboarded: true,
+                ..BookmarkSettings::default()
+            })
+        );
+    }
+
+    #[test]
+    fn completing_onboarding_keeps_the_bookmark_choice() {
+        let chosen = settings(Some(Browser::Chrome), "Profile 1", "dev");
+        let store = MemoryStore(RefCell::new(Some(chosen.clone())));
+
+        complete_onboarding(&store).unwrap();
+
+        assert_eq!(
+            store.load().unwrap(),
+            Some(BookmarkSettings {
+                onboarded: true,
+                ..chosen
+            })
+        );
+    }
+
+    #[test]
+    fn saving_from_the_settings_page_keeps_the_onboarding_answer() {
+        let onboarded = MemoryStore(RefCell::new(Some(BookmarkSettings {
+            onboarded: true,
+            ..BookmarkSettings::default()
+        })));
+
+        let chrome = apply_update(
+            &onboarded,
+            settings(Some(Browser::Chrome), "Default", "dev"),
+        );
+        let none = apply_update(&onboarded, settings(None, "Default", ""));
+
+        assert!(chrome.unwrap().onboarded);
+        assert!(none.unwrap().onboarded);
+        assert!(
+            !apply_update(&MemoryStore::default(), settings(None, "", ""))
+                .unwrap()
+                .onboarded
+        );
+    }
+
+    #[test]
+    fn an_invalid_bookmark_choice_keeps_the_onboarding_answer() {
+        let tampered = MemoryStore(RefCell::new(Some(BookmarkSettings {
+            onboarded: true,
+            ..settings(Some(Browser::Brave), "../evil", "dev")
+        })));
+
+        assert!(is_onboarded(&tampered));
+        let fixed = apply_update(&tampered, settings(Some(Browser::Brave), "Default", "dev"));
+        assert!(fixed.unwrap().onboarded);
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("unreadable")]
+    struct Unreadable;
+
+    struct BrokenStore;
+
+    impl SettingsStore for BrokenStore {
+        type Error = Unreadable;
+
+        fn load(&self) -> Result<Option<BookmarkSettings>, Unreadable> {
+            Err(Unreadable)
+        }
+
+        fn save(&self, _: &BookmarkSettings) -> Result<(), Unreadable> {
+            Err(Unreadable)
+        }
+    }
+
+    #[test]
+    fn an_unreadable_file_is_not_onboarded_and_is_not_overwritten() {
+        assert!(!is_onboarded(&BrokenStore));
+        assert!(complete_onboarding(&BrokenStore).is_err());
+    }
+
+    #[test]
+    fn settings_written_before_onboarding_existed_read_as_not_onboarded() {
+        let old: BookmarkSettings =
+            serde_json::from_str(r#"{"browser":"edge","profile":"Default","folder":"dev"}"#)
+                .unwrap();
+
+        assert!(!old.onboarded);
+        assert_eq!(old.folder, "dev");
     }
 
     #[test]

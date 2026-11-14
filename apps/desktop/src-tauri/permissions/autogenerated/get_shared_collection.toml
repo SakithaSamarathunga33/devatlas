@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-shared-collection"
+description = "Enables the get_shared_collection command without any pre-configured scope."
+commands.allow = ["get_shared_collection"]
+
+[[permission]]
+identifier = "deny-get-shared-collection"
+description = "Denies the get_shared_collection command without any pre-configured scope."
+commands.deny = ["get_shared_collection"]

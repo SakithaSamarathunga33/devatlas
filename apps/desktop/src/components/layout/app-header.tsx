@@ -6,6 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Moon, Square, Sun, X } from "lucide-react";
 
 import { CommandPalette } from "@/features/search";
+import { revealThemeChange } from "@/lib/theme-transition";
 import { useUiStore } from "@/stores/ui-store";
 
 /** Top bar: also the window's drag area, with the window controls on the right. */
@@ -48,15 +49,17 @@ function ThemeToggle() {
       size="sm"
       isIconOnly
       icon={<Icon icon={theme === "dark" ? Sun : Moon} />}
-      onClick={() => {
-        setTheme(next);
+      onClick={(event) => {
+        revealThemeChange(event.currentTarget, () => {
+          setTheme(next);
+        });
       }}
     />
   );
 }
 
 /** Minimize / maximize / close, replacing the native title bar (the window is undecorated). */
-function WindowControls() {
+export function WindowControls() {
   if (!isTauri()) return null;
   const run = (action: "minimize" | "toggleMaximize" | "close") => {
     getCurrentWindow()

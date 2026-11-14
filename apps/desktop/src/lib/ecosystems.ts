@@ -1,5 +1,3 @@
-import { subMonths } from "date-fns";
-
 import type { Resource } from "@/types/library.types";
 
 import { interestMatcher } from "./interests";
@@ -56,22 +54,4 @@ export function ecosystemsOf(resource: Resource): string[] {
   return MATCHERS.filter(({ id, matches }) => matches(text) || tags.includes(id)).map(
     ({ id }) => id,
   );
-}
-
-const REDISCOVER_AFTER_MONTHS = 6;
-const REDISCOVER_COUNT = 3;
-
-/** Old links that haven't been opened lately and aren't in use, oldest first. */
-export function rediscoverable(resources: readonly Resource[], now: number): Resource[] {
-  const cutoff = subMonths(now, REDISCOVER_AFTER_MONTHS).getTime();
-  return resources
-    .filter(
-      (resource) =>
-        resource.addedAt !== null &&
-        resource.addedAt < cutoff &&
-        resource.status !== "using" &&
-        (resource.lastOpenedAt === null || resource.lastOpenedAt < cutoff),
-    )
-    .sort((a, b) => (a.addedAt ?? 0) - (b.addedAt ?? 0))
-    .slice(0, REDISCOVER_COUNT);
 }

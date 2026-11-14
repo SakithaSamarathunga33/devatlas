@@ -102,27 +102,7 @@ pub async fn list_library(
     store: State<'_, LibraryStore>,
     organizer: State<'_, Organizer>,
 ) -> Result<LibrarySnapshot, String> {
-    let _guard = store.lock.lock().await;
-    let selected = selection(&store);
-    let snapshot = library::load_library(
-        &selected.bookmarks,
-        &store.saved,
-        &store.memory,
-        &selected.browser,
-        &selected.folder,
-        now_ms(),
-    )
-    .map_err(|error| {
-        tracing::warn!(%error, "could not load the library");
-        error.to_string()
-    })?;
-    let snapshot = LibrarySnapshot {
-        source: LibrarySource {
-            warning: selected.warning,
-            ..snapshot.source
-        },
-        ..snapshot
-    };
+    let snapshot = read_library(&store).await?;
 
     // Annotations are extras: without the database the library still shows.
     let Ok(database) = organizer.database() else {
@@ -140,6 +120,31 @@ pub async fn list_library(
             Ok(snapshot)
         }
     }
+}
+
+/// The library's links, without what the user added to them.
+pub(crate) async fn read_library(store: &LibraryStore) -> Result<LibrarySnapshot, String> {
+    let _guard = store.lock.lock().await;
+    let selected = selection(store);
+    let snapshot = library::load_library(
+        &selected.bookmarks,
+        &store.saved,
+        &store.memory,
+        &selected.browser,
+        &selected.folder,
+        now_ms(),
+    )
+    .map_err(|error| {
+        tracing::warn!(%error, "could not load the library");
+        error.to_string()
+    })?;
+    Ok(LibrarySnapshot {
+        source: LibrarySource {
+            warning: selected.warning,
+            ..snapshot.source
+        },
+        ..snapshot
+    })
 }
 
 /// Saves a link in DevAtlas, fetching its title and preview first.

@@ -74,8 +74,16 @@ function mockBackend(
   appInfo: () => Promise<unknown>,
   update: unknown = null,
   install: () => Promise<unknown> = () => Promise.resolve(null),
+  isOnboarded = true,
+  signIn: () => Promise<unknown> = () => new Promise(() => undefined),
+  complete: () => Promise<unknown> = () => Promise.resolve(null),
 ) {
   invokeMock.mockImplementation((command) => {
+    if (command === "get_onboarded") return Promise.resolve(isOnboarded);
+    if (command === "community_sign_in") return signIn();
+    if (command === "complete_onboarding") return complete();
+    if (command === "community_session") return Promise.resolve(null);
+    if (command === "community_cancel_sign_in") return Promise.resolve(null);
     if (command === "get_app_info") return appInfo();
     if (command === "check_for_update") return Promise.resolve(update);
     if (command === "install_update") return install();
@@ -87,13 +95,19 @@ function mockBackend(
   });
 }
 
+/** Renders the app and waits for the shell, which appears once the welcome is known answered. */
+async function renderApp() {
+  render(<App />);
+  return screen.findByRole("navigation", { name: "Primary" });
+}
+
 // Dashboard sections fade in with Motion, which does not animate under jsdom, so these
 // tests assert presence rather than visibility.
 describe("App", () => {
   it("renders the shell and window controls with no status bar", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
-    render(<App />);
+    await renderApp();
 
     expect(
       screen.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)$/ }),
@@ -118,7 +132,7 @@ describe("App", () => {
   it("puts the collapse button above the pages and the update above Settings", async () => {
     mockBackend(() => Promise.resolve(APP_INFO), RELEASE);
 
-    render(<App />);
+    await renderApp();
 
     const primary = screen.getByRole("navigation", { name: "Primary" });
     const collapse = within(primary).getByRole("button", { name: /collapse/i });
@@ -133,10 +147,75 @@ describe("App", () => {
     expect(isBefore(update, settings)).toBe(true);
   });
 
+  it("offers GitHub sign-in under Settings when signed out", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+
+    const primary = await renderApp();
+
+    const signIn = await within(primary).findByRole("button", { name: "Sign in with GitHub" });
+    const settings = within(primary).getByRole("link", { name: "Settings" });
+    expect(
+      settings.compareDocumentPosition(signIn) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(signIn);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("community_sign_in");
+    });
+    expect(
+      await within(primary).findByRole("button", { name: "Waiting for GitHub… (cancel)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the signed-in GitHub account under Settings, linking to Settings", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+    const fallback = invokeMock.getMockImplementation();
+    let signedIn = true;
+    invokeMock.mockImplementation((command, ...rest) => {
+      if (command === "community_sign_out") {
+        signedIn = false;
+        return Promise.resolve(null);
+      }
+      if (command === "community_session") {
+        return Promise.resolve(
+          signedIn
+            ? {
+                id: "8b0f2c1e-2f35-4c1b-9f43-6a7d2f6c9b10",
+                username: "octocat-the-long-name",
+                avatarUrl: "https://avatars.githubusercontent.com/u/583231",
+              }
+            : null,
+        );
+      }
+      return fallback?.(command, ...rest) ?? Promise.resolve(null);
+    });
+
+    const primary = await renderApp();
+
+    const account = await within(primary).findByRole("link", { name: "octocat-the-long-name" });
+    expect(account).toHaveTextContent("octocat-the-l…");
+    expect(account).toHaveAttribute("href", "/settings");
+    expect(account.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://avatars.githubusercontent.com/u/583231",
+    );
+    expect(within(primary).queryByRole("button", { name: "Sign in with GitHub" })).toBeNull();
+
+    fireEvent.click(within(primary).getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("community_sign_out");
+    });
+    expect(
+      await within(primary).findByRole("button", { name: "Sign in with GitHub" }),
+    ).toBeInTheDocument();
+  });
+
   it("syncs GitHub stars in the background when the app starts", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
-    render(<App />);
+    await renderApp();
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("sync_github_stars");
@@ -146,7 +225,7 @@ describe("App", () => {
   it("checks for updates on request and says when DevAtlas is up to date", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
-    render(<App />);
+    await renderApp();
     const primary = screen.getByRole("navigation", { name: "Primary" });
     fireEvent.click(await within(primary).findByRole("button", { name: "Check for updates" }));
 
@@ -159,7 +238,7 @@ describe("App", () => {
   it("offers the update a manual check finds", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
-    render(<App />);
+    await renderApp();
     const check = await screen.findByRole("button", { name: "Check for updates" });
     mockBackend(() => Promise.resolve(APP_INFO), RELEASE);
     fireEvent.click(check);
@@ -173,7 +252,7 @@ describe("App", () => {
   it("explains a manual check that fails", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
-    render(<App />);
+    await renderApp();
     const check = await screen.findByRole("button", { name: "Check for updates" });
     invokeMock.mockImplementation((command) =>
       command === "check_for_update"
@@ -193,7 +272,7 @@ describe("App", () => {
       () => new Promise(() => {}),
     );
 
-    render(<App />);
+    await renderApp();
     fireEvent.click(await screen.findByRole("button", { name: "Update to v0.1.0-build.24" }));
 
     await waitFor(() => {
@@ -213,7 +292,7 @@ describe("App", () => {
         Promise.reject(new Error("The update's signature didn't match, so it wasn't installed.")),
     );
 
-    render(<App />);
+    await renderApp();
     fireEvent.click(await screen.findByRole("button", { name: "Update to v0.1.0-build.24" }));
 
     expect(await screen.findByText("Couldn't update DevAtlas")).toBeInTheDocument();
@@ -222,12 +301,12 @@ describe("App", () => {
     expect(vi.mocked(openUrl)).toHaveBeenCalledWith(RELEASE.url);
   });
 
-  it("names the icon-only pages when the sidebar is collapsed", () => {
+  it("names the icon-only pages when the sidebar is collapsed", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
     useUiStore.setState({ sidebarCollapsed: true });
 
     try {
-      render(<App />);
+      await renderApp();
 
       const primary = screen.getByRole("navigation", { name: "Primary" });
       expect(within(primary).getByRole("link", { name: "Dashboard" })).toHaveAttribute(
@@ -244,7 +323,7 @@ describe("App", () => {
 
   it("opens a page from the sidebar without reloading the window", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
-    render(<App />);
+    await renderApp();
 
     fireEvent.click(
       within(screen.getByRole("navigation", { name: "Primary" })).getByRole("link", {
@@ -267,7 +346,7 @@ describe("App", () => {
 
   it("doesn't mark a primary page active on Settings, and can return to the dashboard", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
-    render(<App />);
+    await renderApp();
 
     fireEvent.click(screen.getByRole("link", { name: "Settings" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
@@ -287,7 +366,7 @@ describe("App", () => {
   it("shows real library numbers, collections and recent activity", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
 
-    render(<App />);
+    await renderApp();
 
     const breakdown = await screen.findByRole("region", { name: "1 resource" });
     expect(within(breakdown).getByRole("link", { name: /UI components\s*1/ })).toHaveAttribute(
@@ -360,7 +439,7 @@ describe("App", () => {
 
   it("switches between the dark and light themes and remembers the choice", async () => {
     mockBackend(() => Promise.resolve(APP_INFO));
-    render(<App />);
+    await renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "Switch to light theme" }));
 
@@ -373,5 +452,153 @@ describe("App", () => {
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.documentElement).toHaveClass("dark");
     expect(localStorage.getItem("devatlas-theme")).toBe("dark");
+  });
+
+  it("opens the saved GitHub repositories from the Library section", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+    const primary = await renderApp();
+
+    fireEvent.click(within(primary).getByRole("link", { name: "Saved repos" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Saved repos" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("searchbox", { name: "Search saved repositories" }),
+    ).toBeInTheDocument();
+    expect(within(primary).getByRole("link", { name: "Saved repos" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(within(primary).getByRole("link", { name: "Repos" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    // The router follows the real address bar, which outlives this test.
+    fireEvent.click(within(primary).getByRole("link", { name: "Dashboard" }));
+  });
+
+  it("groups the pages under titled sections, with Dashboard alone on top", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+    const primary = await renderApp();
+
+    const sections = {
+      Library: ["Library", "Saved repos", "Collections", "Snippets"],
+      Discover: ["Explorer", "Repos", "News", "Languages"],
+      Community: ["Community"],
+    };
+    for (const [title, pages] of Object.entries(sections)) {
+      const group = within(primary).getByRole("group", { name: title });
+      expect(
+        within(group)
+          .getAllByRole("link")
+          .map((link) => link.textContent),
+      ).toEqual(pages);
+    }
+    const dashboard = within(primary).getByRole("link", { name: "Dashboard" });
+    const library = within(primary).getByRole("group", { name: "Library" });
+    expect(library.contains(dashboard)).toBe(false);
+    expect(dashboard.compareDocumentPosition(library) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it("welcomes a first launch and remembers choosing to stay local", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO), null, undefined, false);
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Welcome to DevAtlas" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue with GitHub" })).toHaveFocus();
+    expect(screen.getByText(/only needed for Community/)).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Use DevAtlas locally" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)$/ }),
+    ).toBeInTheDocument();
+    expect(invokeMock).toHaveBeenCalledWith("complete_onboarding");
+  });
+
+  it("finishes the welcome once GitHub sign-in succeeds", async () => {
+    const user = { id: "99999999-2222-4333-8444-555555555555", username: "me", avatarUrl: null };
+    mockBackend(
+      () => Promise.resolve(APP_INFO),
+      null,
+      undefined,
+      false,
+      () => Promise.resolve(user),
+    );
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Continue with GitHub" }));
+
+    expect(await screen.findByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+    expect(invokeMock).toHaveBeenCalledWith("community_sign_in");
+    expect(invokeMock).toHaveBeenCalledWith("complete_onboarding");
+  });
+
+  it("stays on the welcome and explains a sign-in that fails", async () => {
+    mockBackend(
+      () => Promise.resolve(APP_INFO),
+      null,
+      undefined,
+      false,
+      () => Promise.reject(new Error("GitHub sign-in isn't enabled for Community yet.")),
+    );
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Continue with GitHub" }));
+
+    expect(
+      await screen.findByText("GitHub sign-in isn't enabled for Community yet."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Welcome to DevAtlas" })).toBeVisible();
+    expect(invokeMock).not.toHaveBeenCalledWith("complete_onboarding");
+  });
+
+  it("opens the app even when the welcome answer can't be saved, and says so", async () => {
+    mockBackend(
+      () => Promise.resolve(APP_INFO),
+      null,
+      undefined,
+      false,
+      undefined,
+      () => Promise.reject(new Error("DevAtlas couldn't save your choice.")),
+    );
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Use DevAtlas locally" }));
+
+    expect(await screen.findByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+    expect(await screen.findByText("Your choice couldn't be saved")).toBeInTheDocument();
+  });
+
+  it("opens the app when the welcome answer can't be read", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+    const answered = invokeMock.getMockImplementation();
+    invokeMock.mockImplementation((command, args) =>
+      command === "get_onboarded"
+        ? Promise.reject(new Error("unreadable"))
+        : (answered?.(command, args) ?? Promise.resolve(null)),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Welcome to DevAtlas" })).not.toBeInTheDocument();
+  });
+
+  it("stops waiting for GitHub when the user chooses to stay local mid sign-in", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO), null, undefined, false);
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Continue with GitHub" }));
+    await screen.findByRole("button", { name: "Cancel" });
+    fireEvent.click(screen.getByRole("button", { name: "Use DevAtlas locally" }));
+
+    expect(await screen.findByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+    expect(invokeMock).toHaveBeenCalledWith("community_cancel_sign_in");
   });
 });

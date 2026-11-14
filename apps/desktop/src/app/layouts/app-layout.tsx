@@ -6,6 +6,7 @@ import { Link, Outlet } from "react-router";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { LibraryWatcher } from "@/components/shared/library-watcher";
+import { useOnboarded, WelcomeScreen } from "@/features/welcome";
 
 /** Astryx links route in-app, so the window never reloads. */
 function RouterLink({
@@ -16,6 +17,13 @@ function RouterLink({
 }
 
 export function AppLayout() {
+  const onboarded = useOnboarded();
+
+  // Nothing until the answer is known, so the dashboard never flashes before the welcome. If
+  // it can't be read, the app opens normally rather than trapping anyone on the welcome.
+  if (onboarded.isPending) return null;
+  if (onboarded.data === false) return <WelcomeScreen />;
+
   return (
     <LinkProvider component={RouterLink}>
       <LibraryWatcher />

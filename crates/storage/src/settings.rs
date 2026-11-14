@@ -46,10 +46,30 @@ mod tests {
             browser: Some(Browser::Chrome),
             profile: "Profile 1".to_owned(),
             folder: "dev".to_owned(),
+            onboarded: true,
         };
         store.save(&settings).unwrap();
 
         assert_eq!(store.load().unwrap(), Some(settings));
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn a_file_from_before_onboarding_reads_as_not_onboarded() {
+        let path = std::env::temp_dir()
+            .join(format!("devatlas-settings-legacy-{}", std::process::id()))
+            .join("settings.json");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            r#"{ "browser": "brave", "profile": "Default", "folder": "develop" }"#,
+        )
+        .unwrap();
+
+        let loaded = JsonSettings::new(path.clone()).load().unwrap().unwrap();
+
+        assert!(!loaded.onboarded);
+        assert_eq!(loaded.folder, "develop");
         std::fs::remove_file(path).unwrap();
     }
 }
