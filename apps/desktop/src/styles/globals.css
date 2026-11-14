@@ -15,7 +15,7 @@
  * it in light and dark. Components use these names or Astryx tokens, never raw hex values.
  */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
   --background: var(--color-background-body);
   --foreground: var(--color-text-primary);
@@ -45,51 +45,63 @@
   --highlight: var(--color-accent);
   --highlight-foreground: var(--color-on-accent);
 
-  /* Brand gradient: hero accents, progress rings and charts. */
-  --gradient-from: #14b8a6;
-  --gradient-to: #22d3ee;
-  /* Dashboard hero atmosphere: mint glow and map grid on the card surface. */
-  --gradient-glow: rgb(20 184 166 / 0.22);
-  --grid-line: rgb(241 245 249 / 0.05);
+  /* Brand gradient, from the DevAtlas mark: hero accents, progress rings and charts. */
+  --gradient-from: #6366f1;
+  --gradient-to: #3b82f6;
+  /* Hero atmosphere: indigo glow and map grid on the card surface. */
+  --gradient-glow: rgb(94 92 230 / 0.24);
+  --grid-line: rgb(245 245 247 / 0.04);
+  /*
+   * The window's aurora: two still, soft light sources behind the translucent title bar and
+   * sidebar. Still on purpose: a moving full-window background is a motion-sickness trigger.
+   */
+  --aurora:
+    radial-gradient(48rem 34rem at -6% -10%, rgb(94 92 230 / 0.34), transparent 64%),
+    radial-gradient(40rem 26rem at 104% -8%, rgb(59 130 246 / 0.2), transparent 62%),
+    radial-gradient(30rem 30rem at -10% 108%, rgb(139 92 246 / 0.16), transparent 64%);
+  /* Glass: translucent surfaces with a bright top edge, as light catches a material. */
+  --glass: rgb(21 21 28 / 0.72);
+  --glass-edge: rgb(255 255 255 / 0.07);
+  --shadow-soft: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -12px rgb(0 0 0 / 0.6);
 
   --image-outline: rgb(255 255 255 / 0.08);
   /* Icons and initials on the tinted category tiles. */
   --tile-icon: #ffffff;
 
   /*
-   * Library categories: one teal-to-cyan family stepped by lightness, so category colour stays
-   * inside the brand and never competes with mint for "action". Icons and labels carry the
-   * distinction; colour only groups.
+   * Library categories: one indigo-to-blue family (with a violet), stepped by lightness, so
+   * category colour stays inside the brand and never competes with the accent for "action".
+   * Icons and labels carry the distinction; colour only groups.
    */
-  --category-ui: #2dd4bf;
-  --category-inspiration: #22d3ee;
-  --category-animation: #14b8a6;
-  --category-icons: #7dd3fc;
-  --category-tools: #0d9488;
-  --category-cloud: #67e8f9;
-  --category-other: #64748b;
-  --chart-1: #0d9488;
-  --chart-2: #0891b2;
-  --chart-3: #2dd4bf;
-  --chart-4: #64748b;
-  --chart-5: #0f172a;
+  --category-ui: #8b8bff;
+  --category-inspiration: #60a5fa;
+  --category-animation: #a78bfa;
+  --category-icons: #38bdf8;
+  --category-tools: #6366f1;
+  --category-cloud: #93c5fd;
+  --category-other: #71717a;
+  --chart-1: #5856d6;
+  --chart-2: #2563eb;
+  --chart-3: #a78bfa;
+  --chart-4: #8e8e93;
+  --chart-5: #1d1d1f;
   --chart-positive: oklch(0.696 0.17 162.48);
   --chart-negative: oklch(0.637 0.237 25.331);
-  --chart-background: #f8fafc;
-  --chart-foreground: #64748b;
-  --chart-foreground-muted: #94a3b8;
+  --chart-background: #ffffff;
+  --chart-foreground: #6e6e73;
+  --chart-foreground-muted: #aeaeb2;
   --chart-line-primary: var(--chart-1);
   --chart-line-secondary: var(--chart-2);
-  --chart-crosshair: #0f766e;
-  --chart-grid: #e2e8f0;
+  --chart-crosshair: #5856d6;
+  --chart-grid: #e5e5ea;
   --chart-brush-border: var(--chart-grid);
   --chart-tooltip-background: var(--popover);
   --chart-tooltip-foreground: var(--popover-foreground);
   --chart-tooltip-muted: var(--muted-foreground);
-  --chart-marker-background: #f8fafc;
-  --chart-marker-border: #cbd5e1;
-  --chart-marker-foreground: #334155;
-  --chart-label: #475569;
+  --chart-marker-background: #ffffff;
+  --chart-marker-border: #d2d2d7;
+  --chart-marker-foreground: #3a3a3c;
+  --chart-label: #6e6e73;
   --chart-scale-mix: oklch(1 0 0);
   --chart-scale-01: oklch(0.922 0 0);
   --chart-scale-02: color-mix(in oklab, var(--chart-1) 35%, var(--chart-scale-mix));
@@ -106,28 +118,34 @@
 }
 
 /*
- * Light theme of "Slate & Mint", chosen in the header and remembered (public/theme-init.js
- * applies it before the first paint). Mint #14b8a6 on white is ~2.5:1, too faint for links and
- * button text, so actions use the palette's primary-active #0f766e (~5.5:1); mint stays for
- * focus rings, "new" dots and charts. Cyan text uses #0e7490 for the same reason. Surfaces are
- * a soft slate (#eef2f6 page, #f8fafc cards) rather than pure white, which glares.
+ * Light theme of "Indigo Aurora", chosen in the header and remembered (public/theme-init.js
+ * applies it before the first paint). Apple's light gray page (#f5f5f7) with white surfaces;
+ * indigo #5856d6 carries actions and links (5.6:1 on white), and the aurora is fainter so it
+ * tints rather than clouds the page.
  */
 :root[data-theme="light"] {
-  --gradient-from: #0d9488;
-  --gradient-to: #06b6d4;
-  --gradient-glow: rgb(13 148 136 / 0.16);
-  --grid-line: rgb(15 23 42 / 0.06);
+  --gradient-from: #5856d6;
+  --gradient-to: #2563eb;
+  --gradient-glow: rgb(88 86 214 / 0.14);
+  --grid-line: rgb(29 29 31 / 0.05);
+  --aurora:
+    radial-gradient(48rem 34rem at -6% -10%, rgb(88 86 214 / 0.16), transparent 64%),
+    radial-gradient(40rem 26rem at 104% -8%, rgb(37 99 235 / 0.1), transparent 62%),
+    radial-gradient(30rem 30rem at -10% 108%, rgb(124 58 237 / 0.08), transparent 64%);
+  --glass: rgb(255 255 255 / 0.72);
+  --glass-edge: rgb(255 255 255 / 0.9);
+  --shadow-soft: 0 1px 2px rgb(29 29 31 / 0.04), 0 12px 32px -16px rgb(29 29 31 / 0.18);
 
-  --image-outline: rgb(15 23 42 / 0.08);
-  --tile-icon: #1e293b;
+  --image-outline: rgb(29 29 31 / 0.08);
+  --tile-icon: #1d1d1f;
 
-  --category-ui: #0f766e;
-  --category-inspiration: #0e7490;
-  --category-animation: #0d9488;
+  --category-ui: #5856d6;
+  --category-inspiration: #2563eb;
+  --category-animation: #7c3aed;
   --category-icons: #0284c7;
-  --category-tools: #115e59;
-  --category-cloud: #06b6d4;
-  --category-other: #64748b;
+  --category-tools: #4338ca;
+  --category-cloud: #3b82f6;
+  --category-other: #71717a;
 }
 
 @theme inline {
@@ -252,6 +270,24 @@
     text-wrap: balance;
   }
 
+  /* Tracking is size-specific: large display text tightens, body stays near 0. */
+  h1 {
+    letter-spacing: -0.022em;
+  }
+
+  h2 {
+    letter-spacing: -0.014em;
+  }
+
+  h3 {
+    letter-spacing: -0.008em;
+  }
+
+  .tabular-display {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+  }
+
   p {
     text-wrap: pretty;
   }
@@ -262,25 +298,25 @@
 }
 /* Chart tokens in the dark theme (the class is on <html> while dark is active). */
 .dark {
-  --chart-1: #14b8a6;
-  --chart-2: #22d3ee;
-  --chart-3: #2dd4bf;
-  --chart-4: #64748b;
-  --chart-5: #f1f5f9;
+  --chart-1: #7c7cff;
+  --chart-2: #60a5fa;
+  --chart-3: #a78bfa;
+  --chart-4: #71717a;
+  --chart-5: #f5f5f7;
   --chart-positive: oklch(0.765 0.177 163.223);
   --chart-negative: oklch(0.704 0.191 22.216);
-  --chart-background: #17191e;
-  --chart-foreground: #94a3b8;
-  --chart-foreground-muted: #64748b;
-  --chart-crosshair: #94a3b8;
-  --chart-grid: #262930;
+  --chart-background: #15151c;
+  --chart-foreground: #a1a1aa;
+  --chart-foreground-muted: #71717a;
+  --chart-crosshair: #a1a1aa;
+  --chart-grid: #26262f;
   --chart-brush-border: var(--chart-grid);
-  --chart-marker-background: #17191e;
-  --chart-marker-border: #262930;
-  --chart-marker-foreground: #f1f5f9;
-  --chart-label: #94a3b8;
-  --chart-scale-mix: #17191e;
-  --chart-scale-01: #262930;
+  --chart-marker-background: #15151c;
+  --chart-marker-border: #26262f;
+  --chart-marker-foreground: #f5f5f7;
+  --chart-label: #a1a1aa;
+  --chart-scale-mix: #15151c;
+  --chart-scale-01: #26262f;
   --chart-scale-02: color-mix(in oklab, var(--chart-1) 35%, var(--chart-scale-mix));
   --chart-scale-03: color-mix(in oklab, var(--chart-1) 55%, var(--chart-scale-mix));
   --chart-scale-04: color-mix(in oklab, var(--chart-1) 78%, var(--chart-scale-mix));
@@ -292,4 +328,31 @@
   --chart-marker-badge-foreground: oklch(0.15 0 0);
   --chart-segment-background: oklch(0.41 0.0127 248.14 / 0.25);
   --chart-segment-line: oklch(1 0 0 / 0.25);
+}
+
+/* Translucent glass (the aurora frame, glass panels) turns solid for people who ask for it. */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  :root[data-theme="light"] {
+    --aurora: none;
+    --glass: var(--card);
+  }
+}
+
+/* Higher contrast: no tinted frame, so content edges stay crisp. */
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme="light"] {
+    --aurora: none;
+  }
+}
+
+@layer components {
+  /* The raised content panel: AppShell draws its surface; this adds the material's lit edge. */
+  .content-surface {
+    border-start-start-radius: var(--radius-page);
+    box-shadow:
+      inset 1px 1px 0 var(--glass-edge),
+      var(--shadow-soft);
+  }
 }

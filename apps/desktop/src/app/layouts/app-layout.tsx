@@ -39,7 +39,7 @@ export function AppLayout() {
         topNav={<AppHeader />}
         sideNav={<AppSidebar />}
       >
-        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="content-surface flex h-full min-h-0 flex-col overflow-hidden">
           {/* `relative` keeps absolutely positioned descendants inside this scroll container. */}
           <div className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
             <Outlet />

@@ -194,14 +194,14 @@ Library card): that note is what makes the agent's answers useful.
 Both apps are built on [Astryx](https://github.com/meta/astryx) (`@astryxdesign/core`) with a
 custom DevAtlas theme, so screens share one set of components and tokens.
 
-| Piece      | Where                                | Notes                                                                                                             |
-| ---------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| Theme      | `apps/desktop/src/themes/devatlas`   | The DevAtlas theme built with `astryx theme build`: teal accent, neutral charcoal surfaces, Geist and Geist Mono. |
-| Components | `@astryxdesign/core`                 | App shell, side and top navigation, lists, tables, cards, dialogs, selectors, banners, empty and error states.    |
-| Layout     | Tailwind CSS 4                       | Layout only. Colours, type and spacing come from Astryx tokens, never hex values.                                 |
-| Charts     | `apps/desktop/src/components/charts` | Area charts (d3-scale, d3-shape) for saves per month and star history.                                            |
-| Icons      | Lucide, Simple Icons                 | Interface icons, and brand logos for blogs and languages.                                                         |
-| Installer  | `apps/installer`                     | The same theme in a 560×600 wizard with a stepper, progress bar and banners.                                      |
+| Piece      | Where                                | Notes                                                                                                                                                                                                                              |
+| ---------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Theme      | `apps/desktop/src/themes/devatlas`   | The DevAtlas "Indigo Aurora" theme built with `astryx theme build`: system-indigo accent from the logo, cool near-black and Apple-gray surfaces, transparent title bar and sidebar over a still aurora glow, Geist and Geist Mono. |
+| Components | `@astryxdesign/core`                 | App shell, side and top navigation, lists, tables, cards, dialogs, selectors, banners, empty and error states.                                                                                                                     |
+| Layout     | Tailwind CSS 4                       | Layout only. Colours, type and spacing come from Astryx tokens, never hex values.                                                                                                                                                  |
+| Charts     | `apps/desktop/src/components/charts` | Area charts (d3-scale, d3-shape) for saves per month and star history.                                                                                                                                                             |
+| Icons      | Lucide, Simple Icons                 | Interface icons, and brand logos for blogs and languages.                                                                                                                                                                          |
+| Installer  | `apps/installer`                     | The same theme in a 560×600 wizard with a stepper, progress bar and banners.                                                                                                                                                       |
 
 Look components up with `pnpm exec astryx search "<what you need>"` and
 `pnpm exec astryx component <Name>` inside `apps/desktop`.

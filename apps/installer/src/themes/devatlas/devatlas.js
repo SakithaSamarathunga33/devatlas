@@ -114,24 +114,24 @@ export const devatlasTheme = {
     "--color-syntax-diff-header": "transparent",
     "--color-syntax-added-marker": "var(--color-syntax-punctuation)",
     "--color-syntax-removed-marker": "var(--color-syntax-punctuation)",
-    "--color-background-surface": "light-dark(#f8fafc, #17191e)",
-    "--color-background-body": "light-dark(#eef2f6, #0f1115)",
-    "--color-background-card": "light-dark(#f8fafc, #17191e)",
-    "--color-background-popover": "light-dark(#f8fafc, #1f2228)",
-    "--color-background-muted": "light-dark(#171D1C0D, #171D1C80)",
-    "--color-accent": "light-dark(#006C64, #22DEC9)",
+    "--color-background-surface": "light-dark(#ffffff, #15151c)",
+    "--color-background-body": "light-dark(#f5f5f7, #0b0b10)",
+    "--color-background-card": "light-dark(#ffffff, #15151c)",
+    "--color-background-popover": "light-dark(#ffffff, #1c1c24)",
+    "--color-background-muted": "light-dark(#1C1B210D, #1C1B2180)",
+    "--color-accent": "light-dark(#5856d6, #5e5ce6)",
     "--color-accent-muted": "light-dark(color-mix(in srgb, var(--color-accent) 20%, transparent), color-mix(in srgb, var(--color-accent) 25%, transparent))",
-    "--color-neutral": "light-dark(#171D1C1A, #DCE4E233)",
-    "--color-overlay": "light-dark(#171D1C66, #171D1C99)",
-    "--color-overlay-hover": "light-dark(#171D1C0D, #FFFFFF0D)",
-    "--color-overlay-pressed": "light-dark(#171D1C1A, #FFFFFF1A)",
-    "--color-text-primary": "light-dark(#171D1C, #DCE4E2)",
-    "--color-text-secondary": "light-dark(#3C4948, #9FAEAB)",
-    "--color-text-disabled": "light-dark(#849492, #53615E)",
-    "--color-text-accent": "var(--color-accent)",
+    "--color-neutral": "light-dark(#1C1B211A, #E3E1EB33)",
+    "--color-overlay": "light-dark(#1C1B2166, #1C1B2199)",
+    "--color-overlay-hover": "light-dark(#1C1B210D, #FFFFFF0D)",
+    "--color-overlay-pressed": "light-dark(#1C1B211A, #FFFFFF1A)",
+    "--color-text-primary": "light-dark(#1C1B21, #E3E1EB)",
+    "--color-text-secondary": "light-dark(#484551, #ADA9B8)",
+    "--color-text-disabled": "light-dark(#928F9D, #605D6A)",
+    "--color-text-accent": "light-dark(#5856d6, #a9a8ff)",
     "--color-on-dark": "#ffffff",
     "--color-on-light": "#111111",
-    "--color-on-accent": "light-dark(#FFFFFF, #003C32)",
+    "--color-on-accent": "light-dark(#ffffff, #ffffff)",
     "--color-on-success": "light-dark(#ffffff, #111111)",
     "--color-on-error": "light-dark(#ffffff, #111111)",
     "--color-on-warning": "#111111",
@@ -146,19 +146,19 @@ export const devatlasTheme = {
     "--color-on-success-muted": "light-dark(#00490b, #90ca90)",
     "--color-on-warning-muted": "light-dark(#4b3900, #eec448)",
     "--color-on-error-muted": "light-dark(#76000c, #ffaea7)",
-    "--color-icon-accent": "var(--color-accent)",
-    "--color-icon-primary": "light-dark(#171D1C, #DCE4E2)",
-    "--color-icon-secondary": "light-dark(#3C4948, #9FAEAB)",
-    "--color-icon-disabled": "light-dark(#849492, #53615E)",
+    "--color-icon-accent": "light-dark(#5856d6, #a9a8ff)",
+    "--color-icon-primary": "light-dark(#1C1B21, #E3E1EB)",
+    "--color-icon-secondary": "light-dark(#484551, #ADA9B8)",
+    "--color-icon-disabled": "light-dark(#928F9D, #605D6A)",
     "--color-success": "light-dark(#198100, #64af4c)",
     "--color-warning": "#ffce2f",
     "--color-error": "light-dark(#c9303a, #ff705d)",
     "--color-success-muted": "light-dark(#bce0bb, #90ca903D)",
     "--color-error-muted": "light-dark(#ffc4be, #ff98903D)",
     "--color-warning-muted": "light-dark(#fae19e, #e2b6233D)",
-    "--color-border": "light-dark(#171D1C1A, #EAF2F11A)",
-    "--color-border-emphasized": "light-dark(#879694, #5D6B68)",
-    "--color-skeleton": "light-dark(#9FAEAC, #3C4947)",
+    "--color-border": "light-dark(#e5e5ea, #26262f)",
+    "--color-border-emphasized": "light-dark(#928F9D, #696673)",
+    "--color-skeleton": "light-dark(#ADA9B8, #484551)",
     "--color-shadow": "light-dark(#0000001A, #0000004D)",
     "--color-tint-hover": "light-dark(black, white)",
     "--color-background-red": "light-dark(#ffc4be, #5b2b28)",
@@ -202,10 +202,10 @@ export const devatlasTheme = {
     "--color-icon-gray": "light-dark(#474747, #9e9e9e)",
     "--color-text-gray": "light-dark(#1b1b1b, #d4d4d4)",
     "--radius-none": "0px",
-    "--radius-inner": "0.375rem",
-    "--radius-element": "0.625rem",
-    "--radius-container": "0.75rem",
-    "--radius-page": "1.75rem",
+    "--radius-inner": "6px",
+    "--radius-element": "12px",
+    "--radius-container": "18px",
+    "--radius-page": "42px",
     "--radius-full": "9999px",
     "--shadow-low": "0 2px 4px light-dark(oklch(0 0 0 / 5%), oklch(0 0 0 / 25%)), 0 4px 8px light-dark(oklch(0 0 0 / 10%), oklch(0 0 0 / 40%)), inset 0 0 0 1px light-dark(transparent, oklch(1 0 0 / 8%))",
     "--shadow-med": "0 2px 4px light-dark(oklch(0 0 0 / 5%), oklch(0 0 0 / 35%)), 0 4px 12px light-dark(oklch(0 0 0 / 10%), oklch(0 0 0 / 50%)), inset 0 0 0 1px light-dark(transparent, oklch(1 0 0 / 12%))",
@@ -215,8 +215,11 @@ export const devatlasTheme = {
     "--shadow-inset-success": "inset 0px 0px 0px 2px #2f7d334D",
     "--shadow-inset-warning": "inset 0px 0px 0px 2px #f8d36a4D",
     "--shadow-inset-error": "inset 0px 0px 0px 2px #de47454D",
-    "--color-background-inverted": "light-dark(#171D1C, #F6FEFC)",
-    "--color-track": "light-dark(#9FAEAC, #3C4947)"
+    "--color-background-inverted": "light-dark(#1C1B21, #FDFBFF)",
+    "--color-track": "light-dark(#ADA9B8, #484551)",
+    "--radius-chat": "42px",
+    "--ease-entrance": "cubic-bezier(0, 0, 0.2, 1)",
+    "--ease-move": "cubic-bezier(0, 0, 0.2, 1)"
   },
   localTokens: {
     "--astryx-theme-neutral-color-status-fill-accent": "light-dark(#0074e2, #6d9cfe)"
@@ -434,6 +437,27 @@ export const devatlasTheme = {
       "base": {
         "padding": "var(--spacing-3)"
       }
+    },
+    "app-shell": {
+      "base": {
+        "backgroundImage": "var(--aurora, none)"
+      }
+    },
+    "app-shell-header": {
+      "base": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "app-shell-sidenav": {
+      "base": {
+        "backgroundColor": "transparent"
+      }
+    },
+    "side-nav-item": {
+      "selected": {
+        "backgroundColor": "var(--color-accent-muted)",
+        "color": "var(--color-text-accent)"
+      }
     }
   },
   __onDark: {
@@ -504,16 +528,21 @@ export const devatlasTheme = {
     },
     "color": {
       "accent": [
-        "#0f766e",
-        "#14b8a6"
+        "#5856d6",
+        "#5e5ce6"
       ],
-      "neutralStyle": "neutral"
+      "neutralStyle": "cool"
+    },
+    "radius": {
+      "base": 4,
+      "multiplier": 1.5
     },
     "motion": {
       "fast": 125,
       "medium": 300,
       "slow": 700,
-      "ratio": 0.75
+      "ratio": 0.75,
+      "character": "crisp"
     }
   },
   icons: themeIcons,

@@ -45,7 +45,7 @@ export function RepoActivityLine({ fullName }: { fullName: string }) {
             </RepoLink>
           </Text>
           {differenceInDays(new Date(), new Date(release.publishedAt)) < NEW_RELEASE_DAYS && (
-            <Badge variant="teal" label="New release" />
+            <Badge variant="purple" label="New release" />
           )}
           <Timestamp value={release.publishedAt} format="relative" hasTooltip={false} />
         </HStack>

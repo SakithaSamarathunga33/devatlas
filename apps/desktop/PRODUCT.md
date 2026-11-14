@@ -52,13 +52,19 @@ allow-list (GitHub Search API, Hacker News, 35 official blogs, TIOBE/PYPL).
 
 - Name: DevAtlas.
 - Logo: the "D" compass mark (purple-to-blue gradient, `public/devatlas-mark.png`) stays as-is.
-- Colour palette (binding, set by the owner): "Slate & Mint", light and dark. Dark: background
-  `#0F1115`, surface `#17191E` (neutral charcoal, changed from blue-slate `#1E293B` on
-  2026-11-11), surface-alt `#1F2228`, border `#262930`, text `#F1F5F9` /
-  `#94A3B8` / `#64748B`, mint `#14B8A6` (hover `#0D9488`, active `#0F766E`), teal `#2DD4BF`,
-  cyan `#22D3EE`. Light: background `#F8FAFC`, surface `#FFFFFF`, surface-alt `#F1F5F9`, border
-  `#E2E8F0`, text `#0F172A` / `#334155` / `#64748B`; actions use `#0F766E` and cyan text
-  `#0E7490` for contrast on white. Tokens live in `src/styles/globals.css`.
+- Colour palette (binding, set by the owner on 2026-11-14, replacing "Slate & Mint"): "Indigo
+  Aurora", light and dark, taken from the logo's indigo-to-blue gradient. Dark: background
+  `#0B0B10`, surface `#15151C`, popover `#1C1C24`, border `#26262F`; accent (Apple system indigo)
+  `#5E5CE6` with white labels, links and accent icons `#A9A8FF`. Light: background `#F5F5F7`,
+  surfaces `#FFFFFF`, border `#E5E5EA`; accent and links `#5856D6`. Brand gradient `#6366F1` to
+  `#3B82F6` (light `#5856D6` to `#2563EB`); categories stay in the indigo, blue and violet family.
+- Look and feel follow Apple's materials. A still aurora glow lights the window frame behind a
+  transparent title bar and sidebar, and content sits on one raised panel with a lit edge. The
+  current page is tinted with the accent, large headings use tighter tracking, and springs settle
+  without overshoot. Reduced transparency and higher contrast turn the glow off, and reduced
+  motion shows animated elements in their final state.
+  Theme in `src/themes/devatlas/devatlasTheme.ts` (copied to the installer), tokens in
+  `src/styles/globals.css`.
 - Design system the owner chose: Astryx (`@astryxdesign/core`), with a DevAtlas theme in `src/themes/devatlas`.
 
 ## Evidence on Hand
