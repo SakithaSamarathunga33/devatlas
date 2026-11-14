@@ -6,7 +6,7 @@
 
 **Every developer resource you rely on, in one place your AI agents can read.**
 
-[Website](https://sakithasamarathunga33.github.io/devatlas/) ·
+[Website](https://devatlas.sakitha.com/) ·
 [Download for Windows](https://github.com/SakithaSamarathunga33/devatlas/releases/latest) ·
 [Use with Claude Code and Cursor](#use-with-ai-coding-agents-mcp) · [FAQ](#faq)
 
