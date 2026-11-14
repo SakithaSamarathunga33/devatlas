@@ -44,6 +44,52 @@ jobs:
       - run: pnpm format:check
       - run: bash scripts/release-notes.test.sh
 
+  e2e:
+    name: End-to-end tests
+    # The suite drives the real UI in Chromium with Tauri's IPC mocked, so Linux runs it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @devatlas/desktop exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: playwright-report
+          path: |
+            apps/desktop/playwright-report/
+            apps/desktop/test-results/
+          retention-days: 7
+
+  # Known vulnerabilities in what DevAtlas ships. A new advisory fails CI, so nothing releases
+  # until it is fixed or accepted with a reason in .cargo/audit.toml.
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+
+      # Production dependencies only; dev tools such as ESLint never reach users.
+      - run: pnpm audit --prod
+      - run: cargo install cargo-audit --version 0.23.0 --locked
+      - run: cargo audit
+
   rust:
     name: Rust checks (Windows)
     # windows-latest ships the MSVC build tools, the Windows SDK and WebView2,

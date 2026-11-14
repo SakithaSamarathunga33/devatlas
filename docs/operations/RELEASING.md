@@ -1,6 +1,7 @@
 # Releasing DevAtlas
 
-Every push to `main` that passes CI becomes a release. There is nothing to tag by hand.
+Every push to `main` that passes CI becomes a release once the owner approves it. There is nothing
+to tag by hand.
 
 ## How a push becomes a release
 
@@ -11,7 +12,11 @@ Every push to `main` that passes CI becomes a release. There is nothing to tag b
 2. **Release** (`.github/workflows/release.yml`) starts when CI completes. It runs only when CI
    succeeded on a `push` to `main` of this repository; pull requests and forks never release.
 3. It runs in the `release` environment, whose `TAURI_SIGNING_PRIVATE_KEY` secret only `main` may
-   use. It gzips the app into `DevAtlas-Update-<tag>.gz` and signs it with the Tauri CLI from the
+   use. The environment requires the owner's approval, so the job waits until someone opens the
+   Release run in the **Actions** tab and chooses **Review deployments → release → Approve and
+   deploy** (or **Reject** to ship nothing). GitHub e-mails the reviewer when a run is waiting.
+   To change who approves, or to go back to automatic releases, edit **Settings → Environments →
+   release → Required reviewers**. It gzips the app into `DevAtlas-Update-<tag>.gz` and signs it with the Tauri CLI from the
    lockfile. The signature names the file, so an old package can't pose as a newer release.
 4. `scripts/release-notes.sh` lists the commits since the previous `v*` tag.
 5. `gh release create` publishes `v<version>-build.<CI run>` (version from the root `Cargo.toml`)
@@ -71,7 +76,7 @@ release is fixed by shipping a newer one.
 
 ## Pre-release checklist
 
-Pushing to `main` is releasing, so check before the push:
+Pushing to `main` queues a release for approval, so check before the push and before approving:
 
 - [ ] All checks pass locally: `pnpm typecheck && pnpm lint && pnpm test && pnpm format:check`
       and `pnpm rust:fmt && pnpm rust:clippy`.
@@ -85,6 +90,9 @@ Pushing to `main` is releasing, so check before the push:
       `capabilities/default.json`; the CSP is unchanged or the change is reviewed.
 - [ ] README, the [security model](../security/security-model.md) and the Privacy section match
       what the app now sends over the network.
+- [ ] `cargo audit` reports no vulnerabilities (accepted ones are listed with a reason in
+      `.cargo/audit.toml`) and `pnpm audit --prod` finds none.
+- [ ] `pnpm test:e2e` passes (launch-critical journeys).
 - [ ] Bump `version` in the root `Cargo.toml` for a notable release (optional: the build number
       alone orders releases).
 

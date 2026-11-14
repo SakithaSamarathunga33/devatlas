@@ -45,6 +45,35 @@ pub(crate) fn init(data_dir: &Path) {
             tracing::warn!(%error, "could not open the log file; logging to stdout only");
         }
     }
+    record_panics();
+}
+
+/// A crash leaves its message, place and backtrace in the log file (nothing is sent anywhere),
+/// then the default handler runs as before.
+fn record_panics() {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let place = info
+            .location()
+            .map(|at| format!("{}:{}", at.file(), at.line()))
+            .unwrap_or_default();
+        tracing::error!(
+            message = panic_message(info.payload()),
+            %place,
+            backtrace = %std::backtrace::Backtrace::force_capture(),
+            "DevAtlas crashed"
+        );
+        default_hook(info);
+    }));
+}
+
+/// A panic's text: `panic!` carries a `&str` or a `String`; anything else has none.
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> &str {
+    payload
+        .downcast_ref::<&str>()
+        .copied()
+        .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+        .unwrap_or("(no message)")
 }
 
 /// Opens `dir/name` for appending. A file over `max_bytes` first becomes `name.old`,
@@ -63,6 +92,17 @@ fn open_log_file(dir: &Path, name: &str, max_bytes: u64) -> io::Result<File> {
 #[cfg(test)]
 mod tests {
     use std::io::Write;
+
+    #[test]
+    fn reads_the_text_of_any_panic() {
+        let literal = std::panic::catch_unwind(|| panic!("plain")).unwrap_err();
+        let formatted = std::panic::catch_unwind(|| panic!("code {}", 7)).unwrap_err();
+        let other = std::panic::catch_unwind(|| std::panic::panic_any(42_u8)).unwrap_err();
+
+        assert_eq!(super::panic_message(literal.as_ref()), "plain");
+        assert_eq!(super::panic_message(formatted.as_ref()), "code 7");
+        assert_eq!(super::panic_message(other.as_ref()), "(no message)");
+    }
 
     use super::*;
 

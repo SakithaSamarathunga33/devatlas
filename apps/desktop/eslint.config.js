@@ -12,6 +12,8 @@ export default defineConfig([
   globalIgnores([
     "dist",
     "coverage",
+    "playwright-report",
+    "test-results",
     "src-tauri",
     "src/components/charts",
     "src/components/shimmering-text.tsx",
@@ -29,7 +31,7 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
       parserOptions: {
-        project: ["./tsconfig.json", "./tsconfig.node.json"],
+        project: ["./tsconfig.json", "./tsconfig.node.json", "./e2e/tsconfig.json"],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -43,6 +45,11 @@ export default defineConfig([
     // shadcn/ui modules export variant helpers next to components by design.
     files: ["src/components/ui/**/*.tsx"],
     rules: { "react-refresh/only-export-components": "off" },
+  },
+  {
+    // Playwright fixtures hand their value to `use()`, which is not React's hook.
+    files: ["e2e/**/*.ts"],
+    rules: { "react-hooks/rules-of-hooks": "off" },
   },
   // Must stay last: turns off stylistic rules that Prettier owns.
   prettier,

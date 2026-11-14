@@ -1,0 +1,14 @@
+# cargo-audit settings (https://github.com/rustsec/rustsec/tree/main/cargo-audit).
+# Every ignored advisory needs a reason and a condition for removing it.
+
+[advisories]
+ignore = [
+    # RUSTSEC-2026-0459 / CVE-2026-119375: bundled SQLite < 3.54 can return stale page-cache
+    # memory when it opens a crafted database plus a `-wal` file with a different page size.
+    # Fixed in libsqlite3-sys 0.39, but sqlx-sqlite 0.9.0 (the latest sqlx) requires < 0.38,
+    # so it can't be upgraded yet. Reachable only through Firefox's own places.sqlite + -wal,
+    # which an attacker could craft only with write access to the user's profile; the effect
+    # is stray bytes in bookmark titles shown to that same user. Local-only, low impact.
+    # Remove this line as soon as sqlx allows libsqlite3-sys >= 0.39 (then `cargo update`).
+    "RUSTSEC-2026-0459",
+]

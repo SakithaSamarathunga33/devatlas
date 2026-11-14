@@ -22,7 +22,8 @@
     "rust:fmt": "cargo fmt --all -- --check",
     "rust:clippy": "cargo clippy --workspace --all-targets -- -D warnings",
     "rust:test": "cargo test --workspace",
-    "test": "pnpm -r test && cargo test --workspace"
+    "test": "pnpm -r test && cargo test --workspace",
+    "test:e2e": "pnpm --filter @devatlas/desktop test:e2e"
   },
   "devDependencies": {
     "prettier": "^3.9.10",

@@ -73,6 +73,8 @@ pnpm rust:fmt && pnpm rust:clippy
 ```
 
 - Frontend: Vitest + Testing Library; mock `@tauri-apps/api/core` at the module boundary.
+- E2E: Playwright in `apps/desktop/e2e/` drives the real UI with Tauri's IPC answered by
+  `e2e/fake-backend.ts` (run `pnpm test:e2e`). A command the UI newly calls needs an answer there.
 - Rust: unit tests next to the code (`#[cfg(test)]`). Test real behavior, never `assert!(true)`.
 - Never report a check as passing unless you ran it.
 
