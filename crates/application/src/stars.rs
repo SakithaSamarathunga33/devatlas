@@ -87,6 +87,42 @@ pub async fn starred_links<S: StarSource>(
     Ok(links)
 }
 
+/// Port: remembers whose stars to keep in sync. `None` means syncing is off.
+pub trait StarSyncStore {
+    type Error: std::error::Error;
+
+    fn load(&self) -> Result<Option<String>, Self::Error>;
+    fn save(&self, user: Option<&str>) -> Result<(), Self::Error>;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum StarSyncError<E: std::error::Error> {
+    #[error("Enter a GitHub username, such as torvalds.")]
+    InvalidUsername,
+    #[error("Couldn't save the sync setting: {0}")]
+    Store(E),
+}
+
+/// Keeps `user`'s stars in sync from now on, or stops with `None`. Returns the username now
+/// synced, cleaned (`@torvalds` is stored as `torvalds`).
+pub fn set_sync<S: StarSyncStore>(
+    store: &S,
+    user: Option<&str>,
+) -> Result<Option<String>, StarSyncError<S::Error>> {
+    let user = match user {
+        Some(raw) => Some(clean_username(raw).ok_or(StarSyncError::InvalidUsername)?),
+        None => None,
+    };
+    store.save(user.as_deref()).map_err(StarSyncError::Store)?;
+    Ok(user)
+}
+
+/// The username whose stars are synced, re-checked because the file could have been edited;
+/// `None` when syncing is off.
+pub fn synced_user<S: StarSyncStore>(store: &S) -> Result<Option<String>, S::Error> {
+    Ok(store.load()?.as_deref().and_then(clean_username))
+}
+
 #[cfg(test)]
 mod tests {
     use std::convert::Infallible;
@@ -196,5 +232,53 @@ mod tests {
             block_on(starred_links(&source, "../x", 0)),
             Err(StarsError::InvalidUsername)
         ));
+    }
+
+    #[derive(Default)]
+    struct MemorySync(Mutex<Option<String>>);
+
+    impl StarSyncStore for MemorySync {
+        type Error = Infallible;
+
+        fn load(&self) -> Result<Option<String>, Infallible> {
+            Ok(self.0.lock().unwrap().clone())
+        }
+
+        fn save(&self, user: Option<&str>) -> Result<(), Infallible> {
+            *self.0.lock().unwrap() = user.map(str::to_owned);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn remembers_a_cleaned_username_until_syncing_is_turned_off() {
+        let store = MemorySync::default();
+
+        assert_eq!(
+            set_sync(&store, Some(" @octocat ")).unwrap().as_deref(),
+            Some("octocat")
+        );
+        assert_eq!(synced_user(&store).unwrap().as_deref(), Some("octocat"));
+
+        assert_eq!(set_sync(&store, None).unwrap(), None);
+        assert_eq!(synced_user(&store).unwrap(), None);
+    }
+
+    #[test]
+    fn an_invalid_username_turns_nothing_on() {
+        let store = MemorySync::default();
+
+        assert!(matches!(
+            set_sync(&store, Some("not a/user")),
+            Err(StarSyncError::InvalidUsername)
+        ));
+        assert_eq!(synced_user(&store).unwrap(), None);
+    }
+
+    #[test]
+    fn a_tampered_stored_username_is_ignored() {
+        let store = MemorySync(Mutex::new(Some("../../etc".to_owned())));
+
+        assert_eq!(synced_user(&store).unwrap(), None);
     }
 }

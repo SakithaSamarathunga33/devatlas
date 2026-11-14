@@ -50,6 +50,9 @@ pub fn run() -> tauri::Result<()> {
         .invoke_handler(tauri::generate_handler![
             commands::agent::get_agent_connection,
             commands::agent::import_github_stars,
+            commands::agent::get_star_sync,
+            commands::agent::set_star_sync,
+            commands::agent::sync_github_stars,
             commands::app_info::get_app_info,
             commands::app_info::check_for_update,
             commands::app_info::install_update,

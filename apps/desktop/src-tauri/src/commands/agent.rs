@@ -54,12 +54,52 @@ pub async fn import_github_stars(
     store: State<'_, LibraryStore>,
     discovery: State<'_, Discovery>,
 ) -> Result<usize, String> {
+    import_stars(&store, &discovery, &username).await
+}
+
+/// Whose stars are kept in sync, or `None` when syncing is off.
+#[tauri::command]
+pub async fn get_star_sync(store: State<'_, LibraryStore>) -> Result<Option<String>, String> {
+    stars::synced_user(&store.star_sync).map_err(|error| {
+        tracing::warn!(%error, "could not read the star sync setting");
+        error.to_string()
+    })
+}
+
+/// Keeps `username`'s stars in sync from now on, or stops with `None`.
+#[tauri::command]
+pub async fn set_star_sync(
+    username: Option<String>,
+    store: State<'_, LibraryStore>,
+) -> Result<Option<String>, String> {
+    stars::set_sync(&store.star_sync, username.as_deref()).map_err(|error| error.to_string())
+}
+
+/// Imports new stars for the synced username; 0 when syncing is off. The app calls this at
+/// start and every few hours.
+#[tauri::command]
+pub async fn sync_github_stars(
+    store: State<'_, LibraryStore>,
+    discovery: State<'_, Discovery>,
+) -> Result<usize, String> {
+    let user = stars::synced_user(&store.star_sync).map_err(|error| error.to_string())?;
+    match user {
+        Some(user) => import_stars(&store, &discovery, &user).await,
+        None => Ok(0),
+    }
+}
+
+async fn import_stars(
+    store: &LibraryStore,
+    discovery: &Discovery,
+    username: &str,
+) -> Result<usize, String> {
     // Fetched before taking the lock: up to ten requests, and the library polls.
-    let links = stars::starred_links(discovery.github(), &username, now_ms())
+    let links = stars::starred_links(discovery.github(), username, now_ms())
         .await
         .map_err(|error| error.to_string())?;
     let _guard = store.lock.lock().await;
-    let selected = selection(&store);
+    let selected = selection(store);
     library::import_links(
         &selected.bookmarks,
         &store.saved,

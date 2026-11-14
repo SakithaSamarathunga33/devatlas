@@ -10,6 +10,7 @@ use devatlas_storage::browsers;
 use devatlas_storage::library_memory::JsonLibraryMemory;
 use devatlas_storage::saved_links::JsonSavedLinks;
 use devatlas_storage::settings::JsonSettings;
+use devatlas_storage::star_sync::JsonStarSync;
 use tauri::State;
 use tokio::sync::Mutex;
 
@@ -22,6 +23,8 @@ pub struct LibraryStore {
     pub(crate) saved: JsonSavedLinks,
     pub(crate) memory: JsonLibraryMemory,
     pub(super) settings: JsonSettings,
+    /// Whose GitHub stars to keep in sync.
+    pub(super) star_sync: JsonStarSync,
     pub(super) lock: Mutex<()>,
 }
 
@@ -31,6 +34,7 @@ impl LibraryStore {
             saved: JsonSavedLinks::new(data_dir.join("saved-links.json")),
             memory: JsonLibraryMemory::new(data_dir.join("library-memory.json")),
             settings: JsonSettings::new(data_dir.join("settings.json")),
+            star_sync: JsonStarSync::new(data_dir.join("star-sync.json")),
             lock: Mutex::new(()),
         }
     }

@@ -4,6 +4,7 @@ import { CodeBlock } from "@astryxdesign/core/CodeBlock";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack } from "@astryxdesign/core/HStack";
 import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { Switch } from "@astryxdesign/core/Switch";
 import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
@@ -12,7 +13,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { getAgentConnection, importGithubStars } from "@/services/agent.service";
+import {
+  getAgentConnection,
+  getStarSync,
+  importGithubStars,
+  setStarSync,
+} from "@/services/agent.service";
 import { describeError } from "@/services/ipc";
 import type { AgentConnection } from "@/types/agent.types";
 
@@ -97,11 +103,21 @@ export function AgentConnectionSettings() {
   );
 }
 
-/** Imports the repositories someone starred on GitHub into the library. */
+const starSyncQueryKey = ["star-sync"] as const;
+
+/**
+ * Imports the repositories someone starred on GitHub into the library, once or, with the
+ * switch on, again at every start and every few hours (see LibraryWatcher).
+ */
 export function GithubStarsSettings() {
   const queryClient = useQueryClient();
-  const [username, setUsername] = useState("");
   const [added, setAdded] = useState<number | null>(null);
+  const syncedUser = useQuery({ queryKey: starSyncQueryKey, queryFn: getStarSync });
+  const isSyncing = Boolean(syncedUser.data);
+  // What was typed, else the synced username once it loads.
+  const [typed, setTyped] = useState<string | null>(null);
+  const username = typed ?? syncedUser.data ?? "";
+
   const importStars = useMutation({
     mutationFn: () => importGithubStars(username),
     onSuccess: async (count) => {
@@ -112,11 +128,22 @@ export function GithubStarsSettings() {
       toast.error("Couldn't import the stars", { description: errorText(error) });
     },
   });
+  const toggleSync = useMutation({
+    mutationFn: (isOn: boolean) => setStarSync(isOn ? username : null),
+    onSuccess: (user) => {
+      queryClient.setQueryData(starSyncQueryKey, user);
+      // Turning it on imports right away; later runs happen in the background.
+      if (user) importStars.mutate();
+    },
+    onError: (error) => {
+      toast.error("Couldn't change star syncing", { description: errorText(error) });
+    },
+  });
 
   return (
     <SettingsSection
       title="GitHub stars"
-      description="The repositories you starred are bookmarks you already keep. Import up to 1,000 of them; ones already in your library are skipped."
+      description="The repositories you starred are bookmarks you already keep. Import up to 1,000 of them; ones already in your library are skipped. Keep them in sync to add new stars automatically."
     >
       <form
         onSubmit={(event) => {
@@ -132,8 +159,17 @@ export function GithubStarsSettings() {
             placeholder="octocat"
             value={username}
             onChange={(value) => {
-              setUsername(value);
+              setTyped(value);
               setAdded(null);
+            }}
+          />
+          <Switch
+            label="Keep my stars in sync"
+            description="Adds new stars when DevAtlas starts and every 6 hours. Unstarring never removes a link."
+            value={isSyncing}
+            isDisabled={toggleSync.isPending || (!isSyncing && username.trim() === "")}
+            onChange={(isOn) => {
+              toggleSync.mutate(isOn);
             }}
           />
           {added !== null && (

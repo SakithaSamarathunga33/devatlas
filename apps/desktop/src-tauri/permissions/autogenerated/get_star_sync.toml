@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-star-sync"
+description = "Enables the get_star_sync command without any pre-configured scope."
+commands.allow = ["get_star_sync"]
+
+[[permission]]
+identifier = "deny-get-star-sync"
+description = "Denies the get_star_sync command without any pre-configured scope."
+commands.deny = ["get_star_sync"]

@@ -79,6 +79,7 @@ function mockBackend(
     if (command === "get_app_info") return appInfo();
     if (command === "check_for_update") return Promise.resolve(update);
     if (command === "install_update") return install();
+    if (command === "sync_github_stars") return Promise.resolve(0);
     if (command === "list_library") return Promise.resolve(LIBRARY);
     if (command === "list_trending_repos") return Promise.resolve([TRENDING]);
     if (command === "list_top_stories") return Promise.resolve([STORY]);
@@ -108,6 +109,16 @@ describe("App", () => {
     expect(await screen.findByText("DevAtlas 0.1.0 · Windows")).toBeInTheDocument();
     expect(screen.getByText("Backend connected")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Update to/ })).not.toBeInTheDocument();
+  });
+
+  it("syncs GitHub stars in the background when the app starts", async () => {
+    mockBackend(() => Promise.resolve(APP_INFO));
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("sync_github_stars");
+    });
   });
 
   it("installs a newer release when Update is pressed", async () => {

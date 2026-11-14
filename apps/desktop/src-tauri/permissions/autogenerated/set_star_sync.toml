@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-star-sync"
+description = "Enables the set_star_sync command without any pre-configured scope."
+commands.allow = ["set_star_sync"]
+
+[[permission]]
+identifier = "deny-set-star-sync"
+description = "Denies the set_star_sync command without any pre-configured scope."
+commands.deny = ["set_star_sync"]

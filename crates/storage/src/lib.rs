@@ -25,4 +25,5 @@ pub mod rankings;
 pub mod saved_links;
 pub mod settings;
 pub mod star_history;
+pub mod star_sync;
 pub mod web_preview;

@@ -30,11 +30,13 @@ const VIEW: SettingsView = {
   ],
 };
 
+let starSyncUser: string | null = null;
+
 function renderSettings(
   view: SettingsView = VIEW,
   save: () => Promise<unknown> = () => Promise.resolve(view),
 ) {
-  vi.mocked(invoke).mockImplementation((command) => {
+  vi.mocked(invoke).mockImplementation((command, args) => {
     if (command === "get_settings") return Promise.resolve(view);
     if (command === "update_settings") return save();
     if (command === "set_github_token" || command === "clear_github_token") {
@@ -52,6 +54,12 @@ function renderSettings(
       });
     }
     if (command === "import_github_stars") return Promise.resolve(12);
+    if (command === "get_star_sync") return Promise.resolve(starSyncUser);
+    if (command === "set_star_sync") {
+      const next = (args as { username: string | null }).username;
+      starSyncUser = next;
+      return Promise.resolve(next);
+    }
     return Promise.resolve({ source: { browser: "", folder: "", warning: null }, resources: [] });
   });
   render(
@@ -229,6 +237,39 @@ describe("SettingsPage", () => {
 
     expect(await screen.findByText("Added 12 repositories")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("import_github_stars", { username: "octocat" });
+  });
+
+  it("keeps a user's stars in sync once turned on, and imports them right away", async () => {
+    starSyncUser = null;
+    renderSettings();
+
+    fireEvent.change(await screen.findByRole("textbox", { name: "GitHub username" }), {
+      target: { value: "octocat" },
+    });
+    fireEvent.click(screen.getByRole("switch", { name: /Keep my stars in sync/ }));
+
+    expect(await screen.findByText("Added 12 repositories")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("set_star_sync", { username: "octocat" });
+    expect(invoke).toHaveBeenCalledWith("import_github_stars", { username: "octocat" });
+    await waitFor(() => {
+      expect(screen.getByRole("switch", { name: /Keep my stars in sync/ })).toBeChecked();
+    });
+  });
+
+  it("shows a synced user and stops syncing when turned off", async () => {
+    starSyncUser = "octocat";
+    renderSettings();
+
+    const toggle = await screen.findByRole("switch", { name: /Keep my stars in sync/ });
+    await waitFor(() => {
+      expect(toggle).toBeChecked();
+    });
+    expect(screen.getByRole("textbox", { name: "GitHub username" })).toHaveValue("octocat");
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("set_star_sync", { username: null });
+    });
   });
 
   it("offers Firefox and Opera when they are installed", async () => {
