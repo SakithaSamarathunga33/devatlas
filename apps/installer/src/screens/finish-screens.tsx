@@ -4,12 +4,11 @@ import { Center } from "@astryxdesign/core/Center";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack } from "@astryxdesign/core/HStack";
 import { Icon } from "@astryxdesign/core/Icon";
-import { List, ListItem } from "@astryxdesign/core/List";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
 import { Spinner } from "@astryxdesign/core/Spinner";
 import { Text } from "@astryxdesign/core/Text";
 import { VStack } from "@astryxdesign/core/VStack";
-import { ArrowRight, Bookmark, Check, Circle, CircleCheck, Layers, Search } from "lucide-react";
+import { Check, Circle, CircleCheck } from "lucide-react";
 
 import { StepScreen } from "@/components/ui";
 import { INSTALL_STEPS, type InstallProgress } from "@/services/installer";
@@ -123,47 +122,5 @@ export function CompleteScreen({ isLaunching, error, onLaunch, onFinish }: Compl
         </VStack>
       </VStack>
     </Center>
-  );
-}
-
-const FEATURES = [
-  {
-    icon: Bookmark,
-    label: "Capture",
-    detail: "Save links, repos and docs the moment you find them.",
-  },
-  {
-    icon: Layers,
-    label: "Organize",
-    detail: "Your browser bookmarks and saved links in one library.",
-  },
-  { icon: Search, label: "Discover", detail: "Trending repos, news and rankings for developers." },
-];
-
-export function ReadyScreen({ onGetStarted }: { onGetStarted: () => void }) {
-  return (
-    <StepScreen
-      title="Ready to Get Started"
-      description="DevAtlas is open. Here's what you can do first."
-      footer={
-        <Button
-          label="Get Started"
-          variant="primary"
-          endContent={<Icon icon={ArrowRight} />}
-          onClick={onGetStarted}
-        />
-      }
-    >
-      <List>
-        {FEATURES.map(({ icon, label, detail }) => (
-          <ListItem
-            key={label}
-            label={label}
-            description={detail}
-            startContent={<Icon icon={icon} color="accent" />}
-          />
-        ))}
-      </List>
-    </StepScreen>
   );
 }

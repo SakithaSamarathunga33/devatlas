@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { TitleBar } from "@/components/chrome";
 import { formatBytes, withAppFolder } from "@/lib/format";
-import { CompleteScreen, InstallingScreen, ReadyScreen } from "@/screens/finish-screens";
+import { CompleteScreen, InstallingScreen } from "@/screens/finish-screens";
 import {
   LicenseScreen,
   OptionsScreen,
@@ -22,9 +22,9 @@ import {
   type InstallProgress,
 } from "@/services/installer";
 
-type Screen = "welcome" | "license" | "options" | "installing" | "complete" | "ready";
+type Screen = "welcome" | "license" | "options" | "installing" | "complete";
 
-/** The Stepper entry each screen belongs to; Welcome and Ready sit outside the steps. */
+/** The Stepper entry each screen belongs to; Welcome sits outside the steps. */
 const STEP_LABEL: Partial<Record<Screen, string>> = {
   license: "License",
   options: "Options",
@@ -124,12 +124,12 @@ export function App() {
       });
   };
 
-  /** Starts DevAtlas, then shows the "Ready" screen; a failure stays on "Complete" to retry. */
+  /** Starts DevAtlas, then closes setup; a failure stays on "Complete" to retry. */
   function launch() {
     setIsLaunching(true);
     launchApp()
       .then(() => {
-        go("ready");
+        run(closeWindow);
       })
       .catch((cause: unknown) => {
         setScreen("complete");
@@ -243,13 +243,6 @@ export function App() {
               launch();
             }}
             onFinish={() => {
-              run(closeWindow);
-            }}
-          />
-        )}
-        {screen === "ready" && (
-          <ReadyScreen
-            onGetStarted={() => {
               run(closeWindow);
             }}
           />

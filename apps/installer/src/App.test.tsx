@@ -118,17 +118,17 @@ describe("setup wizard", () => {
     expect(screen.getByRole("button", { name: "Close" })).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("launches DevAtlas, then Get Started closes setup", async () => {
+  it("closes setup once DevAtlas launches", async () => {
     render(<App />);
     await acceptLicense();
 
     fireEvent.click(await screen.findByRole("button", { name: /Launch DevAtlas/ }));
-    expect(await screen.findByText("Ready to Get Started")).toBeInTheDocument();
-    expect(api.launchApp).toHaveBeenCalledOnce();
-    expect(screen.getByText(/Trending repos/)).toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", { name: /Get Started/ }));
 
-    expect(api.closeWindow).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(api.closeWindow).toHaveBeenCalledOnce();
+    });
+    expect(api.launchApp).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Ready to Get Started")).not.toBeInTheDocument();
   });
 
   it("launches straight away when asked to during customization", async () => {
@@ -140,7 +140,9 @@ describe("setup wizard", () => {
     fireEvent.click(await screen.findByRole("checkbox", { name: /Launch DevAtlas/ }));
     fireEvent.click(screen.getByRole("button", { name: /Next/ }));
 
-    expect(await screen.findByText("Ready to Get Started")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(api.closeWindow).toHaveBeenCalledOnce();
+    });
     expect(api.launchApp).toHaveBeenCalledOnce();
   });
 
