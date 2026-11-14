@@ -2,17 +2,20 @@ import { useQuery } from "@tanstack/react-query";
 
 import { checkForUpdate } from "@/services/app-info.service";
 
-/** GitHub allows 60 unauthenticated requests an hour; a few checks a day are plenty. */
-const UPDATE_CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
+/**
+ * Each check reads a github.com redirect that costs no API request, so it can run often. Only
+ * finding a newer release spends one, and then checking stops: the update is already shown.
+ */
+const UPDATE_CHECK_EVERY_MS = 5 * 60 * 1000;
 
-/** The newer DevAtlas release, checked at start and every few hours. A failure shows nothing. */
+/** The newer DevAtlas release, checked at start, every few minutes and on returning to the app. */
 export function useUpdateCheck() {
   return useQuery({
     queryKey: ["update-check"],
     queryFn: checkForUpdate,
-    staleTime: UPDATE_CHECK_EVERY_MS,
-    refetchInterval: UPDATE_CHECK_EVERY_MS,
-    refetchOnWindowFocus: false,
+    staleTime: 60 * 1000,
+    refetchInterval: (query) => (query.state.data ? false : UPDATE_CHECK_EVERY_MS),
+    refetchOnWindowFocus: (query) => !query.state.data,
     retry: false,
   });
 }

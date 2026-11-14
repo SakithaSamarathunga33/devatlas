@@ -21,6 +21,15 @@ use crate::discovery::{ReleaseSource, RepoRelease};
 pub const MAX_PACKAGE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_SIGNATURE_BYTES: usize = 4 * 1024;
 
+/// Port: names the newest release's tag cheaply, so the app can check often without spending
+/// GitHub's hourly API limit. `None` when there is no release.
+pub trait LatestTagSource: ReleaseSource {
+    fn latest_tag(
+        &self,
+        full_name: &str,
+    ) -> impl Future<Output = Result<Option<String>, Self::Error>> + Send;
+}
+
 /// Port: fetches one file over https, refusing anything larger than `max_bytes`.
 pub trait UpdateDownloader {
     type Error: std::fmt::Display;
@@ -55,13 +64,17 @@ pub enum UpdateError<D, R> {
 }
 
 /// The latest release of `releases_repo` (`owner/name`) when it is newer than the running
-/// build, else `None`.
-pub async fn newer_release<S: ReleaseSource>(
+/// build, else `None`. The release itself is only looked up once its tag is newer.
+pub async fn newer_release<S: LatestTagSource>(
     source: &S,
     releases_repo: &str,
     version: &str,
     build: Option<u64>,
 ) -> Result<Option<RepoRelease>, S::Error> {
+    let tag = source.latest_tag(releases_repo).await?;
+    if !tag.is_some_and(|tag| is_newer(&tag, version, build)) {
+        return Ok(None);
+    }
     let latest = source.latest_release(releases_repo).await?;
     Ok(latest.filter(|release| is_newer(&release.tag, version, build)))
 }
@@ -216,6 +229,12 @@ mod tests {
         }
     }
 
+    impl LatestTagSource for FakeReleases {
+        async fn latest_tag(&self, _: &str) -> Result<Option<String>, Infallible> {
+            Ok(self.latest.as_ref().map(|release| release.tag.clone()))
+        }
+    }
+
     /// The fake resolves immediately, so a single poll completes the future.
     fn block_on<F: Future>(future: F) -> F::Output {
         let mut future = pin!(future);
@@ -230,8 +249,18 @@ mod tests {
     fn check(tag: &str, version: &str, build: Option<u64>) -> Option<RepoRelease> {
         let source = FakeReleases::with_tag(tag);
         let Ok(found) = block_on(newer_release(&source, "owner/devatlas", version, build));
-        assert_eq!(*source.asked_for.lock().unwrap(), ["owner/devatlas"]);
         found
+    }
+
+    #[test]
+    fn only_a_newer_tag_spends_a_release_api_request() {
+        let current = FakeReleases::with_tag("v0.1.0-build.23");
+        let _ = block_on(newer_release(&current, "owner/devatlas", "0.1.0", Some(23)));
+        assert!(current.asked_for.lock().unwrap().is_empty());
+
+        let newer = FakeReleases::with_tag("v0.1.0-build.24");
+        let _ = block_on(newer_release(&newer, "owner/devatlas", "0.1.0", Some(23)));
+        assert_eq!(*newer.asked_for.lock().unwrap(), ["owner/devatlas"]);
     }
 
     #[test]

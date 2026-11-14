@@ -1,7 +1,8 @@
 //! GitHub REST API client for Discovery: recently created repositories, most-starred first
 //! (search), and details of single repositories saved in the library.
 //!
-//! Talks only to `api.github.com`, sends a token only if the user saved one, follows no redirects, bounds every
+//! Talks only to `api.github.com` (plus one github.com page that names the newest release), sends
+//! a token only if the user saved one and only to the API, follows no redirects, bounds every
 //! response in time and size, and caches answers so browsing stays within the
 //! unauthenticated limits (10 searches a minute, 60 other requests an hour).
 
@@ -13,8 +14,9 @@ use devatlas_application::discovery::{
     GithubRepo, ReleaseSource, RepoRelease, RepoSource, TrendingQuery, TrendingSource,
 };
 use devatlas_application::stars::{PER_PAGE, StarPage, StarSource};
+use devatlas_application::updates::LatestTagSource;
 use reqwest::StatusCode;
-use reqwest::header::ACCEPT;
+use reqwest::header::{ACCEPT, LOCATION};
 use serde::Deserialize;
 use url::Url;
 
@@ -223,6 +225,37 @@ impl ReleaseSource for GithubApi {
     }
 }
 
+impl LatestTagSource for GithubApi {
+    /// github.com redirects `/{repo}/releases/latest` to the newest release's tag page. Unlike
+    /// the API, that page isn't cached and doesn't count against the hourly limit.
+    async fn latest_tag(&self, full_name: &str) -> Result<Option<String>, GithubError> {
+        let mut url = Url::parse("https://github.com/")?;
+        let (owner, name) = full_name.split_once('/').unwrap_or((full_name, ""));
+        if let Ok(mut segments) = url.path_segments_mut() {
+            segments.extend([owner, name, "releases", "latest"]);
+        }
+        let response = self.client.head(url).send().await?;
+        match response.status() {
+            status if status.is_redirection() => Ok(response
+                .headers()
+                .get(LOCATION)
+                .and_then(|location| location.to_str().ok())
+                .and_then(tag_from_location)),
+            StatusCode::TOO_MANY_REQUESTS => Err(GithubError::RateLimited),
+            StatusCode::NOT_FOUND => Ok(None),
+            status => Err(GithubError::Status(status.as_u16())),
+        }
+    }
+}
+
+/// `https://github.com/{repo}/releases/tag/{tag}` → `{tag}`. A repository with no release
+/// redirects to its release list instead, which names no tag.
+fn tag_from_location(location: &str) -> Option<String> {
+    let (repo_page, tag) = location.rsplit_once("/releases/tag/")?;
+    (repo_page.starts_with("https://github.com/") && !tag.is_empty() && !tag.contains('/'))
+        .then(|| tag.to_owned())
+}
+
 /// `https://api.github.com/repos/{owner}/{name}`. The application layer has validated the
 /// name; the parts are still added as encoded path segments, never pasted into the URL.
 fn repo_url(full_name: &str) -> Result<Url, GithubError> {
@@ -339,6 +372,27 @@ fn parse_repo(body: &[u8]) -> Result<Option<GithubRepo>, serde_json::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_the_newest_tag_from_the_release_redirect() {
+        assert_eq!(
+            tag_from_location("https://github.com/owner/devatlas/releases/tag/v0.1.0-build.28")
+                .as_deref(),
+            Some("v0.1.0-build.28")
+        );
+        assert_eq!(
+            tag_from_location("https://github.com/owner/devatlas/releases"),
+            None
+        );
+        assert_eq!(
+            tag_from_location("https://evil.example/x/releases/tag/v9.0.0"),
+            None
+        );
+        assert_eq!(
+            tag_from_location("https://github.com/o/r/releases/tag/"),
+            None
+        );
+    }
 
     #[test]
     fn builds_the_search_terms() {
