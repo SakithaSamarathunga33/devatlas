@@ -7,6 +7,7 @@ import { VStack } from "@astryxdesign/core/VStack";
 import { useState } from "react";
 
 import {
+  DeleteAccountDialog,
   GithubSignIn,
   OwnerAvatar,
   useCommunitySession,
@@ -23,6 +24,7 @@ export function AccountSettings() {
   const signOut = useCommunitySignOut();
   // Signing in or out swaps the buttons; focus follows to the one that replaced the pressed one.
   const [hasSwitched, setHasSwitched] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const user = session.data ?? null;
 
   return (
@@ -67,6 +69,21 @@ export function AccountSettings() {
               description={describeError(signOut.error).replace(/^.*?failed: /, "")}
             />
           )}
+          <HStack gap={3} vAlign="center">
+            <div className="min-w-0 flex-1">
+              <Text type="supporting" as="p">
+                Deleting your Community account removes everything you shared there. Your library
+                stays on this computer.
+              </Text>
+            </div>
+            <Button
+              variant="destructive"
+              label="Delete Community account"
+              onClick={() => {
+                setIsConfirmingDelete(true);
+              }}
+            />
+          </HStack>
         </VStack>
       ) : (
         <VStack gap={3}>
@@ -81,6 +98,17 @@ export function AccountSettings() {
             }}
           />
         </VStack>
+      )}
+      {isConfirmingDelete && (
+        <DeleteAccountDialog
+          onClose={() => {
+            setIsConfirmingDelete(false);
+          }}
+          onDeleted={() => {
+            setIsConfirmingDelete(false);
+            setHasSwitched(true);
+          }}
+        />
       )}
     </SettingsSection>
   );

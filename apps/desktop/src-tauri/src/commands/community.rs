@@ -98,6 +98,16 @@ pub async fn community_sign_out(community: State<'_, Community>) -> Result<(), S
     community.server.auth().sign_out().await.map_err(report)
 }
 
+/// Deletes the Community account with everything it published, followed and reported, and
+/// signs out. The local library is untouched.
+#[tauri::command]
+pub async fn delete_community_account(community: State<'_, Community>) -> Result<(), String> {
+    let _guard = community.lock.lock().await;
+    community::delete_account(community.server.auth(), &community.shares)
+        .await
+        .map_err(report)
+}
+
 /// Published collections, newest first, optionally matching `query`.
 #[tauri::command]
 pub async fn list_shared_collections(

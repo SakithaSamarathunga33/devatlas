@@ -1,5 +1,6 @@
 import {
   keepPreviousData,
+  type QueryClient,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 
 import {
   cancelCommunitySignIn,
+  deleteCommunityAccount,
   followSharedCollection,
   getCommunitySession,
   getSharedCollection,
@@ -82,15 +84,27 @@ export function useCommunitySignIn() {
   return { signIn, cancel };
 }
 
+/** Shows the signed-out state and drops what the account could see. */
+async function forgetAccount(queryClient: QueryClient) {
+  queryClient.removeQueries({ queryKey: mineQueryKey });
+  queryClient.setQueryData(sessionQueryKey, null);
+  await queryClient.invalidateQueries({ queryKey: communityQueryKey });
+}
+
 export function useCommunitySignOut() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: signOutOfCommunity,
-    onSuccess: async () => {
-      queryClient.removeQueries({ queryKey: mineQueryKey });
-      queryClient.setQueryData(sessionQueryKey, null);
-      await queryClient.invalidateQueries({ queryKey: communityQueryKey });
-    },
+    onSuccess: () => forgetAccount(queryClient),
+  });
+}
+
+/** Deletes the Community account on the server; afterwards DevAtlas is signed out. */
+export function useDeleteCommunityAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteCommunityAccount,
+    onSuccess: () => forgetAccount(queryClient),
   });
 }
 

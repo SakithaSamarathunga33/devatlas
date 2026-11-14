@@ -26,7 +26,7 @@ function PreviewBody({ preview }: { preview: SharePreview }) {
       <Banner
         status="warning"
         title="Anyone can see this"
-        description="Everyone using DevAtlas Community can see the name, description and links below, and your GitHub username. Your notes, tags and reading status stay private."
+        description="Everyone signed in to DevAtlas Community can see the name, description and link addresses below, and your GitHub username. Your notes, tags and reading status stay private."
       />
       <VStack gap={1}>
         <Heading level={4} accessibilityLevel={3}>
@@ -42,9 +42,12 @@ function PreviewBody({ preview }: { preview: SharePreview }) {
         {preview.links.map((link) => (
           <li key={link.url} className="min-w-0">
             <Text maxLines={1}>{link.title}</Text>
-            <Text type="code" size="xsm" color="secondary" maxLines={1}>
-              {link.host}
-            </Text>
+            {/* The address as it is published, already without query, fragment or login. */}
+            <div title={link.url} className="min-w-0">
+              <Text type="code" size="xsm" color="secondary" maxLines={1}>
+                {link.url.replace(/^https:\/\//, "")}
+              </Text>
+            </div>
           </li>
         ))}
       </ul>

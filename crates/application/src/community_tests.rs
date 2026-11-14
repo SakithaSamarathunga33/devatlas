@@ -189,7 +189,7 @@ fn preview_drops_secrets_a_link_can_carry() {
 
     let preview = share_preview(&group(&[id.as_str()]), &[secret], None);
 
-    // The preview shows only title and host, so nothing it doesn't show may be published.
+    // Only scheme, host and path go public: the preview lists them as they will be published.
     assert_eq!(
         preview.links[0].url,
         "https://files.example.test/report.pdf"
@@ -576,4 +576,73 @@ fn avatars_come_only_from_github() {
     ] {
         assert_eq!(avatar_url(bad), None, "{bad}");
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("the server is down")]
+struct Down;
+
+/// An account that can be deleted, unless the server `fails`.
+#[derive(Default)]
+struct FakeAuth {
+    fails: bool,
+    deleted: Mutex<bool>,
+}
+
+impl CommunityAuth for FakeAuth {
+    type Error = Down;
+
+    async fn current_user(&self) -> Result<Option<CommunityUser>, Down> {
+        Ok(None)
+    }
+
+    async fn sign_in(&self) -> Result<CommunityUser, Down> {
+        Err(Down)
+    }
+
+    fn cancel_sign_in(&self) {}
+
+    async fn sign_out(&self) -> Result<(), Down> {
+        Ok(())
+    }
+
+    async fn delete_account(&self) -> Result<(), Down> {
+        if self.fails {
+            return Err(Down);
+        }
+        *self.deleted.lock().unwrap() = true;
+        Ok(())
+    }
+}
+
+fn shared_before() -> FakeShares {
+    FakeShares(Mutex::new(HashMap::from([(
+        "local-1".to_owned(),
+        SHARED.to_owned(),
+    )])))
+}
+
+#[test]
+fn deleting_the_account_forgets_what_was_shared() {
+    let auth = FakeAuth::default();
+    let shares = shared_before();
+
+    block_on(delete_account(&auth, &shares)).unwrap();
+
+    assert!(*auth.deleted.lock().unwrap());
+    assert!(shares.load().unwrap().is_empty());
+}
+
+#[test]
+fn a_failed_account_deletion_keeps_what_was_shared() {
+    let auth = FakeAuth {
+        fails: true,
+        ..FakeAuth::default()
+    };
+    let shares = shared_before();
+
+    let error = block_on(delete_account(&auth, &shares)).unwrap_err();
+
+    assert!(matches!(error, CommunityError::Source(Down)));
+    assert_eq!(shares.load().unwrap().len(), 1);
 }

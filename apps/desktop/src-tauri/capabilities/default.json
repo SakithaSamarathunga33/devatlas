@@ -54,6 +54,7 @@
     "allow-community-sign-in",
     "allow-community-cancel-sign-in",
     "allow-community-sign-out",
+    "allow-delete-community-account",
     "allow-list-shared-collections",
     "allow-my-shared-collections",
     "allow-get-shared-collection",

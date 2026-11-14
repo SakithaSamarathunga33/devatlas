@@ -8,9 +8,7 @@ on:
     types: [completed]
     branches: [main]
 
-permissions:
-  contents: write
-  actions: read
+permissions: {}
 
 concurrency:
   group: release
@@ -19,22 +17,40 @@ concurrency:
 jobs:
   release:
     name: Publish a release
-    # Only pushes whose checks and Windows build passed; pull requests never release.
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    # Only pushes to this repository's main whose checks and Windows build passed; pull
+    # requests and forks never release.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
     # Holds the update signing key, and only `main` may use it. This workflow always runs from
     # the default branch's copy, so a pull request can't edit it to read the key.
     environment: release
     env:
       HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
       RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           # Full history and tags, so the notes can start at the previous release.
           fetch-depth: 0
+          # Nothing pushes with git; `gh` gets its token per step.
+          persist-credentials: false
+
+      # The Tauri CLI that signs the update, installed from the lockfile with no install
+      # scripts and no shared cache, not fetched from the registry by npx at release time.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile --ignore-scripts --filter @devatlas/installer
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -57,12 +73,14 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         run: |
           gzip -9 -c dist/devatlas-desktop.exe > "dist/DevAtlas-Update-${TAG}.gz"
-          npx --yes @tauri-apps/cli@2.12.4 signer sign "dist/DevAtlas-Update-${TAG}.gz"
+          pnpm --filter @devatlas/installer exec tauri signer sign "${GITHUB_WORKSPACE}/dist/DevAtlas-Update-${TAG}.gz"
 
       - name: Write release notes
         run: bash scripts/release-notes.sh "$HEAD_SHA" "$GITHUB_REPOSITORY" > notes.md
 
       - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$TAG" > /dev/null 2>&1; then
             echo "$TAG is already released."

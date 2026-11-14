@@ -6,7 +6,7 @@
     <title>DevAtlas – Local-first bookmark manager for developers, with an MCP server</title>
     <meta
       name="description"
-      content="Free, open-source bookmark manager for developers on Windows. Organize browser bookmarks, GitHub stars and saved links in one searchable library, and let Claude Code and Cursor search it over MCP. No account, no cloud."
+      content="Free, open-source bookmark manager for developers on Windows. Organize browser bookmarks, GitHub stars and saved links in one searchable library, and let Claude Code and Cursor search it over MCP. No account needed: your library stays on your computer."
     />
     <link rel="canonical" href="https://devatlas.sakitha.com/" />
     <meta name="robots" content="index, follow" />
@@ -96,7 +96,7 @@
             "name": "Do I need an account? Is my data uploaded anywhere?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "No account and no cloud. Your library lives in a local SQLite database on your computer."
+              "text": "No account is needed, and your library stays in a local SQLite database on your computer. The optional Community feature, for sharing collections, needs GitHub sign-in and stores your GitHub username and avatar plus only the collections you choose to share. DevAtlas also contacts GitHub, news feeds and the sites of your saved links to show updates, trending repos, news and previews."
             }
           },
           {
@@ -341,7 +341,7 @@
             DevAtlas turns your browser bookmarks, GitHub stars and saved links into one searchable
             library on Windows. Organize them into collections, attach code snippets, discover
             trending repos, and let Claude Code, Cursor and other agents search it over MCP. Free,
-            open source and local-first: no account, no cloud.
+            open source and local-first: no account needed, and your library stays on your computer.
           </p>
           <div class="cta">
             <a
@@ -427,7 +427,7 @@
             Agents get three tools: <code>search_library</code>, <code>get_resource</code> and
             <code>get_project_stack</code>, which matches a project's package.json, Cargo.toml,
             go.mod or Python dependencies against what you've saved. The server opens your library
-            read-only and nothing leaves your computer.
+            read-only, talks to the agent over a local pipe and makes no network requests.
           </p>
         </section>
 
@@ -479,8 +479,12 @@
           <details>
             <summary>Do I need an account? Is my data uploaded anywhere?</summary>
             <p>
-              No account and no cloud. Your library lives in a local SQLite database on your
-              computer.
+              No account is needed, and your library stays in a local SQLite database on your
+              computer. The optional Community feature, for sharing collections, needs GitHub
+              sign-in and stores your GitHub username and avatar plus only the collections you
+              choose to share. DevAtlas also contacts GitHub, news feeds and the sites of your saved
+              links to show updates, trending repos, news and previews. See
+              <a href="https://github.com/SakithaSamarathunga33/devatlas#privacy">Privacy</a>.
             </p>
           </details>
           <details>

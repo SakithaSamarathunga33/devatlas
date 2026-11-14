@@ -46,14 +46,22 @@ pub fn clean_text(text: &str, max: usize) -> String {
     format!("{}…", kept.trim_end())
 }
 
-/// The address without its query and fragment, which can carry tokens and reset links.
+/// The address without the parts that can carry secrets: the query and fragment (signed links,
+/// tokens, reset links) and the user name and password. Used for every address DevAtlas hands
+/// to someone else, an agent or Community.
+pub fn without_secrets(url: &Url) -> Url {
+    let mut public = url.clone();
+    public.set_query(None);
+    public.set_fragment(None);
+    // Both fail only for addresses that cannot hold credentials, which then hold none.
+    let _ = public.set_username("");
+    let _ = public.set_password(None);
+    public
+}
+
 fn shareable_url(url: &str) -> String {
     match Url::parse(url) {
-        Ok(mut parsed) => {
-            parsed.set_query(None);
-            parsed.set_fragment(None);
-            parsed.into()
-        }
+        Ok(parsed) => without_secrets(&parsed).into(),
         Err(_) => clean_text(url, MAX_TEXT_CHARS),
     }
 }
@@ -572,6 +580,17 @@ mod tests {
         );
         assert_eq!(found[0].tags, ["tag"]);
         assert_eq!(found[0].url, "https://evil.example/reset");
+    }
+
+    #[test]
+    fn shared_addresses_lose_credentials_query_and_fragment() {
+        // Called directly: a saved resource's address may still carry credentials.
+        let url = Url::parse("https://user:pw@host.example/p?q=1#f").unwrap();
+        assert_eq!(without_secrets(&url).as_str(), "https://host.example/p");
+        assert_eq!(
+            shareable_url("https://user:pw@host.example/p?q=1#f"),
+            "https://host.example/p"
+        );
     }
 
     #[test]

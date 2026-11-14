@@ -4,7 +4,7 @@
 //! redirect target must be a public address, redirects are capped, and responses are bounded
 //! in time and size. No cookies or credentials are sent.
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -213,7 +213,9 @@ impl Resolve for PublicOnlyResolver {
     }
 }
 
-/// http(s) only; literal IP hosts must be public (names are checked by the resolver).
+/// http(s) only; literal IP hosts must be public and `localhost` names are refused. Other
+/// names are checked by the resolver when Rust fetches; for image and icon addresses the
+/// webview resolves them, so a name pointing at a private address is not caught here.
 fn is_public_url(url: &Url) -> bool {
     if !matches!(url.scheme(), "http" | "https") {
         return false;
@@ -221,7 +223,10 @@ fn is_public_url(url: &Url) -> bool {
     match url.host() {
         Some(Host::Ipv4(ip)) => is_public_ip(IpAddr::V4(ip)),
         Some(Host::Ipv6(ip)) => is_public_ip(IpAddr::V6(ip)),
-        Some(Host::Domain(domain)) => !domain.eq_ignore_ascii_case("localhost"),
+        Some(Host::Domain(domain)) => {
+            let name = domain.trim_end_matches('.').to_ascii_lowercase();
+            name != "localhost" && !name.ends_with(".localhost")
+        }
         None => false,
     }
 }
@@ -229,8 +234,10 @@ fn is_public_url(url: &Url) -> bool {
 fn is_public_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
-            let [a, b, ..] = v4.octets();
+            let [a, b, c, _] = v4.octets();
             let shared_cgnat = a == 100 && (64..=127).contains(&b);
+            let ietf_protocol = a == 192 && b == 0 && c == 0;
+            let benchmarking = a == 198 && (b == 18 || b == 19);
             !(v4.is_private()
                 || v4.is_loopback()
                 || v4.is_link_local()
@@ -239,22 +246,49 @@ fn is_public_ip(ip: IpAddr) -> bool {
                 || v4.is_unspecified()
                 || v4.is_multicast()
                 || shared_cgnat
+                || ietf_protocol
+                || benchmarking
                 || a == 0
                 || a >= 240)
         }
         IpAddr::V6(v6) => {
-            if let Some(v4) = v6.to_ipv4_mapped() {
+            if let Some(v4) = embedded_ipv4(v6) {
                 return is_public_ip(IpAddr::V4(v4));
             }
             let first = v6.segments()[0];
             let unique_local = (first & 0xfe00) == 0xfc00;
             let link_local = (first & 0xffc0) == 0xfe80;
+            let site_local = (first & 0xffc0) == 0xfec0;
+            let segments = v6.segments();
+            let documentation = segments[..2] == [0x2001, 0x0db8];
+            let discard = segments[..4] == [0x0100, 0, 0, 0];
+            let local_nat64 = segments[..3] == [0x64, 0xff9b, 0x1];
             !(v6.is_loopback()
                 || v6.is_unspecified()
                 || v6.is_multicast()
                 || unique_local
-                || link_local)
+                || link_local
+                || site_local
+                || documentation
+                || discard
+                || local_nat64)
         }
+    }
+}
+
+/// The IPv4 address an IPv6 address carries and routes to: IPv4-mapped (`::ffff:a.b.c.d`),
+/// IPv4-compatible (`::a.b.c.d`), NAT64 (`64:ff9b::/96`) and 6to4 (`2002::/16`).
+fn embedded_ipv4(v6: Ipv6Addr) -> Option<Ipv4Addr> {
+    let s = v6.segments();
+    let join = |high: u16, low: u16| Ipv4Addr::from((u32::from(high) << 16) | u32::from(low));
+    if let Some(v4) = v6.to_ipv4() {
+        Some(v4)
+    } else if s[..6] == [0x64, 0xff9b, 0, 0, 0, 0] {
+        Some(join(s[6], s[7]))
+    } else if s[0] == 0x2002 {
+        Some(join(s[1], s[2]))
+    } else {
+        None
     }
 }
 
@@ -369,9 +403,11 @@ fn first_attribute(document: &Html, selectors: &[&str], attribute: &str) -> Opti
         })
 }
 
+/// Resolves an image or icon address. The webview loads it directly, so it gets the same
+/// public-address check as a page fetch: a page can't point the app at the local network.
 fn resolve_web_url(base: &Url, value: &str) -> Option<String> {
     let url = base.join(value.trim()).ok()?;
-    matches!(url.scheme(), "http" | "https").then(|| url.into())
+    is_public_url(&url).then(|| url.into())
 }
 
 fn default_icon(page_url: &Url) -> Option<String> {
@@ -380,8 +416,6 @@ fn default_icon(page_url: &Url) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{Ipv4Addr, Ipv6Addr};
-
     use super::*;
 
     fn page() -> Url {
@@ -485,10 +519,79 @@ mod tests {
     }
 
     #[test]
+    fn blocks_reserved_ranges_and_private_ipv4_inside_ipv6() {
+        let blocked = [
+            "192.0.0.8",              // IETF protocol assignments, 192.0.0.0/24
+            "198.18.0.1",             // benchmarking, 198.18.0.0/15
+            "198.19.255.254",         // benchmarking, upper half
+            "::127.0.0.1",            // IPv4-compatible loopback
+            "::10.0.0.1",             // IPv4-compatible private
+            "::ffff:192.168.1.1",     // IPv4-mapped private
+            "::ffff:169.254.169.254", // IPv4-mapped link-local (cloud metadata)
+            "64:ff9b::7f00:1",        // NAT64 of 127.0.0.1
+            "64:ff9b::a9fe:a9fe",     // NAT64 of 169.254.169.254
+            "2002:c0a8:101::1",       // 6to4 of 192.168.1.1
+            "2002:7f00:1::",          // 6to4 of 127.0.0.1
+            "fec0::1",                // site-local, fec0::/10
+            "feff::1",                // site-local, top of fec0::/10
+            "2001:db8::1",            // documentation, 2001:db8::/32
+            "100::1",                 // discard, 100::/64
+            "64:ff9b:1::808:808",     // local-use NAT64, 64:ff9b:1::/48
+        ];
+        for raw in blocked {
+            let ip: IpAddr = raw.parse().unwrap();
+            assert!(!is_public_ip(ip), "{raw} should be blocked");
+        }
+
+        let public = [
+            "192.0.1.1",         // just past 192.0.0.0/24
+            "198.20.0.1",        // just past 198.18.0.0/15
+            "64:ff9b::6810:1",   // NAT64 of public 104.16.0.1
+            "2002:6810:1::1",    // 6to4 of public 104.16.0.1
+            "::ffff:104.16.0.1", // IPv4-mapped public
+        ];
+        for raw in public {
+            let ip: IpAddr = raw.parse().unwrap();
+            assert!(is_public_ip(ip), "{raw} should be public");
+        }
+    }
+
+    #[test]
+    fn drops_images_and_icons_that_point_at_private_addresses() {
+        let html = r#"<head>
+            <meta property="og:image" content="http://192.168.1.1/admin.png">
+            <link rel="icon" href="http://[::ffff:127.0.0.1]:8080/icon.png">
+        </head>"#;
+
+        let preview = extract_preview(html, &page());
+
+        assert_eq!(preview.image, None);
+        // The private icon is dropped, so the site's own favicon is used instead.
+        assert_eq!(
+            preview.icon.as_deref(),
+            Some("https://reactbits.dev/favicon.ico")
+        );
+    }
+
+    #[test]
+    fn drops_the_default_icon_of_a_private_page() {
+        let html = r#"<meta property="og:image" content="/cover.png">"#;
+        let local = Url::parse("http://localhost:3000/").unwrap();
+
+        let preview = extract_preview(html, &local);
+
+        assert_eq!(preview.image, None);
+        assert_eq!(preview.icon, None);
+    }
+
+    #[test]
     fn rejects_non_public_urls_before_connecting() {
         for raw in [
             "http://127.0.0.1/",
             "http://localhost:1420/",
+            "http://LOCALHOST./",
+            "http://app.localhost/",
+            "http://a.b.localhost./x.png",
             "http://[::1]/",
             "file:///C:/Windows/win.ini",
         ] {

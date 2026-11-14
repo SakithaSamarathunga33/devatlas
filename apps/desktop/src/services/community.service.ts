@@ -34,6 +34,11 @@ export function signOutOfCommunity(): Promise<null> {
   return invokeCommand("community_sign_out", z.null());
 }
 
+/** Erases the Community account and everything it published, then signs out. */
+export function deleteCommunityAccount(): Promise<null> {
+  return invokeCommand("delete_community_account", z.null());
+}
+
 export function listSharedCollections(query: string, offset: number): Promise<SharedPage> {
   return invokeCommand("list_shared_collections", sharedPageSchema, {
     query: query.trim() === "" ? null : query,

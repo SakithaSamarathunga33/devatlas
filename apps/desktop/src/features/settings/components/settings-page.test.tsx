@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
@@ -33,6 +33,8 @@ const VIEW: SettingsView = {
 
 let starSyncUser: string | null = null;
 let communityUser: CommunityUser | null = null;
+/** The server's refusal of an account deletion, if it refuses. */
+let deleteFailure: string | null = null;
 const OCTOCAT: CommunityUser = {
   id: "99999999-2222-4333-8444-555555555555",
   username: "octocat",
@@ -52,6 +54,11 @@ function renderSettings(
       return Promise.resolve(OCTOCAT);
     }
     if (command === "community_sign_out") {
+      communityUser = null;
+      return Promise.resolve(null);
+    }
+    if (command === "delete_community_account") {
+      if (deleteFailure !== null) return Promise.reject(new Error(deleteFailure));
       communityUser = null;
       return Promise.resolve(null);
     }
@@ -361,6 +368,49 @@ describe("SettingsPage", () => {
       const signIn = await screen.findByRole("button", { name: "Sign in with GitHub" });
       expect(signIn).toHaveFocus();
       expect(screen.getByText(/works fully offline/)).toBeInTheDocument();
+    });
+
+    it("deletes the Community account after saying exactly what goes", async () => {
+      communityUser = OCTOCAT;
+      deleteFailure = null;
+      renderSettings();
+
+      fireEvent.click(await screen.findByRole("button", { name: "Delete Community account" }));
+      const dialog = await screen.findByRole("dialog", { name: "Delete your Community account?" });
+      const removed = within(dialog).getByRole("list", { name: "Removed from Community" });
+      expect(removed).toHaveTextContent("Your profile");
+      expect(removed).toHaveTextContent("Every collection you shared, with all of its links");
+      expect(removed).toHaveTextContent("follows");
+      expect(removed).toHaveTextContent("Reports you filed");
+      expect(dialog).toHaveTextContent(/library, collections and snippets on this computer stay/);
+      expect(invoke).not.toHaveBeenCalledWith("delete_community_account");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Delete account" }));
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith("delete_community_account");
+      });
+      expect(await screen.findByRole("button", { name: "Sign in with GitHub" })).toHaveFocus();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByText(/Not signed in/)).toBeInTheDocument();
+    });
+
+    it("keeps the account and says why when deleting it fails", async () => {
+      communityUser = OCTOCAT;
+      deleteFailure = "The Community server couldn't be reached.";
+      renderSettings();
+
+      fireEvent.click(await screen.findByRole("button", { name: "Delete Community account" }));
+      const dialog = await screen.findByRole("dialog", { name: "Delete your Community account?" });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Delete account" }));
+
+      const alert = await within(dialog).findByRole("alert");
+      expect(alert).toHaveTextContent("Couldn't delete your account");
+      expect(alert).toHaveTextContent("The Community server couldn't be reached.");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByText("octocat")).toBeInTheDocument();
+      deleteFailure = null;
     });
 
     it("offers GitHub sign-in when signed out, then shows the account", async () => {

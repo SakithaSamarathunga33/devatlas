@@ -10,7 +10,7 @@ use std::future::Future;
 
 use serde::Serialize;
 
-use crate::agent::clean_text;
+use crate::agent::{clean_text, without_secrets};
 use crate::library::LibraryItem;
 use crate::organizer::Group;
 
@@ -215,6 +215,9 @@ pub trait CommunityAuth {
     /// Stops a sign-in that is waiting for the browser.
     fn cancel_sign_in(&self);
     fn sign_out(&self) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    /// Erases the signed-in account on the server with everything it published, followed and
+    /// reported, then forgets the session here as signing out does.
+    fn delete_account(&self) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }
 
 /// Port: which published collection belongs to which local collection, so sharing again
@@ -366,13 +369,10 @@ pub fn share_preview(
     let mut skipped = 0;
     for resource in members {
         match https_url(&resource.url) {
-            Some(mut url) => {
-                // The preview shows only title and host, so nothing beyond them goes public:
-                // queries, fragments and credentials can hold tokens (signed links, share keys).
-                url.set_query(None);
-                url.set_fragment(None);
-                let _ = url.set_username("");
-                let _ = url.set_password(None);
+            Some(url) => {
+                // Scheme, host and path go public, as the preview lists them; queries,
+                // fragments and credentials can hold tokens (signed links, share keys).
+                let url = without_secrets(&url);
                 let host = host_of(&url);
                 let title = optional_text(Some(&resource.title), MAX_LINK_TITLE_CHARS)
                     .unwrap_or_else(|| host.clone());
@@ -495,6 +495,22 @@ where
         shares.save(&kept).map_err(CommunityError::Store)?;
     }
     Ok(())
+}
+
+/// Deletes the Community account, then forgets which local collections were shared: their
+/// published copies are gone with it. The local library is untouched.
+pub async fn delete_account<A, M>(
+    auth: &A,
+    shares: &M,
+) -> Result<(), CommunityError<A::Error, M::Error>>
+where
+    A: CommunityAuth,
+    M: ShareStore,
+{
+    auth.delete_account()
+        .await
+        .map_err(CommunityError::Source)?;
+    shares.save(&HashMap::new()).map_err(CommunityError::Store)
 }
 
 /// Reports a collection to the moderators. Returns `false` when already reported.

@@ -1,7 +1,8 @@
 //! The Community server (Supabase): published collections read through PostgREST, and
 //! publishing, unpublishing and reporting as the signed-in account.
 //!
-//! Every request carries the public API key; only signed-in writes carry the access token.
+//! Every request carries the public API key and the signed-in account's access token: the
+//! server lets only signed-in accounts read Community, so signed out nothing is sent.
 //! Requests follow no redirects and every answer is bounded in time and size, then cleaned by
 //! the application layer before it reaches the UI.
 
@@ -33,6 +34,8 @@ const SUMMARY_FIELDS: &str = "id,owner_id,title,description,link_count,follower_
 pub enum SupabaseError {
     #[error("Sign in with GitHub first.")]
     NotSignedIn,
+    #[error("Sign in to see Community.")]
+    SignInToRead,
     #[error("Your sign-in has expired. Sign out, then sign in again.")]
     SessionExpired,
     #[error("Sign-in was cancelled.")]
@@ -222,7 +225,7 @@ fn follow_body(id: &str) -> String {
 }
 
 /// Whether a follow went through; `false` when the server refused it as the caller's own.
-fn follow_outcome(sent: Result<Vec<u8>, (StatusCode, Vec<u8>)>) -> Result<bool, SupabaseError> {
+fn follow_outcome(sent: Answer) -> Result<bool, SupabaseError> {
     match sent {
         Ok(_) => Ok(true),
         // Already following: the (collection, account) key's unique violation.
@@ -283,21 +286,16 @@ impl SupabaseCommunity {
         request.header("apikey", &self.config.api_key)
     }
 
-    /// GETs a PostgREST URL anonymously.
+    /// GETs a PostgREST URL as the signed-in account.
     async fn get(&self, url: Url) -> Result<Vec<u8>, SupabaseError> {
-        let response = self.public(self.http.get(url)).send().await?;
-        let status = response.status();
-        if !status.is_success() {
-            return Err(SupabaseError::Status(status.as_u16()));
-        }
-        read_body(response).await
+        read_outcome(self.authed(|http| http.get(url.clone())).await)
     }
 
     /// Sends a signed-in request; `Err((status, body))` for a refusal.
     async fn authed(
         &self,
         build: impl Fn(&reqwest::Client) -> RequestBuilder,
-    ) -> Result<Result<Vec<u8>, (StatusCode, Vec<u8>)>, SupabaseError> {
+    ) -> Result<Answer, SupabaseError> {
         let response = self
             .auth
             .send(|token| self.public(build(&self.http)).bearer_auth(token))
@@ -316,7 +314,20 @@ impl SupabaseCommunity {
     }
 }
 
-fn refusal(status: StatusCode, body: &[u8]) -> SupabaseError {
+/// A signed-in request's body, or the status and body of the server's refusal.
+type Answer = Result<Vec<u8>, (StatusCode, Vec<u8>)>;
+
+/// A read's body; signed out, a clear request to sign in rather than an anonymous call.
+fn read_outcome(sent: Result<Answer, SupabaseError>) -> Result<Vec<u8>, SupabaseError> {
+    match sent {
+        Ok(Ok(body)) => Ok(body),
+        Ok(Err((status, body))) => Err(refusal(status, &body)),
+        Err(SupabaseError::NotSignedIn) => Err(SupabaseError::SignInToRead),
+        Err(error) => Err(error),
+    }
+}
+
+pub(crate) fn refusal(status: StatusCode, body: &[u8]) -> SupabaseError {
     match server_message(body) {
         Some(message) if status.is_client_error() => SupabaseError::Rejected(message),
         _ => SupabaseError::Status(status.as_u16()),
@@ -344,15 +355,8 @@ impl CommunitySource for SupabaseCommunity {
                 query.append_pair("search", &format!("wfts(simple).{terms}"));
             }
         }
-        let body = match filter.owner_id {
-            // As the owner, who also sees the collections a moderator hid.
-            Some(_) => match self.authed(|http| http.get(url.clone())).await? {
-                Ok(body) => body,
-                Err((status, body)) => return Err(refusal(status, &body)),
-            },
-            None => self.get(url).await?,
-        };
-        Ok(parse_page(&body, filter.offset)?)
+        // An owner also sees the collections a moderator hid.
+        Ok(parse_page(&self.get(url).await?, filter.offset)?)
     }
 
     async fn collection(&self, id: &str) -> Result<Option<SharedCollection>, SupabaseError> {
@@ -591,6 +595,28 @@ mod tests {
         assert_eq!(message.chars().count(), MAX_MESSAGE_CHARS);
         assert_eq!(error_code(body.as_bytes()).as_deref(), Some("54000"));
         assert_eq!(server_message(b"<html>"), None);
+    }
+
+    #[test]
+    fn reads_signed_out_ask_to_sign_in_instead_of_going_anonymous() {
+        assert!(matches!(
+            read_outcome(Err(SupabaseError::NotSignedIn)),
+            Err(SupabaseError::SignInToRead)
+        ));
+        assert_eq!(
+            SupabaseError::SignInToRead.to_string(),
+            "Sign in to see Community."
+        );
+        assert_eq!(read_outcome(Ok(Ok(b"[]".to_vec()))).unwrap(), b"[]");
+        let denied = br#"{"code":"42501","message":"permission denied for table profiles"}"#;
+        assert!(matches!(
+            read_outcome(Ok(Err((StatusCode::FORBIDDEN, denied.to_vec())))),
+            Err(SupabaseError::Rejected(_))
+        ));
+        assert!(matches!(
+            read_outcome(Err(SupabaseError::SessionExpired)),
+            Err(SupabaseError::SessionExpired)
+        ));
     }
 
     #[test]

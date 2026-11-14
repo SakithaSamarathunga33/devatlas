@@ -53,6 +53,7 @@ const COMMANDS: &[&str] = &[
     "community_sign_in",
     "community_cancel_sign_in",
     "community_sign_out",
+    "delete_community_account",
     "list_shared_collections",
     "my_shared_collections",
     "get_shared_collection",

@@ -61,6 +61,27 @@ describe("Share to Community", () => {
     });
   });
 
+  it("lists each link's published address, not only its host", async () => {
+    renderDialog(USER, {
+      ...PREVIEW,
+      links: [
+        {
+          url: "https://files.example.test/team/report.pdf",
+          title: "Report",
+          host: "files.example.test",
+        },
+      ],
+    });
+    const dialog = await screen.findByRole("dialog", { name: "Share to Community" });
+
+    const links = await within(dialog).findByRole("list", { name: "Links that will be shared" });
+    const address = within(links).getByText("files.example.test/team/report.pdf");
+    expect(address.closest("[title]")).toHaveAttribute(
+      "title",
+      "https://files.example.test/team/report.pdf",
+    );
+  });
+
   it("updates a collection shared before, or unshares it", async () => {
     renderDialog(USER, { ...PREVIEW, sharedId: COLLECTION_ID });
     const dialog = await screen.findByRole("dialog", { name: "Share to Community" });

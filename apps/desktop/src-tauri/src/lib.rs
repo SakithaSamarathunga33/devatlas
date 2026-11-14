@@ -6,6 +6,7 @@
 use tauri::Manager;
 
 mod commands;
+mod logging;
 mod mcp;
 
 /// Runs DevAtlas as an AI agent's MCP server on stdio (`devatlas --mcp`), with no window.
@@ -36,9 +37,6 @@ pub(crate) fn focus_main_window(app: &tauri::AppHandle) {
 
 /// Builds and runs the desktop application until the last window closes.
 pub fn run() -> tauri::Result<()> {
-    init_tracing();
-    tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting DevAtlas");
-
     tauri::Builder::default()
         // First, so a second launch hands over to this window before anything else starts.
         // `--mcp` runs never get here: agents' servers are separate processes by design.
@@ -49,9 +47,13 @@ pub fn run() -> tauri::Result<()> {
         // Used from Rust only, so paths never come from the webview; no capability is granted.
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let data_dir = app.path().app_data_dir()?;
+            // Here, not earlier: a second launch exits in the single-instance plugin before
+            // setup, so it never rotates the running copy's log.
+            init_tracing(&data_dir);
+            tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting DevAtlas");
             let cache_file = app.path().app_cache_dir()?.join("previews.json");
             app.manage(commands::preview::Previews::new(cache_file)?);
-            let data_dir = app.path().app_data_dir()?;
             app.manage(commands::library::LibraryStore::new(&data_dir));
             app.manage(tauri::async_runtime::block_on(
                 commands::organizer::Organizer::open(&data_dir.join(database_file())),
@@ -80,6 +82,7 @@ pub fn run() -> tauri::Result<()> {
             commands::community::community_sign_in,
             commands::community::community_cancel_sign_in,
             commands::community::community_sign_out,
+            commands::community::delete_community_account,
             commands::community::list_shared_collections,
             commands::community::my_shared_collections,
             commands::community::get_shared_collection,
@@ -131,7 +134,6 @@ pub fn run() -> tauri::Result<()> {
         .run(tauri::generate_context!())
 }
 
-fn init_tracing() {
-    // `try_init` only fails if a global subscriber is already installed, which is harmless.
-    let _ = tracing_subscriber::fmt().with_target(false).try_init();
+fn init_tracing(data_dir: &std::path::Path) {
+    logging::init(data_dir);
 }

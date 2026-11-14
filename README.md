@@ -23,7 +23,8 @@ _A local-first Windows desktop app built with **Tauri 2, Rust and React** that t
 bookmarks, GitHub stars and saved links into one searchable library: collections, snippets, an
 Explorer of suggested links, trending repos and star history, news from official blogs, language
 rankings, a dead-link checker, backups, and a read-only MCP server so Claude Code, Cursor and other
-coding agents can answer from what you saved. No account, no cloud, nothing written to your browser._
+coding agents can answer from what you saved. No account needed, your library stays on your
+computer, and nothing is written to your browser. [What goes online](#privacy)._
 
 </div>
 
@@ -41,6 +42,7 @@ coding agents can answer from what you saved. No account, no cloud, nothing writ
 - [Build and release](#build-and-release)
 - [Testing and quality](#testing-and-quality)
 - [Security](#security)
+- [Privacy](#privacy)
 - [Troubleshooting](#troubleshooting)
 - [Roadmap](#roadmap)
 - [FAQ](#faq)
@@ -82,6 +84,8 @@ coding agents can answer from what you saved. No account, no cloud, nothing writ
 - **Snippets**: code snippets, which can be attached to a link.
 - **Explorer**: your library plus suggested links by language and framework. Remove any suggestion
   you don't want, and restore them later.
+- **Community** (optional, sign in with GitHub): share a collection for other DevAtlas users to
+  browse, follow and copy links from. See [Privacy](#privacy) for what it stores.
 
 ### Discover
 
@@ -111,8 +115,8 @@ coding agents can answer from what you saved. No account, no cloud, nothing writ
 
 ### Your data
 
-- **Local-first**: the library lives in a SQLite database in your app-data folder. There is no
-  account and no server.
+- **Local-first**: the library lives in a SQLite database in your app-data folder. No account is
+  needed; only collections you choose to share through Community leave your computer.
 - **Backup and import**: export everything to one file; import a DevAtlas backup or any browser's
   bookmarks export. Importing merges and never removes anything.
 - **Dead-link checker**: finds links that are gone or have moved.
@@ -176,7 +180,8 @@ Run `claude mcp list` (or the agent's own MCP view) to check that `devatlas` is 
 
 - **Read-only.** The server opens the library database read-only and cannot add, change or delete
   anything.
-- **Local only.** Nothing leaves your computer: the agent and DevAtlas talk over a local pipe.
+- **Local pipe.** The server makes no network requests: the agent and DevAtlas talk over
+  stdin/stdout. What the agent reads goes wherever the agent sends it, usually its AI provider.
 - **Confined.** `get_project_stack` only reads inside the folder the agent was started in. It
   refuses network paths and skips symbolic links.
 - **Untrusted text is cleaned.** Titles and descriptions from websites have hidden and control
@@ -387,6 +392,12 @@ new key is made.
 Pushes that only change docs (Markdown files, `docs/`, `LICENSE`) skip CI and publish nothing.
 Pull requests run every check but never release.
 
+### Operations
+
+How a release ships, how to roll one back, and the pre-release checklist:
+[RELEASING.md](docs/operations/RELEASING.md). Backing up the Community database:
+[BACKUPS.md](docs/operations/BACKUPS.md).
+
 ### Installing a release
 
 Download from the [Releases](https://github.com/SakithaSamarathunga33/devatlas/releases) page:
@@ -394,10 +405,12 @@ Download from the [Releases](https://github.com/SakithaSamarathunga33/devatlas/r
 - `DevAtlas-Setup-<tag>.exe`: the setup wizard, the only installer a release ships.
 - `DevAtlas-Update-<tag>.gz` and its `.sig`: the in-app update. You don't download these.
 
-DevAtlas checks for a newer release at start and every 6 hours. When one exists, the status bar
-shows **Update to &lt;tag&gt;**. Pressing it downloads the signed update (about 9 MB), checks the
-signature, replaces the app and restarts it; your library is kept. This works for copies
-installed with DevAtlas Setup. Running a newer DevAtlas Setup over the old one also updates.
+DevAtlas checks for a newer release at start, every 5 minutes and when you return to the window.
+When one exists, the sidebar shows **Update to &lt;tag&gt;**; nothing installs until you press it.
+Pressing it downloads the signed update (about 9 MB), checks the signature, replaces the app and
+restarts it; your library is kept. This works for copies installed with DevAtlas Setup. Running
+a newer DevAtlas Setup over the old one also updates. **Check for updates** in the sidebar checks
+at once.
 
 ---
 
@@ -434,6 +447,44 @@ installed with DevAtlas Setup. Running a newer DevAtlas Setup over the old one a
 - `unsafe` Rust is forbidden workspace-wide, and production code has no `unwrap()`.
 
 Details: [security model](docs/security/security-model.md).
+
+---
+
+## Privacy
+
+DevAtlas has no telemetry or analytics and needs no account. Its log file stays in the app's
+data folder.
+
+**Stays on your computer:** your library, notes, tags, collections, snippets, reading status,
+settings and the browser bookmarks DevAtlas reads. Your optional GitHub token is kept in the
+Windows Credential Manager and sent only to `api.github.com`.
+
+**Community (optional).** Browsing and sharing collections needs a GitHub sign-in through
+[Supabase](https://supabase.com), hosted in Tokyo (AWS `ap-northeast-1`). Without signing in,
+Community sends nothing. Signed in, it stores:
+
+- your GitHub username and avatar address, and when you signed up (Supabase's sign-in service also
+  keeps the account record GitHub sends it, which can include your GitHub email address; other
+  users never see it);
+- the collections you choose to share: title, description, and each link's title and https address
+  with its query and fragment removed. Your notes, tags and reading status are never shared;
+- the collections you follow (private to you) and any reports you file.
+
+Unshare a collection to remove it. **Settings → Account → Delete Community account** erases the
+account and everything above from the server; your local library is untouched. Other users' shared
+links are never fetched for previews, so opening a collection tells no one you looked.
+
+**Network requests.** DevAtlas contacts these, each only for the feature named:
+
+| Who                                                       | Why                                                                                                                         |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| GitHub (`github.com`, its API, download and avatar hosts) | Update checks and downloads, Repos and Saved repos, GitHub stars import and sync, and the Community sign-in page            |
+| `star-history.com`                                        | Star history charts and rankings                                                                                            |
+| Hacker News, 35 official blogs, TIOBE, PYPL               | News, Top stories and Languages                                                                                             |
+| The sites of links you save                               | Titles, preview images and icons, and the dead-link check (when you run it). These sites see your IP address, like a visit. |
+| The Community server (Supabase, Tokyo)                    | Community, only while signed in                                                                                             |
+
+Sites you open in the in-app viewer load as they would in a browser.
 
 ---
 
@@ -493,7 +544,10 @@ Bookmarks are only read, never changed.
 
 ### Do I need an account? Is my data uploaded anywhere?
 
-No account and no cloud. Your library lives in a local SQLite database on your computer.
+No account is needed, and your library lives in a local SQLite database on your computer. The
+optional Community feature needs GitHub sign-in and stores your GitHub username and avatar plus
+only the collections you choose to share. DevAtlas also contacts GitHub, news feeds and the sites
+of your saved links. See [Privacy](#privacy).
 
 ### Does it run on macOS or Linux?
 

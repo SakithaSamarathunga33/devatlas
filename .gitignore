@@ -19,6 +19,12 @@ apps/installer/src-tauri/gen/
 .env.*
 !.env.example
 
+# Keys and certificates (the update public key, update-signing.pub, stays tracked)
+*.pem
+*.key
+*.p12
+*.pfx
+
 # IDE / OS
 .idea/
 .vscode/*

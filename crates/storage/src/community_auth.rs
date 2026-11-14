@@ -19,7 +19,9 @@ use serde::Deserialize;
 use tokio::net::TcpListener;
 use tokio::sync::Notify;
 
-use crate::community::{CommunityConfig, SupabaseError, http_client, read_body, server_message};
+use crate::community::{
+    CommunityConfig, SupabaseError, http_client, read_body, refusal, server_message,
+};
 use crate::community_loopback::{CALLBACK_PATH, Pkce, wait_for_code};
 use crate::credentials::KeyringSecret;
 
@@ -344,6 +346,32 @@ impl CommunityAuth for SupabaseAuth {
             }
         }
         self.secret.delete()?;
+        Ok(())
+    }
+
+    /// Erases the account on the server, which ends its sessions too, then forgets the session
+    /// here exactly as signing out does.
+    async fn delete_account(&self) -> Result<(), SupabaseError> {
+        let url = self.config.endpoint("rest/v1/rpc/delete_my_account")?;
+        let response = self
+            .send(|token| {
+                self.http
+                    .post(url.clone())
+                    .header("apikey", &self.config.api_key)
+                    .header(CONTENT_TYPE, "application/json")
+                    .bearer_auth(token)
+                    .body("{}")
+            })
+            .await?;
+        let status = response.status();
+        let body = read_body(response).await?;
+        if !status.is_success() {
+            return Err(refusal(status, &body));
+        }
+        let _guard = self.refresh_lock.lock().await;
+        *self.lock() = None;
+        self.secret.delete()?;
+        tracing::info!("deleted the Community account");
         Ok(())
     }
 }
