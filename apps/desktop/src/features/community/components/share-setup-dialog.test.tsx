@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "@/app/providers/app-providers";
-import type { SharedSetup } from "@/types/agent-setups.types";
+import type { SetupEntry, SetupPreview, SharedSetup } from "@/types/agent-setups.types";
 
 import { USER } from "./community.test-data";
 import { DETECTED, HALLMARK, SETUP } from "./setup.test-data";
@@ -13,7 +13,7 @@ import { ShareSetupDialog } from "./share-setup-dialog";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(() => Promise.resolve()) }));
 
-function renderDialog(shared: SharedSetup | null | "pending") {
+function renderDialog(shared: SharedSetup | null | "pending", detected: SetupPreview = DETECTED) {
   const onClose = vi.fn();
   vi.mocked(invoke).mockReset();
   vi.mocked(invoke).mockImplementation((command) => {
@@ -21,7 +21,7 @@ function renderDialog(shared: SharedSetup | null | "pending") {
       case "community_session":
         return Promise.resolve(USER);
       case "detect_agent_setup":
-        return Promise.resolve(DETECTED);
+        return Promise.resolve(detected);
       case "get_shared_setup":
         return shared === "pending" ? new Promise(() => undefined) : Promise.resolve(shared);
       default:
@@ -77,6 +77,30 @@ describe("Share your agent setup", () => {
     });
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  it("ticks every skill from one repository with its checkbox", async () => {
+    const skill = (name: string): SetupEntry => ({
+      ...HALLMARK,
+      name,
+      key: `skill:${name}`,
+      source: { type: "github", id: "emilkowalski/skills" },
+    });
+    renderDialog(null, { items: [skill("animate"), skill("gestures"), HALLMARK], skipped: 0 });
+
+    const repo = await screen.findByRole("checkbox", { name: /^emilkowalski\/skills/ });
+    expect(screen.getByText(/2 skills · 0 ticked/)).toBeInTheDocument();
+    fireEvent.click(repo);
+    expect(repo).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /^hallmark/ })).not.toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Share 2" }));
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("share_agent_setup", {
+        keys: ["skill:animate", "skill:gestures"],
+        description: null,
+      });
     });
   });
 

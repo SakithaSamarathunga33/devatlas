@@ -1,6 +1,9 @@
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
 import { CheckboxList, CheckboxListItem } from "@astryxdesign/core/CheckboxList";
+import { Collapsible } from "@astryxdesign/core/Collapsible";
+import { Heading } from "@astryxdesign/core/Heading";
 import { HStack } from "@astryxdesign/core/HStack";
 import { Skeleton } from "@astryxdesign/core/Skeleton";
 import { Text } from "@astryxdesign/core/Text";
@@ -29,6 +32,91 @@ function itemDescription(entry: SetupEntry): string {
   const tools = entry.tools.map((tool) => TOOL_LABELS[tool]).join(" · ");
   const where = `${sourceLabel(entry)} · ${tools}`;
   return entry.description === null ? where : `${entry.description} — ${where}`;
+}
+
+/** Splits a kind's items into groups that share one source (a repo of skills) and the rest. */
+function bySource(entries: SetupEntry[]): {
+  repos: [SetupEntry, ...SetupEntry[]][];
+  singles: SetupEntry[];
+} {
+  const groups = new Map<string, [SetupEntry, ...SetupEntry[]]>();
+  for (const entry of entries) {
+    const id = entry.source === null ? entry.key : `${entry.source.type}:${entry.source.id}`;
+    const group = groups.get(id);
+    groups.set(id, group === undefined ? [entry] : [...group, entry]);
+  }
+  const all = [...groups.values()];
+  return {
+    repos: all.filter((group) => group.length > 1),
+    singles: all.filter((group) => group.length === 1).flat(),
+  };
+}
+
+interface PickProps {
+  entries: SetupEntry[];
+  chosen: string[];
+  onChange: (chosen: string[]) => void;
+}
+
+/** One checkbox per item; changes only these items' keys in `chosen`. */
+function ItemList({ label, entries, chosen, onChange }: PickProps & { label: string }) {
+  const keys = new Set(entries.map((entry) => entry.key));
+  return (
+    <CheckboxList
+      label={label}
+      isLabelHidden
+      density="compact"
+      value={chosen.filter((key) => keys.has(key))}
+      onChange={(groupChosen) => {
+        onChange([...chosen.filter((key) => !keys.has(key)), ...groupChosen]);
+      }}
+    >
+      {entries.map((entry) => (
+        <CheckboxListItem
+          key={entry.key}
+          value={entry.key}
+          label={entry.name}
+          description={itemDescription(entry)}
+        />
+      ))}
+    </CheckboxList>
+  );
+}
+
+/** Items from one repository or package: one checkbox ticks them all, single ones fold away. */
+function SourceGroup({
+  entries,
+  chosen,
+  onChange,
+}: PickProps & { entries: [SetupEntry, ...SetupEntry[]] }) {
+  const [first] = entries;
+  const name = first.source?.id ?? first.name;
+  const keys = entries.map((entry) => entry.key);
+  const ticked = keys.filter((key) => chosen.includes(key)).length;
+  const kind = KIND_LABELS[first.kind].many.toLowerCase();
+  let value: boolean | "indeterminate" = "indeterminate";
+  if (ticked === 0) value = false;
+  else if (ticked === keys.length) value = true;
+  return (
+    <VStack gap={1}>
+      <CheckboxInput
+        label={name}
+        description={`${String(keys.length)} ${kind} · ${String(ticked)} ticked · ${sourceLabel(first)}`}
+        value={value}
+        onChange={(isChecked) => {
+          const rest = chosen.filter((key) => !keys.includes(key));
+          onChange(isChecked ? [...rest, ...keys] : rest);
+        }}
+      />
+      <Collapsible
+        className="pl-7"
+        defaultIsOpen={false}
+        trigger={<Text type="supporting">{`Pick single ${kind} from ${name}`}</Text>}
+      >
+        <ItemList label={name} entries={entries} chosen={chosen} onChange={onChange} />
+      </Collapsible>
+    </VStack>
+  );
 }
 
 /**
@@ -124,26 +212,30 @@ export function ShareSetupDialog({ onClose }: { onClose: () => void }) {
             {setupKinds.map((kind) => {
               const group = items.filter((entry) => entry.kind === kind);
               if (group.length === 0) return null;
-              const keys = new Set(group.map((entry) => entry.key));
+              const { repos, singles } = bySource(group);
+              const label = `${KIND_LABELS[kind].many} (${String(group.length)})`;
               return (
-                <CheckboxList
-                  key={kind}
-                  label={`${KIND_LABELS[kind].many} (${String(group.length)})`}
-                  density="compact"
-                  value={chosen.filter((key) => keys.has(key))}
-                  onChange={(groupChosen) => {
-                    setPicked([...chosen.filter((key) => !keys.has(key)), ...groupChosen]);
-                  }}
-                >
-                  {group.map((entry) => (
-                    <CheckboxListItem
-                      key={entry.key}
-                      value={entry.key}
-                      label={entry.name}
-                      description={itemDescription(entry)}
+                <VStack key={kind} gap={2}>
+                  <Heading level={4} accessibilityLevel={3}>
+                    {label}
+                  </Heading>
+                  {repos.map((repo) => (
+                    <SourceGroup
+                      key={repo[0].key}
+                      entries={repo}
+                      chosen={chosen}
+                      onChange={setPicked}
                     />
                   ))}
-                </CheckboxList>
+                  {singles.length > 0 && (
+                    <ItemList
+                      label={label}
+                      entries={singles}
+                      chosen={chosen}
+                      onChange={setPicked}
+                    />
+                  )}
+                </VStack>
               );
             })}
           </div>
