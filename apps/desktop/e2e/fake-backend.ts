@@ -253,6 +253,18 @@ export class FakeBackend {
       }
       case "share_group":
         return "c0ffee00-0000-4000-8000-0000000000aa";
+      // Agent setups: nobody has shared one, and this computer has nothing installed.
+      case "list_shared_setups":
+        return { setups: [], nextOffset: null };
+      case "get_shared_setup":
+        return null;
+      case "detect_agent_setup":
+        return { items: [], skipped: 0 };
+      case "share_agent_setup":
+      case "unshare_agent_setup":
+        return null;
+      case "report_shared_setup":
+        return true;
 
       // Library and collections
       case "list_library":

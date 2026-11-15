@@ -86,6 +86,10 @@ computer, and nothing is written to your browser. [What goes online](#privacy)._
   you don't want, and restore them later.
 - **Community** (optional, sign in with GitHub): share a collection for other DevAtlas users to
   browse, follow and copy links from. See [Privacy](#privacy) for what it stores.
+- **Agent setups** (in Community): share the skills, MCP servers and plugins you use in Claude
+  Code and Codex. DevAtlas finds them on your computer and you pick which to share. Others see
+  each item's source and copy a ready-made install command, built by DevAtlas from checked
+  names, never typed by the person sharing.
 
 ### Discover
 
@@ -117,7 +121,8 @@ computer, and nothing is written to your browser. [What goes online](#privacy)._
 ### Your data
 
 - **Local-first**: the library lives in a SQLite database in your app-data folder. No account is
-  needed; only collections you choose to share through Community leave your computer.
+  needed; only collections and agent setups you choose to share through Community leave your
+  computer.
 - **Backup and import**: export everything to one file; import a DevAtlas backup or any browser's
   bookmarks export. Importing merges and never removes anything.
 - **Dead-link checker**: finds links that are gone or have moved.
@@ -482,9 +487,14 @@ Community sends nothing. Signed in, it stores:
   users never see it);
 - the collections you choose to share: title, description, and each link's title and https address
   with its query and fragment removed. Your notes, tags and reading status are never shared;
+- the agent setup you choose to share: each skill's, MCP server's and plugin's name, short
+  description and public source (a GitHub repository or an npm or PyPI package). To find them
+  DevAtlas reads Claude Code's and Codex's settings on your computer (`~/.claude`,
+  `~/.claude.json`, `~/.agents`, `~/.codex`); MCP server commands, arguments, environment
+  variables, keys and file paths are never kept or sent;
 - the collections you follow (private to you) and any reports you file.
 
-Unshare a collection to remove it. **Settings → Account → Delete Community account** erases the
+Unshare a collection or your setup to remove it. **Settings → Account → Delete Community account** erases the
 account and everything above from the server; your local library is untouched. Other users' shared
 links are never fetched for previews, so opening a collection tells no one you looked.
 

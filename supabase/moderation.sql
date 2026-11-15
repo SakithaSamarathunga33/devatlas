@@ -52,3 +52,32 @@ order by reports desc, c.updated_at desc;
 --
 -- Dismiss a report that needs no action.
 -- delete from public.reports where id = 0;
+
+-- Agent setups: reported setups, newest report first. A setup goes by its owner's id.
+select
+  r.id as report_id,
+  r.created_at as reported_at,
+  r.reason,
+  s.owner_id,
+  op.username as owner,
+  s.skill_count,
+  s.mcp_server_count,
+  s.plugin_count,
+  rp.username as reporter
+from public.setup_reports r
+join public.shared_setups s on s.owner_id = r.owner_id
+join public.profiles op on op.id = s.owner_id
+join public.profiles rp on rp.id = r.reporter_id
+where not s.is_hidden
+order by r.created_at desc;
+
+-- What a reported setup lists.
+-- select position, kind, name, description, source_type, source, tools
+-- from public.shared_setup_items where owner_id = '00000000-0000-0000-0000-000000000000'
+-- order by position;
+--
+-- Hide a setup, or unhide it with false.
+-- update public.shared_setups set is_hidden = true where owner_id = '00000000-0000-0000-0000-000000000000';
+--
+-- Dismiss a setup report that needs no action.
+-- delete from public.setup_reports where id = 0;

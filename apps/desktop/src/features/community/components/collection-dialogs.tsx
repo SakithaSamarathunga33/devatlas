@@ -4,14 +4,12 @@ import { HStack } from "@astryxdesign/core/HStack";
 import { Text } from "@astryxdesign/core/Text";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { VStack } from "@astryxdesign/core/VStack";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { type QueryKey, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { Modal } from "@/components/shared/modal";
-import { reportSharedCollection, unshareCollection } from "@/services/community.service";
-import type { SharedCollection } from "@/types/community.types";
 
 import { communityQueryKey } from "../hooks/use-community";
 import { errorMessage } from "../error-message";
@@ -19,23 +17,25 @@ import { errorMessage } from "../error-message";
 /** Matches the server's limit. */
 const MAX_REASON_LENGTH = 500;
 
-/** Reports a collection to the moderators, with an optional reason. */
+/** Reports a collection or setup (`what`) to the moderators, with an optional reason. */
 export function ReportDialog({
-  collection,
+  name,
+  what,
+  send,
   onClose,
 }: {
-  collection: SharedCollection;
+  name: string;
+  what: "collection" | "setup";
+  /** Resolves to `false` when this account had already reported it. */
+  send: (reason: string | null) => Promise<boolean>;
   onClose: () => void;
 }) {
   const [reason, setReason] = useState("");
   const report = useMutation({
-    mutationFn: () =>
-      reportSharedCollection(collection.id, reason.trim() === "" ? null : reason.trim()),
+    mutationFn: () => send(reason.trim() === "" ? null : reason.trim()),
     onSuccess: (isNew) => {
       toast.success(
-        isNew
-          ? "Thanks, the moderators will take a look."
-          : "You already reported this collection.",
+        isNew ? "Thanks, the moderators will take a look." : `You already reported this ${what}.`,
       );
       onClose();
     },
@@ -43,7 +43,7 @@ export function ReportDialog({
   const isTooLong = reason.length > MAX_REASON_LENGTH;
 
   return (
-    <Modal purpose="form" title={`Report “${collection.title}”?`} onClose={onClose}>
+    <Modal purpose="form" title={`Report “${name}”?`} onClose={onClose}>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -52,8 +52,10 @@ export function ReportDialog({
       >
         <VStack gap={4}>
           <Text type="supporting" as="p">
-            Report collections with spam, malware, or links that break the rules. The owner
-            isn&apos;t told who reported it.
+            {what === "collection"
+              ? "Report collections with spam, malware, or links that break the rules."
+              : "Report setups with spam, malware, or items that break the rules."}{" "}
+            The owner isn&apos;t told who reported it.
           </Text>
           <TextArea
             label="Reason (optional)"
@@ -88,33 +90,41 @@ export function ReportDialog({
   );
 }
 
-/** Takes the owner's published collection down, then returns to Community. */
+/** Takes the owner's published collection or setup down, then returns to Community. */
 export function UnshareDialog({
-  collectionId,
+  what,
+  send,
+  pageQueryKey,
+  returnTo = "/community",
   onClose,
 }: {
-  collectionId: string;
+  what: "collection" | "setup";
+  send: () => Promise<null>;
+  /** The page's own query, dropped before leaving it. */
+  pageQueryKey: QueryKey;
+  returnTo?: string;
   onClose: () => void;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const unshare = useMutation({
-    mutationFn: () => unshareCollection(collectionId),
+    mutationFn: send,
     onSuccess: async () => {
-      // Leave first: refetching the page's own collection would only find it gone.
-      queryClient.removeQueries({ queryKey: [...communityQueryKey, "collection", collectionId] });
+      // Leave first: refetching the page's own data would only find it gone.
+      queryClient.removeQueries({ queryKey: pageQueryKey });
       toast.success("Removed from Community");
-      await navigate("/community");
+      await navigate(returnTo);
       await queryClient.invalidateQueries({ queryKey: communityQueryKey });
     },
   });
 
   return (
-    <Modal title="Unshare this collection?" onClose={onClose}>
+    <Modal title={`Unshare this ${what}?`} onClose={onClose}>
       <VStack gap={4}>
         <Text type="supporting" as="p">
-          It disappears from Community for everyone. Your own collection and its links stay in
-          DevAtlas.
+          {what === "collection"
+            ? "It disappears from Community for everyone. Your own collection and its links stay in DevAtlas."
+            : "It disappears from Community for everyone. Nothing changes in your Claude Code or Codex."}
         </Text>
         {unshare.isError && (
           <Banner role="alert" status="error" title={errorMessage(unshare.error)} />

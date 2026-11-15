@@ -136,7 +136,7 @@ pub(crate) fn server_message(body: &[u8]) -> Option<String> {
 }
 
 /// PostgREST's error code, such as `42501` for "not allowed".
-fn error_code(body: &[u8]) -> Option<String> {
+pub(crate) fn error_code(body: &[u8]) -> Option<String> {
     #[derive(Deserialize)]
     struct ErrorBody {
         code: Option<String>,
@@ -145,9 +145,9 @@ fn error_code(body: &[u8]) -> Option<String> {
 }
 
 #[derive(Deserialize)]
-struct RawOwner {
-    username: String,
-    avatar_url: Option<String>,
+pub(crate) struct RawOwner {
+    pub(crate) username: String,
+    pub(crate) avatar_url: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -287,12 +287,12 @@ impl SupabaseCommunity {
     }
 
     /// GETs a PostgREST URL as the signed-in account.
-    async fn get(&self, url: Url) -> Result<Vec<u8>, SupabaseError> {
+    pub(crate) async fn get(&self, url: Url) -> Result<Vec<u8>, SupabaseError> {
         read_outcome(self.authed(|http| http.get(url.clone())).await)
     }
 
     /// Sends a signed-in request; `Err((status, body))` for a refusal.
-    async fn authed(
+    pub(crate) async fn authed(
         &self,
         build: impl Fn(&reqwest::Client) -> RequestBuilder,
     ) -> Result<Answer, SupabaseError> {
@@ -309,13 +309,13 @@ impl SupabaseCommunity {
         })
     }
 
-    fn rest(&self, table: &str) -> Result<Url, url::ParseError> {
+    pub(crate) fn rest(&self, table: &str) -> Result<Url, url::ParseError> {
         self.config.endpoint(&format!("rest/v1/{table}"))
     }
 }
 
 /// A signed-in request's body, or the status and body of the server's refusal.
-type Answer = Result<Vec<u8>, (StatusCode, Vec<u8>)>;
+pub(crate) type Answer = Result<Vec<u8>, (StatusCode, Vec<u8>)>;
 
 /// A read's body; signed out, a clear request to sign in rather than an anonymous call.
 fn read_outcome(sent: Result<Answer, SupabaseError>) -> Result<Vec<u8>, SupabaseError> {

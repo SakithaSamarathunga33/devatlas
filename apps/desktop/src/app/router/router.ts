@@ -1,7 +1,7 @@
 import { createBrowserRouter, redirect, type RouteObject } from "react-router";
 
 import { AppLayout } from "@/app/layouts/app-layout";
-import { CommunityPage, SharedCollectionPage } from "@/features/community";
+import { CommunityPage, SharedCollectionPage, SharedSetupPage } from "@/features/community";
 import { DashboardPage } from "@/features/dashboard";
 import { DiscoveryPage, SavedReposPage } from "@/features/discovery";
 import { ExplorerPage } from "@/features/explorer";
@@ -67,6 +67,10 @@ export const routes: RouteObject[] = [
       {
         path: "community/:collectionId",
         Component: SharedCollectionPage,
+      },
+      {
+        path: "community/setups/:ownerId",
+        Component: SharedSetupPage,
       },
       {
         path: "explorer",

@@ -10,28 +10,34 @@ import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { VStack } from "@astryxdesign/core/VStack";
-import { Globe2, Heart, Share2, Users } from "lucide-react";
+import { Bot, Globe2, Heart, Share2, Users } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { SearchField } from "@/components/shared/search-field";
 import { FeedError } from "@/features/news";
+import type { SetupSummary } from "@/types/agent-setups.types";
 import type { SharedSummary } from "@/types/community.types";
 
+import { useSharedSetups } from "../hooks/use-agent-setups";
 import {
+  useCommunitySession,
   useDebouncedValue,
   useMySharedCollections,
   useSharedCollections,
 } from "../hooks/use-community";
 import { errorMessage } from "../error-message";
 import { followerLabel } from "../follower-label";
+import { setupCounts } from "../setup-labels";
 import { OwnerAvatar } from "./community-account";
 import { CommunitySignInGate } from "./community-sign-in-gate";
+import { ShareSetupDialog } from "./share-setup-dialog";
 
 const CARD_GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-3";
 const SEARCH_DELAY_MS = 300;
 
-type View = "everyone" | "mine";
+type View = "everyone" | "setups" | "mine";
 
 function linkCount(count: number): string {
   return `${String(count)} ${count === 1 ? "link" : "links"}`;
@@ -190,6 +196,146 @@ function Mine({ search }: { search: string }) {
   return <CollectionGrid collections={shown} />;
 }
 
+/** A developer's shared agent setup; its text is someone else's and is only ever shown as text. */
+function SetupCard({ setup }: { setup: SetupSummary }) {
+  const counts = setupCounts({
+    skill: setup.skillCount,
+    "mcp-server": setup.mcpServerCount,
+    plugin: setup.pluginCount,
+  });
+  return (
+    <ClickableCard
+      href={`/community/setups/${encodeURIComponent(setup.owner.id)}`}
+      label={`${setup.owner.username}'s agent setup, ${counts}`}
+      height="100%"
+    >
+      <VStack gap={3} height="100%" justify="between">
+        <VStack gap={1}>
+          <HStack gap={2} vAlign="center">
+            <OwnerAvatar src={setup.owner.avatarUrl} className="size-6" />
+            <Heading level={5} accessibilityLevel={2} maxLines={1}>
+              {setup.owner.username}
+            </Heading>
+          </HStack>
+          {setup.description !== null && (
+            <Text type="supporting" maxLines={2}>
+              {setup.description}
+            </Text>
+          )}
+        </VStack>
+        <Text type="supporting" hasTabularNumbers>
+          {counts} · <Timestamp value={setup.updatedAt} format="relative" hasTooltip={false} />
+        </Text>
+      </VStack>
+    </ClickableCard>
+  );
+}
+
+/** Shared setups, newest first, filtered by name or description among those loaded. */
+function SetupList({ search }: { search: string }) {
+  const setups = useSharedSetups();
+  const session = useCommunitySession();
+  const term = search.trim().toLowerCase();
+  const userId = session.data?.id ?? null;
+
+  if (setups.isPending) return <GridSkeleton />;
+  if (setups.isError && !setups.isFetchNextPageError) {
+    return <FeedError title="Shared setups couldn't be loaded" query={setups} />;
+  }
+  const all = setups.data.pages.flatMap((page) => page.setups);
+  const seen = new Set<string>();
+  const unique = all.filter((setup) => {
+    if (seen.has(setup.owner.id)) return false;
+    seen.add(setup.owner.id);
+    return true;
+  });
+  const shown = unique.filter(
+    (setup) =>
+      term === "" ||
+      setup.owner.username.toLowerCase().includes(term) ||
+      (setup.description ?? "").toLowerCase().includes(term),
+  );
+  const isMineShared = userId !== null && all.some((setup) => setup.owner.id === userId);
+  let emptyHint: string | undefined;
+  if (term !== "") {
+    emptyHint = setups.hasNextPage ? "Search looks through the setups loaded so far." : undefined;
+  } else if (!isMineShared) {
+    emptyHint = "Share yours to be the first.";
+  }
+
+  return (
+    <VStack gap={4}>
+      {shown.length === 0 ? (
+        <EmptyState
+          headingLevel={2}
+          icon={<Icon icon={Bot} />}
+          title={
+            term === "" ? "No one has shared a setup yet" : `No setups match “${search.trim()}”`
+          }
+          description={emptyHint}
+        />
+      ) : (
+        <ul className={CARD_GRID}>
+          {shown.map((setup) => (
+            <li key={setup.owner.id}>
+              <SetupCard setup={setup} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {setups.isFetchNextPageError && (
+        <Banner
+          role="alert"
+          status="error"
+          title="More setups couldn't be loaded"
+          description={errorMessage(setups.error)}
+        />
+      )}
+      {setups.hasNextPage && (
+        <HStack hAlign="center">
+          <Button
+            label="Load more"
+            isLoading={setups.isFetchingNextPage}
+            onClick={() => {
+              void setups.fetchNextPage();
+            }}
+          />
+        </HStack>
+      )}
+    </VStack>
+  );
+}
+
+/** The Agent setups tab. The dialog sits outside the list, so it stays open while it loads. */
+function Setups({ search }: { search: string }) {
+  const [isSharing, setIsSharing] = useState(false);
+  return (
+    <VStack gap={4}>
+      <HStack gap={3} vAlign="center" hAlign="between" wrap="wrap">
+        <Text type="supporting">
+          The skills, MCP servers and plugins other developers use in Claude Code and Codex.
+        </Text>
+        <Button
+          variant="primary"
+          label="Share your setup"
+          icon={<Icon icon={Bot} />}
+          onClick={() => {
+            setIsSharing(true);
+          }}
+        />
+      </HStack>
+      <SetupList search={search} />
+      {isSharing && (
+        <ShareSetupDialog
+          onClose={() => {
+            setIsSharing(false);
+          }}
+        />
+      )}
+    </VStack>
+  );
+}
+
 /** Community: collections other developers published, searchable, newest first. Signed out, it
  * shows only the way to sign in, and fetches nothing. */
 export function CommunityPage() {
@@ -202,14 +348,19 @@ export function CommunityPage() {
 
 function CommunityContent() {
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<View>("everyone");
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab");
+  const view: View = tab === "mine" || tab === "setups" ? tab : "everyone";
+  const setView = (next: View) => {
+    setParams(next === "everyone" ? {} : { tab: next }, { replace: true });
+  };
 
   return (
     <VStack gap={5} padding={6}>
       {/* The account and Sign out live in the sidebar, under Settings. */}
       <PageHeader
         title="Community"
-        description="Collections other developers shared. Add any of their links to your library."
+        description="Collections and agent setups other developers shared. Add any of their links to your library."
       />
 
       <HStack gap={4} vAlign="center" hAlign="between" wrap="wrap">
@@ -217,21 +368,24 @@ function CommunityContent() {
           aria-label="Show"
           value={view}
           onChange={(value) => {
-            setView(value === "mine" ? "mine" : "everyone");
+            setView(value === "mine" || value === "setups" ? value : "everyone");
           }}
         >
           <Tab value="everyone" label="Everyone" icon={<Icon icon={Users} />} />
+          <Tab value="setups" label="Agent setups" icon={<Icon icon={Bot} />} />
           <Tab value="mine" label="Shared by you" icon={<Icon icon={Share2} />} />
         </TabList>
         <SearchField
           value={search}
           onChange={setSearch}
-          label="Search Community collections"
-          placeholder="Search collections…"
+          label={view === "setups" ? "Search shared setups" : "Search Community collections"}
+          placeholder={view === "setups" ? "Search setups…" : "Search collections…"}
         />
       </HStack>
 
-      {view === "mine" ? <Mine search={search} /> : <Everyone search={search} />}
+      {view === "mine" && <Mine search={search} />}
+      {view === "setups" && <Setups search={search} />}
+      {view === "everyone" && <Everyone search={search} />}
     </VStack>
   );
 }

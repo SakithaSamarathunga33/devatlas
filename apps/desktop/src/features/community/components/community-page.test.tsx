@@ -6,7 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/app-providers";
 import type { CommunityUser } from "@/types/community.types";
 
-import { summary, USER } from "./community.test-data";
+import { OWNER_ID, summary, USER } from "./community.test-data";
+import { SETUP } from "./setup.test-data";
 import { CommunityPage } from "./community-page";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
@@ -28,6 +29,9 @@ function renderPage(session: CommunityUser | null = USER) {
         query === "nothing" ? [] : [summary(), summary({ id: "x2", title: "Design inspiration" })];
       return Promise.resolve({ collections, nextOffset: query === null ? 30 : null });
     }
+    if (command === "list_shared_setups") {
+      return Promise.resolve({ setups: [SETUP], nextOffset: null });
+    }
     if (command === "community_sign_in") return new Promise(() => undefined);
     return Promise.resolve(null);
   });
@@ -41,6 +45,24 @@ function renderPage(session: CommunityUser | null = USER) {
 }
 
 describe("Community", () => {
+  it("lists shared agent setups on their own tab, searchable by owner", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Agent setups/ }));
+    const link = await screen.findByRole("link", {
+      name: "octocat's agent setup, 1 skill · 1 MCP server",
+    });
+    expect(link).toHaveAttribute("href", `/community/setups/${OWNER_ID}`);
+    expect(screen.getByRole("button", { name: "Share your setup" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search shared setups" }), {
+      target: { value: "nobody" },
+    });
+    expect(
+      await screen.findByRole("heading", { name: "No setups match “nobody”" }),
+    ).toBeInTheDocument();
+  });
+
   it("lists published collections, linking to each", async () => {
     renderPage();
 

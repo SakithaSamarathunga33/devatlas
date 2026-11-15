@@ -63,6 +63,12 @@ const COMMANDS: &[&str] = &[
     "share_group",
     "unshare_collection",
     "report_shared_collection",
+    "detect_agent_setup",
+    "list_shared_setups",
+    "get_shared_setup",
+    "share_agent_setup",
+    "unshare_agent_setup",
+    "report_shared_setup",
     "follow_shared_collection",
     "unfollow_shared_collection",
 ];

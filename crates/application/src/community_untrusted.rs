@@ -19,7 +19,7 @@ pub fn is_uuid(id: &str) -> bool {
         })
 }
 
-pub(super) fn check_id(id: &str) -> Result<&str, CommunityInputError> {
+pub(crate) fn check_id(id: &str) -> Result<&str, CommunityInputError> {
     is_uuid(id)
         .then_some(id)
         .ok_or(CommunityInputError::InvalidId)
@@ -41,7 +41,7 @@ pub(super) fn host_of(url: &Url) -> String {
 }
 
 /// Cleaned text, or `None` when nothing is left.
-pub(super) fn optional_text(text: Option<&str>, max: usize) -> Option<String> {
+pub(crate) fn optional_text(text: Option<&str>, max: usize) -> Option<String> {
     let cleaned = clean_text(text?, max);
     (!cleaned.is_empty()).then_some(cleaned)
 }
@@ -73,6 +73,15 @@ pub struct UntrustedSummary<'a> {
     pub follower_count: i64,
 }
 
+/// An ISO 8601 timestamp as the server writes it.
+pub(crate) fn is_timestamp(text: &str) -> bool {
+    !text.is_empty()
+        && text.len() <= MAX_TIMESTAMP_LEN
+        && text
+            .chars()
+            .all(|c| c.is_ascii_digit() || matches!(c, '-' | ':' | '.' | '+' | 'T' | 'Z' | ' '))
+}
+
 /// A follower count from the server: a non-negative integer, or `None`.
 pub fn follower_count(raw: i64) -> Option<u32> {
     u32::try_from(raw).ok()
@@ -81,13 +90,7 @@ pub fn follower_count(raw: i64) -> Option<u32> {
 /// A collection from the server, or `None` when its id, timestamp or follower count is
 /// malformed.
 pub fn untrusted_summary(raw: &UntrustedSummary<'_>) -> Option<SharedSummary> {
-    let timestamp_ok = !raw.updated_at.is_empty()
-        && raw.updated_at.len() <= MAX_TIMESTAMP_LEN
-        && raw
-            .updated_at
-            .chars()
-            .all(|c| c.is_ascii_digit() || matches!(c, '-' | ':' | '.' | '+' | 'T' | 'Z' | ' '));
-    if !is_uuid(raw.id) || !is_uuid(raw.owner_id) || !timestamp_ok {
+    if !is_uuid(raw.id) || !is_uuid(raw.owner_id) || !is_timestamp(raw.updated_at) {
         return None;
     }
     Some(SharedSummary {

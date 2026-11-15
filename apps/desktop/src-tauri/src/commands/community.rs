@@ -27,7 +27,7 @@ const SESSION_ACCOUNT: &str = "community-session";
 
 /// The Community server, the signed-in account, and which local collections were shared.
 pub struct Community {
-    server: SupabaseCommunity,
+    pub(super) server: SupabaseCommunity,
     shares: JsonShares,
     /// Sharing read-modify-writes the shares file.
     lock: Mutex<()>,
@@ -54,7 +54,7 @@ impl Community {
 }
 
 /// Logs the full error; the UI only gets its plain message. Errors never hold tokens.
-fn report<E: Debug + Display>(error: E) -> String {
+pub(super) fn report<E: Debug + Display>(error: E) -> String {
     tracing::warn!(?error, "community command failed");
     error.to_string()
 }

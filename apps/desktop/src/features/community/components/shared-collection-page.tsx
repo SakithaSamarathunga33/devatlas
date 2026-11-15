@@ -20,10 +20,15 @@ import { SaveRepoButton } from "@/features/discovery";
 import { SiteIcon } from "@/features/library";
 import { WebLink } from "@/features/news";
 import { libraryQueryKey, useLibrary } from "@/hooks/use-library";
+import { reportSharedCollection, unshareCollection } from "@/services/community.service";
 import { addLink } from "@/services/library.service";
 import type { SharedCollection, SharedLink } from "@/types/community.types";
 
-import { useCommunitySession, useSharedCollection } from "../hooks/use-community";
+import {
+  communityQueryKey,
+  useCommunitySession,
+  useSharedCollection,
+} from "../hooks/use-community";
 import { errorMessage } from "../error-message";
 import { OwnerAvatar } from "./community-account";
 import { ReportDialog, UnshareDialog } from "./collection-dialogs";
@@ -163,8 +168,22 @@ function CollectionView({ collection }: { collection: SharedCollection }) {
         </List>
       )}
 
-      {dialog === "report" && <ReportDialog collection={collection} onClose={close} />}
-      {dialog === "unshare" && <UnshareDialog collectionId={collection.id} onClose={close} />}
+      {dialog === "report" && (
+        <ReportDialog
+          name={collection.title}
+          what="collection"
+          send={(reason) => reportSharedCollection(collection.id, reason)}
+          onClose={close}
+        />
+      )}
+      {dialog === "unshare" && (
+        <UnshareDialog
+          what="collection"
+          send={() => unshareCollection(collection.id)}
+          pageQueryKey={[...communityQueryKey, "collection", collection.id]}
+          onClose={close}
+        />
+      )}
     </VStack>
   );
 }

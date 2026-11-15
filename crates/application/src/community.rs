@@ -16,11 +16,12 @@ use crate::organizer::Group;
 
 #[path = "community_untrusted.rs"]
 mod untrusted;
+use untrusted::host_of;
 pub use untrusted::{
     UntrustedSummary, avatar_url, follower_count, https_url, is_uuid, untrusted_link,
     untrusted_summary,
 };
-use untrusted::{check_id, host_of, optional_text};
+pub(crate) use untrusted::{check_id, is_timestamp, optional_text};
 
 /// Collections per page when browsing.
 pub const PAGE_SIZE: u32 = 30;
@@ -31,7 +32,7 @@ pub const MAX_DESCRIPTION_CHARS: usize = 500;
 pub const MAX_LINK_TITLE_CHARS: usize = 300;
 pub const MAX_URL_LEN: usize = 2_048;
 pub const MAX_REASON_CHARS: usize = 500;
-const MAX_USERNAME_CHARS: usize = 39;
+pub(crate) const MAX_USERNAME_CHARS: usize = 39;
 const MAX_QUERY_CHARS: usize = 100;
 /// Paging deeper than this is no longer browsing.
 const MAX_OFFSET: u32 = 10_000;

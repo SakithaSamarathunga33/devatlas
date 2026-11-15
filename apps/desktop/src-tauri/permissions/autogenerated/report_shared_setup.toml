@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-report-shared-setup"
+description = "Enables the report_shared_setup command without any pre-configured scope."
+commands.allow = ["report_shared_setup"]
+
+[[permission]]
+identifier = "deny-report-shared-setup"
+description = "Denies the report_shared_setup command without any pre-configured scope."
+commands.deny = ["report_shared_setup"]

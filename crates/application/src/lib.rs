@@ -5,6 +5,7 @@
 //! mechanisms such as Tauri commands call into this crate instead of holding logic themselves.
 
 pub mod agent;
+pub mod agent_setups;
 pub mod app_info;
 pub mod backup;
 pub mod community;
