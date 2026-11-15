@@ -27,6 +27,8 @@ pub(crate) use untrusted::{check_id, is_timestamp, optional_text};
 pub const PAGE_SIZE: u32 = 30;
 /// The server's limits, checked here first so publishing fails with a clear message.
 pub const MAX_LINKS: usize = 200;
+/// How many links' preview images a collection's card shows.
+pub const MAX_COVERS: usize = 3;
 pub const MAX_TITLE_CHARS: usize = 80;
 pub const MAX_DESCRIPTION_CHARS: usize = 500;
 pub const MAX_LINK_TITLE_CHARS: usize = 300;
@@ -69,6 +71,8 @@ pub struct SharedSummary {
     pub owner: Owner,
     /// How many accounts follow it; the server keeps this exact.
     pub follower_count: u32,
+    /// The first few links (https only), whose preview images a card shows.
+    pub cover_urls: Vec<String>,
 }
 
 /// One link of a published collection.

@@ -208,7 +208,7 @@ export function ShareSetupDialog({ onClose }: { onClose: () => void }) {
           </HStack>
         )}
         {!isLoading && items.length > 0 && (
-          <div className="max-h-80 space-y-4 overflow-y-auto pr-1">
+          <div className="space-y-4">
             {setupKinds.map((kind) => {
               const group = items.filter((entry) => entry.kind === kind);
               if (group.length === 0) return null;
@@ -283,30 +283,33 @@ export function ShareSetupDialog({ onClose }: { onClose: () => void }) {
           </VStack>
         )}
         {failure !== null && <Banner role="alert" status="error" title={errorMessage(failure)} />}
-        <HStack gap={2} hAlign="end">
-          {isShared && (
+        {/* Pinned so the buttons stay in view while the long list scrolls the dialog. */}
+        <div className="sticky bottom-0 z-10 -mb-5 bg-(--color-background-popover) pt-3 pb-5">
+          <HStack gap={2} hAlign="end">
+            {isShared && (
+              <Button
+                variant="ghost"
+                label="Unshare"
+                isLoading={unshare.isPending}
+                onClick={() => {
+                  publish.reset();
+                  unshare.mutate();
+                }}
+              />
+            )}
+            <Button variant="ghost" label="Cancel" onClick={onClose} />
             <Button
-              variant="ghost"
-              label="Unshare"
-              isLoading={unshare.isPending}
+              variant="primary"
+              label={isShared ? "Update" : `Share ${String(chosen.length)}`}
+              isLoading={publish.isPending}
+              isDisabled={!canPublish}
               onClick={() => {
-                publish.reset();
-                unshare.mutate();
+                unshare.reset();
+                publish.mutate();
               }}
             />
-          )}
-          <Button variant="ghost" label="Cancel" onClick={onClose} />
-          <Button
-            variant="primary"
-            label={isShared ? "Update" : `Share ${String(chosen.length)}`}
-            isLoading={publish.isPending}
-            isDisabled={!canPublish}
-            onClick={() => {
-              unshare.reset();
-              publish.mutate();
-            }}
-          />
-        </HStack>
+          </HStack>
+        </div>
       </VStack>
     </Modal>
   );

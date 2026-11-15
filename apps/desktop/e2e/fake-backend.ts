@@ -83,6 +83,7 @@ export const SHARED_COLLECTION: SharedCollection = {
   updatedAt: "2026-11-01T10:00:00Z",
   owner: { id: "user-2", username: "ferris", avatarUrl: null },
   followerCount: 3,
+  coverUrls: [],
   isFollowing: false,
   links: [
     {

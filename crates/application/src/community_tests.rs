@@ -373,6 +373,7 @@ fn reads_every_page_of_an_accounts_collections() {
             avatar_url: None,
         },
         follower_count: 0,
+        cover_urls: Vec::new(),
     };
     let source = FakeSource {
         pages: vec![
@@ -484,6 +485,7 @@ fn detail() -> SharedCollection {
                 avatar_url: None,
             },
             follower_count: 4,
+            cover_urls: Vec::new(),
         },
         links: Vec::new(),
         is_following: None,

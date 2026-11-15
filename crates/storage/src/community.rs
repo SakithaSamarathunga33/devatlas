@@ -19,6 +19,7 @@ use serde::Deserialize;
 use url::Url;
 
 use crate::community_auth::SupabaseAuth;
+use crate::community_covers::cover_urls;
 use crate::credentials::CredentialError;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
@@ -28,7 +29,7 @@ const MAX_KEY_LEN: usize = 512;
 const MAX_MESSAGE_CHARS: usize = 200;
 const USER_AGENT: &str = concat!("DevAtlas/", env!("CARGO_PKG_VERSION"));
 // `!owner_id`: follows give a second path to profiles, which PostgREST refuses as ambiguous (300).
-const SUMMARY_FIELDS: &str = "id,owner_id,title,description,link_count,follower_count,updated_at,owner:profiles!owner_id(username,avatar_url)";
+const SUMMARY_FIELDS: &str = "id,owner_id,title,description,link_count,follower_count,updated_at,covers,covers_at,owner:profiles!owner_id(username,avatar_url)";
 
 #[derive(Debug, thiserror::Error)]
 pub enum SupabaseError {
@@ -169,9 +170,12 @@ struct RawCollection {
     owner: Option<RawOwner>,
     #[serde(default)]
     links: Vec<RawLink>,
+    #[serde(default)]
+    covers: i64,
+    covers_at: Option<String>,
 }
 
-fn summary(raw: &RawCollection) -> Option<SharedSummary> {
+fn summary(config: &CommunityConfig, raw: &RawCollection) -> Option<SharedSummary> {
     let owner = raw.owner.as_ref()?;
     community::untrusted_summary(&UntrustedSummary {
         id: &raw.id,
@@ -184,25 +188,37 @@ fn summary(raw: &RawCollection) -> Option<SharedSummary> {
         avatar_url: owner.avatar_url.as_deref(),
         follower_count: raw.follower_count,
     })
+    .map(|summary| SharedSummary {
+        // Built from the checked id, so a row can only point at this project's storage.
+        cover_urls: cover_urls(config, &summary.id, raw.covers, raw.covers_at.as_deref()),
+        ..summary
+    })
 }
 
 /// A page of collections; malformed ones are left out, but still count towards paging.
-fn parse_page(body: &[u8], offset: u32) -> Result<SharedPage, serde_json::Error> {
+fn parse_page(
+    config: &CommunityConfig,
+    body: &[u8],
+    offset: u32,
+) -> Result<SharedPage, serde_json::Error> {
     let raw: Vec<RawCollection> = serde_json::from_slice(body)?;
     let full = raw.len() >= PAGE_SIZE as usize;
     Ok(SharedPage {
-        collections: raw.iter().filter_map(summary).collect(),
+        collections: raw.iter().filter_map(|row| summary(config, row)).collect(),
         next_offset: full.then(|| offset.saturating_add(PAGE_SIZE)),
     })
 }
 
 /// One collection with its links in order, dropping links that aren't https.
-fn parse_collection(body: &[u8]) -> Result<Option<SharedCollection>, serde_json::Error> {
+fn parse_collection(
+    config: &CommunityConfig,
+    body: &[u8],
+) -> Result<Option<SharedCollection>, serde_json::Error> {
     let raw: Vec<RawCollection> = serde_json::from_slice(body)?;
     let Some(mut first) = raw.into_iter().next() else {
         return Ok(None);
     };
-    let Some(summary) = summary(&first) else {
+    let Some(summary) = summary(config, &first) else {
         return Ok(None);
     };
     first.links.sort_by_key(|link| link.position);
@@ -312,6 +328,11 @@ impl SupabaseCommunity {
     pub(crate) fn rest(&self, table: &str) -> Result<Url, url::ParseError> {
         self.config.endpoint(&format!("rest/v1/{table}"))
     }
+
+    /// A Storage API address, e.g. `object/collection-covers/…`.
+    pub(crate) fn storage(&self, path: &str) -> Result<Url, url::ParseError> {
+        self.config.endpoint(&format!("storage/v1/{path}"))
+    }
 }
 
 /// A signed-in request's body, or the status and body of the server's refusal.
@@ -356,7 +377,11 @@ impl CommunitySource for SupabaseCommunity {
             }
         }
         // An owner also sees the collections a moderator hid.
-        Ok(parse_page(&self.get(url).await?, filter.offset)?)
+        Ok(parse_page(
+            &self.config,
+            &self.get(url).await?,
+            filter.offset,
+        )?)
     }
 
     async fn collection(&self, id: &str) -> Result<Option<SharedCollection>, SupabaseError> {
@@ -367,7 +392,7 @@ impl CommunitySource for SupabaseCommunity {
                 &format!("{SUMMARY_FIELDS},links:shared_links(position,url,title)"),
             )
             .append_pair("id", &format!("eq.{id}"));
-        Ok(parse_collection(&self.get(url).await?)?)
+        Ok(parse_collection(&self.config, &self.get(url).await?)?)
     }
 
     async fn publish(&self, request: &PublishRequest) -> Result<PublishOutcome, SupabaseError> {
@@ -504,7 +529,7 @@ mod tests {
         let body = row(r#"{"position":2,"url":"https://b.dev/","title":"B"},
                {"position":0,"url":"javascript:alert(1)","title":"bad"},
                {"position":1,"url":"https://a.dev/","title":"A"}"#);
-        let collection = parse_collection(format!("[{body}]").as_bytes())
+        let collection = parse_collection(&config(), format!("[{body}]").as_bytes())
             .unwrap()
             .unwrap();
         let titles: Vec<_> = collection
@@ -516,14 +541,34 @@ mod tests {
         assert_eq!(collection.summary.owner.username, "octocat");
         assert_eq!(collection.summary.follower_count, 12);
         assert_eq!(collection.is_following, None);
-        assert_eq!(parse_collection(b"[]").unwrap(), None);
+        assert_eq!(parse_collection(&config(), b"[]").unwrap(), None);
+    }
+
+    fn config() -> CommunityConfig {
+        CommunityConfig::new("https://x.supabase.co", "key").unwrap()
+    }
+
+    #[test]
+    fn a_card_shows_the_stored_covers_only() {
+        let body = row("").replace(
+            r#""follower_count":12"#,
+            r#""follower_count":12,"covers":2,"covers_at":"2026-11-15T10:00:00+00:00""#,
+        );
+        let page = parse_page(&config(), format!("[{body}]").as_bytes(), 0).unwrap();
+        let covers = &page.collections[0].cover_urls;
+        assert_eq!(covers.len(), 2);
+        assert!(covers.iter().all(|url| url.starts_with(&format!(
+            "https://x.supabase.co/storage/v1/object/public/collection-covers/{ID}/"
+        ))));
+        let none = parse_page(&config(), format!("[{}]", row("")).as_bytes(), 0).unwrap();
+        assert!(none.collections[0].cover_urls.is_empty());
     }
 
     #[test]
     fn a_row_with_a_negative_follower_count_is_left_out() {
         let bad = row("").replace(r#""follower_count":12"#, r#""follower_count":-1"#);
         assert!(
-            parse_page(format!("[{bad}]").as_bytes(), 0)
+            parse_page(&config(), format!("[{bad}]").as_bytes(), 0)
                 .unwrap()
                 .collections
                 .is_empty()
@@ -580,11 +625,11 @@ mod tests {
         let rows: Vec<&str> = std::iter::once(bad.as_str())
             .chain(std::iter::repeat_n(good.as_str(), PAGE_SIZE as usize - 1))
             .collect();
-        let page = parse_page(format!("[{}]", rows.join(",")).as_bytes(), 30).unwrap();
+        let page = parse_page(&config(), format!("[{}]", rows.join(",")).as_bytes(), 30).unwrap();
         assert_eq!(page.collections.len(), PAGE_SIZE as usize - 1);
         assert_eq!(page.next_offset, Some(60));
 
-        let short = parse_page(format!("[{good}]").as_bytes(), 0).unwrap();
+        let short = parse_page(&config(), format!("[{good}]").as_bytes(), 0).unwrap();
         assert_eq!(short.next_offset, None);
     }
 

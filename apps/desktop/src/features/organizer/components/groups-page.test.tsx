@@ -34,7 +34,15 @@ function resource(id: string, title: string): Resource {
 
 const LIBRARY: LibrarySnapshot = {
   source: { browser: "", folder: "", warning: null },
-  resources: [resource("motion.dev", "Motion"), resource("uiverse.io", "Uiverse")],
+  resources: [
+    resource("motion.dev", "Motion"),
+    resource("uiverse.io", "Uiverse"),
+    {
+      ...resource("github.com/tauri-apps/tauri", "Tauri"),
+      url: "https://github.com/tauri-apps/tauri",
+      host: "github.com",
+    },
+  ],
 };
 
 function group(overrides: Partial<Group>): Group {
@@ -175,6 +183,26 @@ describe("Collections", () => {
     });
 
     expect(within(dialog).getAllByRole("checkbox")).toHaveLength(1);
+  });
+
+  it("keeps GitHub repos on their own tab of the link picker", async () => {
+    renderAt("/collections/c1", [group({})]);
+    fireEvent.click(await screen.findByRole("button", { name: "Manage links" }));
+    const dialog = await screen.findByRole("dialog", { name: "Manage links" });
+
+    expect(within(dialog).getAllByRole("checkbox")).toHaveLength(2);
+    expect(within(dialog).queryByRole("checkbox", { name: /Tauri/ })).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /GitHub repos/ }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: /Tauri/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await vi.waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("set_group_resources", {
+        id: "c1",
+        resourceIds: ["github.com/tauri-apps/tauri"],
+      });
+    });
   });
 
   it("says when the filter matches no links", async () => {

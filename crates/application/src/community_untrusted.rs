@@ -106,6 +106,7 @@ pub fn untrusted_summary(raw: &UntrustedSummary<'_>) -> Option<SharedSummary> {
             avatar_url: raw.avatar_url.and_then(avatar_url),
         },
         follower_count: follower_count(raw.follower_count)?,
+        cover_urls: Vec::new(),
     })
 }
 

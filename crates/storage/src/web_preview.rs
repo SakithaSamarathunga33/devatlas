@@ -36,13 +36,17 @@ pub enum WebPreviewError {
     NotPublic(String),
     #[error(transparent)]
     Http(#[from] reqwest::Error),
+    #[error("not an image this app can read")]
+    NotAnImage,
+    #[error(transparent)]
+    Image(#[from] image::ImageError),
     #[error("the preview fetcher is shutting down")]
     Closed,
 }
 
 pub struct WebPreviewFetcher {
-    client: reqwest::Client,
-    permits: Semaphore,
+    pub(crate) client: reqwest::Client,
+    pub(crate) permits: Semaphore,
     /// Separate from `permits`, so a link check never starves preview images.
     check_permits: Semaphore,
 }
@@ -216,7 +220,7 @@ impl Resolve for PublicOnlyResolver {
 /// http(s) only; literal IP hosts must be public and `localhost` names are refused. Other
 /// names are checked by the resolver when Rust fetches; for image and icon addresses the
 /// webview resolves them, so a name pointing at a private address is not caught here.
-fn is_public_url(url: &Url) -> bool {
+pub(crate) fn is_public_url(url: &Url) -> bool {
     if !matches!(url.scheme(), "http" | "https") {
         return false;
     }

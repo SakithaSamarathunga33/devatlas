@@ -16,6 +16,7 @@ import { useSearchParams } from "react-router";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { SearchField } from "@/components/shared/search-field";
+import { RemoteImage } from "@/features/library";
 import { FeedError } from "@/features/news";
 import type { SetupSummary } from "@/types/agent-setups.types";
 import type { SharedSummary } from "@/types/community.types";
@@ -58,6 +59,16 @@ function CollectionCard({ collection }: { collection: SharedSummary }) {
       height="100%"
     >
       <VStack gap={3} height="100%" justify="between">
+        {collection.coverUrls.length > 0 && (
+          <div aria-hidden className="grid grid-cols-3 gap-1 overflow-hidden rounded-lg">
+            {/* Copies kept on the Community server: the linked sites never see who looks. */}
+            {collection.coverUrls.map((url) => (
+              <div key={url} className="aspect-video overflow-hidden bg-(--color-background-muted)">
+                <RemoteImage src={url} className="size-full object-cover" fallback={null} />
+              </div>
+            ))}
+          </div>
+        )}
         <VStack gap={1}>
           <Heading level={5} accessibilityLevel={2} maxLines={1}>
             {collection.title}

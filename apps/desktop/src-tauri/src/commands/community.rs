@@ -5,6 +5,7 @@ use devatlas_application::community::{
     self, CommunityAuth, CommunityInputError, CommunityUser, FollowState, SharePreview,
     SharedCollection, SharedPage, SharedSummary,
 };
+use devatlas_application::community_covers;
 use devatlas_application::organizer::{self, Group};
 use devatlas_storage::community::{CommunityConfig, SupabaseCommunity, SupabaseError};
 use devatlas_storage::community_auth::{BrowserOpener, SupabaseAuth};
@@ -16,6 +17,7 @@ use tokio::sync::Mutex;
 
 use super::library::{LibraryStore, read_library};
 use super::organizer::Organizer;
+use super::preview::Previews;
 use super::settings::keyring_service;
 
 const COMMUNITY_URL: &str = "https://uiwlkpcwwrovbvwllcdd.supabase.co";
@@ -103,9 +105,33 @@ pub async fn community_sign_out(community: State<'_, Community>) -> Result<(), S
 #[tauri::command]
 pub async fn delete_community_account(community: State<'_, Community>) -> Result<(), String> {
     let _guard = community.lock.lock().await;
+    remove_my_covers(&community).await?;
     community::delete_account(community.server.auth(), &community.shares)
         .await
         .map_err(report)
+}
+
+/// Storage files don't go with the account, so its covers are removed first. If that fails the
+/// account stays, rather than leaving its images public with no way left to remove them.
+async fn remove_my_covers(community: &Community) -> Result<(), String> {
+    let Some(user) = community
+        .server
+        .auth()
+        .current_user()
+        .await
+        .map_err(report)?
+    else {
+        return Ok(());
+    };
+    let mine = community::my_collections(&community.server, &user.id)
+        .await
+        .map_err(report)?;
+    for collection in mine {
+        community_covers::remove_covers(&community.server, &collection.id)
+            .await
+            .map_err(report)?;
+    }
+    Ok(())
 }
 
 /// Published collections, newest first, optionally matching `query`.
@@ -165,31 +191,60 @@ pub async fn preview_group_share(
     ))
 }
 
-/// Publishes a local collection, or updates its published copy. Returns the published id.
+/// Publishes a local collection, or updates its published copy, then its covers: small copies
+/// of the first links' preview images. Returns the published id.
 #[tauri::command]
 pub async fn share_group(
     group_id: String,
     community: State<'_, Community>,
     organizer: State<'_, Organizer>,
     store: State<'_, LibraryStore>,
+    previews: State<'_, Previews>,
 ) -> Result<String, String> {
     let group = find_group(&organizer, &group_id).await?;
     let library = read_library(&store).await?;
-    let _guard = community.lock.lock().await;
-    community::share_group(
+    let id = {
+        // Released before the covers, which can take a while.
+        let _guard = community.lock.lock().await;
+        community::share_group(
+            &community.server,
+            &community.shares,
+            &group,
+            &library.resources,
+        )
+        .await
+        .map_err(report)?
+    };
+    let links: Vec<String> = community::share_preview(&group, &library.resources, None)
+        .links
+        .into_iter()
+        .map(|link| link.url)
+        .collect();
+    // Covers are a nicety: the collection is shared whether or not they upload.
+    if let Err(error) = community_covers::refresh_covers(
+        &previews.fetcher,
+        &previews.cache,
+        &previews.fetcher,
         &community.server,
-        &community.shares,
-        &group,
-        &library.resources,
+        &id,
+        &links,
     )
     .await
-    .map_err(report)
+    {
+        tracing::warn!(%error, "the shared collection's covers weren't updated");
+    }
+    Ok(id)
 }
 
 /// Takes a published collection down. Only its owner can.
 #[tauri::command]
 pub async fn unshare_collection(id: String, community: State<'_, Community>) -> Result<(), String> {
     let _guard = community.lock.lock().await;
+    // While the collection is still ours, which the storage policy checks. If this fails, the
+    // collection stays shared, so its covers are never left behind without an owner.
+    community_covers::remove_covers(&community.server, &id)
+        .await
+        .map_err(report)?;
     community::unshare(&community.server, &community.shares, &id)
         .await
         .map_err(report)

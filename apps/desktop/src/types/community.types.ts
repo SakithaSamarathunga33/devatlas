@@ -23,6 +23,8 @@ export const sharedSummarySchema = z.object({
     avatarUrl: httpsUrl.nullable(),
   }),
   followerCount: z.number().int().nonnegative(),
+  /** The first few links, whose preview images the card shows. */
+  coverUrls: z.array(httpsUrl).max(3),
 });
 export type SharedSummary = z.infer<typeof sharedSummarySchema>;
 

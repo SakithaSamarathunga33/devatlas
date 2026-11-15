@@ -75,6 +75,15 @@ describe("Community", () => {
     expect(invoke).toHaveBeenCalledWith("list_shared_collections", { query: null, offset: 0 });
   });
 
+  it("shows a collection's stored covers without contacting its linked sites", async () => {
+    renderPage();
+
+    const link = await screen.findByRole("link", { name: /Rust tools, by octocat/ });
+    const covers = link.closest("li")?.querySelectorAll("img") ?? [];
+    expect([...covers].map((image) => image.getAttribute("src"))).toEqual(summary().coverUrls);
+    expect(invoke).not.toHaveBeenCalledWith("get_resource_preview", expect.anything());
+  });
+
   it("loads the next page on request", async () => {
     renderPage();
 

@@ -223,6 +223,27 @@ interface RemoteImageProps {
   fallback: ReactNode;
 }
 
+/** A link's preview image filling its box, or its site icon when it has none. */
+export function PreviewImage({ url, host }: { url: string; host: string }) {
+  const preview = useResourcePreview(url);
+  if (preview.isPending) return <Skeleton radius="none" />;
+  return (
+    <RemoteImage
+      src={preview.data?.image ?? null}
+      className="size-full object-cover"
+      fallback={
+        <Center height="100%">
+          <SiteIcon
+            icon={preview.data?.icon ?? null}
+            host={host}
+            className="size-8 rounded-lg text-sm"
+          />
+        </Center>
+      }
+    />
+  );
+}
+
 /** An image from another site; falls back when missing or when it fails to load. */
 export function RemoteImage({ src, className, fallback }: RemoteImageProps) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);

@@ -31,6 +31,8 @@ reqwest = { version = "0.13", default-features = false, features = [
     "gzip",
 ] }
 scraper = "0.29"
+# Re-encodes shared collections' cover images as small JPEGs; decoders limited to web formats.
+image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 # The OS credential store, for the optional GitHub token.
 keyring = { version = "3", features = ["apple-native", "sync-secret-service", "windows-native"] }
 # RSS/Atom parsing for Discovery's news view.

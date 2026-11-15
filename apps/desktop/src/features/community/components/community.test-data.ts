@@ -24,6 +24,9 @@ export function summary(overrides: Partial<SharedSummary> = {}): SharedSummary {
     updatedAt: "2026-11-14T10:00:00+00:00",
     owner: { id: OWNER_ID, username: "octocat", avatarUrl: null },
     followerCount: 12,
+    coverUrls: [
+      "https://x.supabase.co/storage/v1/object/public/collection-covers/0b8f4a9e-6d2c-4b1a-9f3e-2c7d5e8a1b40/0.jpg",
+    ],
     ...overrides,
   };
 }

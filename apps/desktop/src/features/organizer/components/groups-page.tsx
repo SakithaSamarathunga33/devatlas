@@ -18,10 +18,12 @@ import { ArrowLeft, Link2, ListChecks, Pencil, Plus, Search, Share2, Trash2 } fr
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
+import { FilterTabs } from "@/components/shared/filter-tabs";
 import { Modal } from "@/components/shared/modal";
 import { PageHeader } from "@/components/shared/page-header";
 import { ShareDialog } from "@/features/community";
-import { ResourceCard } from "@/features/library";
+import { githubFullName } from "@/features/discovery/repo-utils";
+import { PreviewImage, ResourceCard } from "@/features/library";
 import { groupsQueryKey, useGroups } from "@/hooks/use-groups";
 import { useLibrary } from "@/hooks/use-library";
 import { describeError } from "@/services/ipc";
@@ -317,6 +319,13 @@ function GroupFormDialog({ group, onClose }: { group?: Group; onClose: () => voi
   );
 }
 
+type LinkKind = "links" | "repos";
+const KIND_NOUNS: Record<LinkKind, string> = { links: "links", repos: "GitHub repos" };
+
+function isRepo(resource: Resource): boolean {
+  return githubFullName(resource.url) !== null;
+}
+
 /** Ticks links in or out of a group. Links hidden from the library keep their membership. */
 function ManageLinksDialog({
   group,
@@ -330,8 +339,11 @@ function ManageLinksDialog({
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set(group.resourceIds));
   const [filter, setFilter] = useState("");
+  const [kind, setKind] = useState<LinkKind>("links");
   const term = filter.trim().toLowerCase();
-  const visible = resources.filter(
+  const repos = resources.filter(isRepo);
+  const links = resources.filter((resource) => !isRepo(resource));
+  const visible = (kind === "repos" ? repos : links).filter(
     (resource) =>
       term === "" ||
       resource.title.toLowerCase().includes(term) ||
@@ -365,22 +377,43 @@ function ManageLinksDialog({
           value={filter}
           onChange={setFilter}
         />
+        <FilterTabs
+          label="Kind of link"
+          value={kind}
+          onChange={setKind}
+          options={[
+            { value: "links", label: "Links & bookmarks", count: links.length },
+            { value: "repos", label: "GitHub repos", count: repos.length },
+          ]}
+        />
         {resources.length === 0 && <EmptyState isCompact title="Your library is empty." />}
         {resources.length > 0 && visible.length === 0 && (
-          <EmptyState isCompact title="No links match this filter." />
+          <EmptyState
+            isCompact
+            title={term === "" ? `No ${KIND_NOUNS[kind]} saved.` : "No links match this filter."}
+          />
         )}
         {visible.length > 0 && (
           <VStack gap={2} className="max-h-80 overflow-y-auto">
             {visible.map((resource) => (
-              <CheckboxInput
-                key={resource.id}
-                label={resource.title}
-                description={resource.host}
-                value={selected.has(resource.id)}
-                onChange={(checked) => {
-                  toggle(resource.id, checked);
-                }}
-              />
+              <HStack key={resource.id} gap={3} vAlign="center">
+                <div
+                  aria-hidden
+                  className="h-12 w-20 shrink-0 overflow-hidden rounded-md border border-(--color-border)"
+                >
+                  <PreviewImage url={resource.url} host={resource.host} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <CheckboxInput
+                    label={resource.title}
+                    description={resource.host}
+                    value={selected.has(resource.id)}
+                    onChange={(checked) => {
+                      toggle(resource.id, checked);
+                    }}
+                  />
+                </div>
+              </HStack>
             ))}
           </VStack>
         )}
