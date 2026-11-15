@@ -72,6 +72,8 @@ pub fn run() -> tauri::Result<()> {
         .invoke_handler(tauri::generate_handler![
             commands::agent::get_agent_connection,
             commands::agent::import_github_stars,
+            commands::agent::get_agent_writes,
+            commands::agent::set_agent_writes,
             commands::agent::get_star_sync,
             commands::agent::set_star_sync,
             commands::agent::sync_github_stars,

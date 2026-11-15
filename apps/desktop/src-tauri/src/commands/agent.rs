@@ -1,4 +1,4 @@
-use devatlas_application::agent::{self, AgentUsage};
+use devatlas_application::agent::{self, AgentUsage, AgentWritesStore};
 use devatlas_application::library;
 use devatlas_application::stars;
 use devatlas_storage::agent_usage::{self, JsonlUsageLog};
@@ -55,6 +55,28 @@ pub async fn import_github_stars(
     discovery: State<'_, Discovery>,
 ) -> Result<usize, String> {
     import_stars(&store, &discovery, &username).await
+}
+
+/// Whether agents may change a link's note, tags, status and category through the MCP server.
+#[tauri::command]
+pub async fn get_agent_writes(store: State<'_, LibraryStore>) -> Result<bool, String> {
+    store.agent_writes.allowed().map_err(|error| {
+        tracing::warn!(%error, "could not read the agent writes setting");
+        "DevAtlas couldn't read whether agents may edit your library.".to_owned()
+    })
+}
+
+/// Lets agents change notes and tags, or stops them. Returns the setting now saved.
+#[tauri::command]
+pub async fn set_agent_writes(
+    allowed: bool,
+    store: State<'_, LibraryStore>,
+) -> Result<bool, String> {
+    store.agent_writes.set_allowed(allowed).map_err(|error| {
+        tracing::warn!(%error, "could not save the agent writes setting");
+        "DevAtlas couldn't save that setting. Please try again.".to_owned()
+    })?;
+    Ok(allowed)
 }
 
 /// Whose stars are kept in sync, or `None` when syncing is off.

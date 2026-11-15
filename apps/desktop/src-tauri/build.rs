@@ -32,6 +32,8 @@ const COMMANDS: &[&str] = &[
     "delete_snippet",
     "get_agent_connection",
     "import_github_stars",
+    "get_agent_writes",
+    "set_agent_writes",
     "get_star_sync",
     "set_star_sync",
     "sync_github_stars",

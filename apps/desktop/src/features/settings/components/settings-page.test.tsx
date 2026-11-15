@@ -79,6 +79,10 @@ function renderSettings(
     }
     if (command === "import_github_stars") return Promise.resolve(12);
     if (command === "get_star_sync") return Promise.resolve(starSyncUser);
+    if (command === "get_agent_writes") return Promise.resolve(false);
+    if (command === "set_agent_writes") {
+      return Promise.resolve((args as { allowed: boolean }).allowed);
+    }
     if (command === "set_star_sync") {
       const next = (args as { username: string | null }).username;
       starSyncUser = next;
@@ -249,6 +253,22 @@ describe("SettingsPage", () => {
       );
     });
     expect(screen.getByText(/3 lookups in the last 7 days/)).toBeInTheDocument();
+  });
+
+  it("keeps agents from editing until they are let, then lets them", async () => {
+    renderSettings();
+
+    const toggle = await screen.findByRole("switch", { name: /Let agents edit notes and tags/ });
+    await waitFor(() => {
+      expect(toggle).toBeEnabled();
+    });
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(toggle).toBeChecked();
+    });
+    expect(invoke).toHaveBeenCalledWith("set_agent_writes", { allowed: true });
   });
 
   it("imports the repositories a GitHub user starred", async () => {

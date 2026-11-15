@@ -8,7 +8,7 @@ use devatlas_application::backup::{Backup, BackupStore};
 use devatlas_application::discovery::{RepoHistoryStore, RepoRelease};
 use devatlas_application::link_health::{LinkHealth, LinkHealthMap, LinkHealthStore};
 use devatlas_application::organizer::{
-    Annotations, Group, OrganizerStore, ReadingStatus, ResourceAnnotation,
+    Annotations, Changed, Group, OrganizerStore, ReadingStatus, ResourceAnnotation,
 };
 use devatlas_application::snippets::{Snippet, SnippetInput, SnippetStore};
 use devatlas_application::suggestions::SuggestionStore;
@@ -66,6 +66,19 @@ impl Database {
         Ok(Self { pool })
     }
 
+    /// Opens the database the app created, to write, without creating or migrating it, for the
+    /// MCP server: a newer server must not change the schema under an older running app.
+    pub async fn open_existing(path: &Path) -> Result<Self, DatabaseError> {
+        let options = SqliteConnectOptions::new()
+            .filename(path)
+            .foreign_keys(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await?;
+        Ok(Self { pool })
+    }
+
     async fn migrated(pool: SqlitePool) -> Result<Self, DatabaseError> {
         let mut migrator = sqlx::migrate!();
         // An older build opening a database touched by a newer one should still start.
@@ -104,6 +117,70 @@ fn as_signed(stars: u64) -> i64 {
     i64::try_from(stars).unwrap_or(i64::MAX)
 }
 
+/// A link's annotation, inside the caller's transaction; `None` when it has none.
+async fn read_annotation(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    id: &str,
+) -> Result<Option<ResourceAnnotation>, sqlx::Error> {
+    let Some(row) = sqlx::query(
+        "SELECT category, status, note FROM resource_annotations WHERE resource_id = ?",
+    )
+    .bind(id)
+    .fetch_optional(&mut **tx)
+    .await?
+    else {
+        return Ok(None);
+    };
+    let tags =
+        sqlx::query_scalar("SELECT tag FROM resource_tags WHERE resource_id = ? ORDER BY position")
+            .bind(id)
+            .fetch_all(&mut **tx)
+            .await?;
+    Ok(Some(ResourceAnnotation {
+        category: parse_category(row.try_get("category")?),
+        status: row
+            .try_get::<Option<String>, _>("status")?
+            .as_deref()
+            .and_then(ReadingStatus::parse),
+        tags,
+        note: row.try_get("note")?,
+    }))
+}
+
+/// A link's category, status, note and tags, inside the caller's transaction.
+async fn write_annotation(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    id: &str,
+    annotation: &ResourceAnnotation,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO resource_annotations (resource_id, category, status, note)
+             VALUES (?, ?, ?, ?)
+             ON CONFLICT (resource_id) DO UPDATE SET category = excluded.category,
+             status = excluded.status, note = excluded.note",
+    )
+    .bind(id)
+    .bind(annotation.category.and_then(category_text))
+    .bind(annotation.status.map(ReadingStatus::as_str))
+    .bind(annotation.note.as_deref())
+    .execute(&mut **tx)
+    .await?;
+
+    sqlx::query("DELETE FROM resource_tags WHERE resource_id = ?")
+        .bind(id)
+        .execute(&mut **tx)
+        .await?;
+    for (position, tag) in annotation.tags.iter().enumerate() {
+        sqlx::query("INSERT INTO resource_tags (resource_id, tag, position) VALUES (?, ?, ?)")
+            .bind(id)
+            .bind(tag)
+            .bind(i64::try_from(position).unwrap_or(i64::MAX))
+            .execute(&mut **tx)
+            .await?;
+    }
+    Ok(())
+}
+
 impl OrganizerStore for Database {
     type Error = sqlx::Error;
 
@@ -139,55 +216,48 @@ impl OrganizerStore for Database {
         Ok(annotations)
     }
 
-    async fn save_resource(
+    async fn change_resource<F>(
         &self,
         id: &str,
-        annotation: &ResourceAnnotation,
-        group_ids: &[String],
-    ) -> Result<(), sqlx::Error> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query(
-            "INSERT INTO resource_annotations (resource_id, category, status, note)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT (resource_id) DO UPDATE SET category = excluded.category,
-             status = excluded.status, note = excluded.note",
-        )
-        .bind(id)
-        .bind(annotation.category.and_then(category_text))
-        .bind(annotation.status.map(ReadingStatus::as_str))
-        .bind(annotation.note.as_deref())
-        .execute(&mut *tx)
-        .await?;
-
-        sqlx::query("DELETE FROM resource_tags WHERE resource_id = ?")
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
-        for (position, tag) in annotation.tags.iter().enumerate() {
-            sqlx::query("INSERT INTO resource_tags (resource_id, tag, position) VALUES (?, ?, ?)")
+        group_ids: Option<&[String]>,
+        change: F,
+    ) -> Result<Changed, sqlx::Error>
+    where
+        F: FnOnce(Option<&ResourceAnnotation>) -> Option<ResourceAnnotation> + Send,
+    {
+        // IMMEDIATE takes the write lock before reading, so the app and the MCP server can't
+        // both read the same annotation and then overwrite each other.
+        let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let before = read_annotation(&mut tx, id).await?;
+        let Some(after) = change(before.as_ref()) else {
+            return Ok(Changed {
+                before,
+                written: false,
+            });
+        };
+        write_annotation(&mut tx, id, &after).await?;
+        if let Some(group_ids) = group_ids {
+            sqlx::query("DELETE FROM group_resources WHERE resource_id = ?")
                 .bind(id)
-                .bind(tag)
-                .bind(i64::try_from(position).unwrap_or(i64::MAX))
                 .execute(&mut *tx)
                 .await?;
+            for group_id in group_ids {
+                // Selecting from the groups skips one deleted while the edit was open.
+                sqlx::query(
+                    "INSERT OR IGNORE INTO group_resources (group_id, resource_id)
+                     SELECT id, ? FROM link_groups WHERE id = ?",
+                )
+                .bind(id)
+                .bind(group_id)
+                .execute(&mut *tx)
+                .await?;
+            }
         }
-
-        sqlx::query("DELETE FROM group_resources WHERE resource_id = ?")
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
-        for group_id in group_ids {
-            // Selecting from the groups skips one deleted while the edit was open.
-            sqlx::query(
-                "INSERT OR IGNORE INTO group_resources (group_id, resource_id)
-                 SELECT id, ? FROM link_groups WHERE id = ?",
-            )
-            .bind(id)
-            .bind(group_id)
-            .execute(&mut *tx)
-            .await?;
-        }
-        tx.commit().await
+        tx.commit().await?;
+        Ok(Changed {
+            before,
+            written: true,
+        })
     }
 
     async fn groups(&self) -> Result<Vec<Group>, sqlx::Error> {
@@ -643,6 +713,7 @@ impl RepoHistoryStore for Database {
 mod tests {
     use devatlas_application::backup::{BackupAnnotation, BackupGroup};
     use devatlas_application::discovery::RepoRelease;
+    use devatlas_application::organizer::{self, OrganizerError, ResourceEdit, ResourcePatch};
     use devatlas_domain::resource::ResourceCategory;
 
     use super::*;
@@ -656,11 +727,58 @@ mod tests {
         }
     }
 
+    async fn save(
+        db: &Database,
+        id: &str,
+        annotation: &ResourceAnnotation,
+        group_ids: &[String],
+    ) -> Result<(), sqlx::Error> {
+        db.change_resource(id, Some(group_ids), |_| Some(annotation.clone()))
+            .await
+            .map(|_| ())
+    }
+
+    #[tokio::test]
+    async fn the_edit_dialog_wont_save_over_a_change_made_after_it_opened() {
+        let db = Database::in_memory().await.unwrap();
+        let shown = annotation(&[], Some("mine"));
+        save(&db, "x", &shown, &[]).await.unwrap();
+        let agent = ResourcePatch {
+            note: Some("the agent's".to_owned()),
+            ..ResourcePatch::default()
+        };
+        organizer::patch_resource(&db, "x", agent).await.unwrap();
+        let typed = ResourceEdit {
+            category: None,
+            status: None,
+            tags: Vec::new(),
+            note: Some("typed".to_owned()),
+            group_ids: Vec::new(),
+        };
+
+        let stale = organizer::update_resource(&db, "x", typed.clone(), &shown).await;
+
+        assert!(matches!(stale, Err(OrganizerError::Changed)));
+        let current = db.annotations().await.unwrap()["x"].clone();
+        assert_eq!(current.note.as_deref(), Some("the agent's"));
+        organizer::update_resource(&db, "x", typed.clone(), &current)
+            .await
+            .unwrap();
+        assert_eq!(
+            db.annotations().await.unwrap()["x"].note.as_deref(),
+            Some("typed")
+        );
+        // A link nobody annotated yet.
+        organizer::update_resource(&db, "new", typed, &ResourceAnnotation::default())
+            .await
+            .unwrap();
+    }
+
     #[tokio::test]
     async fn round_trips_annotations_keeping_tag_order() {
         let db = Database::in_memory().await.unwrap();
 
-        db.save_resource("a.example", &annotation(&["z", "a"], Some("hi")), &[])
+        save(&db, "a.example", &annotation(&["z", "a"], Some("hi")), &[])
             .await
             .unwrap();
 
@@ -671,7 +789,7 @@ mod tests {
     #[tokio::test]
     async fn saving_replaces_earlier_tags_and_note() {
         let db = Database::in_memory().await.unwrap();
-        db.save_resource("a.example", &annotation(&["old"], Some("old")), &[])
+        save(&db, "a.example", &annotation(&["old"], Some("old")), &[])
             .await
             .unwrap();
 
@@ -681,9 +799,63 @@ mod tests {
             tags: vec!["new".to_owned()],
             note: None,
         };
-        db.save_resource("a.example", &cleared, &[]).await.unwrap();
+        save(&db, "a.example", &cleared, &[]).await.unwrap();
 
         assert_eq!(db.annotations().await.unwrap()["a.example"], cleared);
+    }
+
+    #[tokio::test]
+    async fn patching_a_link_changes_only_the_named_fields_and_keeps_its_groups() {
+        let db = Database::in_memory().await.unwrap();
+        let group = db.create_group("A", None, 1).await.unwrap();
+        save(
+            &db,
+            "x",
+            &annotation(&["t"], Some("old")),
+            std::slice::from_ref(&group.id),
+        )
+        .await
+        .unwrap();
+        let patch = ResourcePatch {
+            note: Some("Chose this over GSAP.".to_owned()),
+            ..ResourcePatch::default()
+        };
+
+        let before = organizer::patch_resource(&db, "x", patch).await.unwrap();
+
+        let expected = annotation(&["t"], Some("Chose this over GSAP."));
+        assert_eq!(before, Some(annotation(&["t"], Some("old"))));
+        assert_eq!(db.annotations().await.unwrap()["x"], expected);
+        assert_eq!(db.groups().await.unwrap()[0].resource_ids, ["x"]);
+    }
+
+    #[tokio::test]
+    async fn patching_cleans_input_and_can_clear_fields() {
+        let db = Database::in_memory().await.unwrap();
+        save(&db, "x", &annotation(&[], Some("old")), &[])
+            .await
+            .unwrap();
+        let patch = ResourcePatch {
+            category: Some(None),
+            status: Some(Some(ReadingStatus::Using)),
+            tags: Some(vec![" React ".to_owned(), "react".to_owned()]),
+            note: Some("  ".to_owned()),
+        };
+
+        organizer::patch_resource(&db, "x", patch).await.unwrap();
+
+        let expected = ResourceAnnotation {
+            category: None,
+            status: Some(ReadingStatus::Using),
+            tags: vec!["react".to_owned()],
+            note: None,
+        };
+        assert_eq!(db.annotations().await.unwrap()["x"], expected);
+        let too_long = ResourcePatch {
+            note: Some("x".repeat(2_001)),
+            ..ResourcePatch::default()
+        };
+        assert!(organizer::patch_resource(&db, "x", too_long).await.is_err());
     }
 
     #[tokio::test]
@@ -737,11 +909,17 @@ mod tests {
         let db = Database::in_memory().await.unwrap();
         let a = db.create_group("A", None, 1).await.unwrap();
         let b = db.create_group("B", None, 2).await.unwrap();
-        db.save_resource("x", &annotation(&[], None), std::slice::from_ref(&a.id))
-            .await
-            .unwrap();
+        save(
+            &db,
+            "x",
+            &annotation(&[], None),
+            std::slice::from_ref(&a.id),
+        )
+        .await
+        .unwrap();
 
-        db.save_resource(
+        save(
+            &db,
             "x",
             &annotation(&[], None),
             &[b.id.clone(), "deleted".to_owned()],
@@ -758,7 +936,8 @@ mod tests {
     async fn deleting_a_group_removes_its_memberships_but_not_annotations() {
         let db = Database::in_memory().await.unwrap();
         let group = db.create_group("A", None, 1).await.unwrap();
-        db.save_resource(
+        save(
+            &db,
             "x",
             &annotation(&["t"], None),
             std::slice::from_ref(&group.id),
@@ -847,7 +1026,7 @@ mod tests {
             ..annotation(&[], None)
         };
 
-        db.save_resource("x", &saved, &[]).await.unwrap();
+        save(&db, "x", &saved, &[]).await.unwrap();
 
         assert_eq!(db.annotations().await.unwrap()["x"], saved);
     }

@@ -15,8 +15,10 @@ import { toast } from "sonner";
 
 import {
   getAgentConnection,
+  getAgentWrites,
   getStarSync,
   importGithubStars,
+  setAgentWrites,
   setStarSync,
 } from "@/services/agent.service";
 import { describeError } from "@/services/ipc";
@@ -63,6 +65,35 @@ function Usage({ usage }: { usage: AgentConnection["usage"] }) {
   );
 }
 
+const agentWritesQueryKey = ["agent-writes"] as const;
+
+/** Whether agents may edit notes and tags. Off until the user turns it on. */
+function AgentWritesSwitch() {
+  const queryClient = useQueryClient();
+  const allowed = useQuery({ queryKey: agentWritesQueryKey, queryFn: getAgentWrites });
+  const toggle = useMutation({
+    mutationFn: setAgentWrites,
+    onSuccess: (isOn) => {
+      queryClient.setQueryData(agentWritesQueryKey, isOn);
+    },
+    onError: (error) => {
+      toast.error("Couldn't change that setting", { description: errorText(error) });
+    },
+  });
+
+  return (
+    <Switch
+      label="Let agents edit notes and tags"
+      description="When you ask, an agent can write a link's Why it's here note, tags, status and category. It can't add, remove or move links. Off, agents can only read."
+      value={allowed.data === true}
+      isDisabled={allowed.isPending || toggle.isPending}
+      onChange={(isOn) => {
+        toggle.mutate(isOn);
+      }}
+    />
+  );
+}
+
 /** How to let an AI coding agent use the library, and how often it has. */
 export function AgentConnectionSettings() {
   const connection = useQuery({
@@ -74,9 +105,10 @@ export function AgentConnectionSettings() {
   return (
     <SettingsSection
       title="AI coding agents"
-      description="Let Claude Code, Cursor and other MCP agents search your library, read your notes and snippets, and see what you've saved about a project's dependencies. They can't change anything, but what they read is sent to the AI service the agent uses, like anything else it reads."
+      description="Let Claude Code, Cursor and other MCP agents search your library, read your notes and snippets, and see what you've saved about a project's dependencies. They can't change anything unless you let them edit notes and tags below. What they read is sent to the AI service the agent uses, like anything else it reads."
     >
       <VStack gap={4}>
+        <AgentWritesSwitch />
         {connection.isPending && <Skeleton height={160} />}
         {connection.isError && (
           <Banner status="error" role="alert" title={errorText(connection.error)} />

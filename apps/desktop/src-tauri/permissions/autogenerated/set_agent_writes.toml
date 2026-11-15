@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-agent-writes"
+description = "Enables the set_agent_writes command without any pre-configured scope."
+commands.allow = ["set_agent_writes"]
+
+[[permission]]
+identifier = "deny-set-agent-writes"
+description = "Denies the set_agent_writes command without any pre-configured scope."
+commands.deny = ["set_agent_writes"]

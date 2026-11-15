@@ -33,6 +33,8 @@
     "allow-delete-snippet",
     "allow-get-agent-connection",
     "allow-import-github-stars",
+    "allow-get-agent-writes",
+    "allow-set-agent-writes",
     "allow-get-star-sync",
     "allow-set-star-sync",
     "allow-sync-github-stars",

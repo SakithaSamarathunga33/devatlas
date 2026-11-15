@@ -6,6 +6,7 @@ use devatlas_application::link_health::LinkHealthStore;
 use devatlas_application::organizer::{self, OrganizerStore};
 use devatlas_application::settings::{self, BookmarkSettings, SettingsStore};
 use devatlas_domain::resource::Resource;
+use devatlas_storage::agent_writes::{self, JsonAgentWrites};
 use devatlas_storage::browsers;
 use devatlas_storage::library_memory::JsonLibraryMemory;
 use devatlas_storage::saved_links::JsonSavedLinks;
@@ -25,6 +26,8 @@ pub struct LibraryStore {
     pub(super) settings: JsonSettings,
     /// Whose GitHub stars to keep in sync.
     pub(super) star_sync: JsonStarSync,
+    /// Whether agents may change notes and tags through the MCP server.
+    pub(crate) agent_writes: JsonAgentWrites,
     pub(super) lock: Mutex<()>,
 }
 
@@ -35,6 +38,7 @@ impl LibraryStore {
             memory: JsonLibraryMemory::new(data_dir.join("library-memory.json")),
             settings: JsonSettings::new(data_dir.join("settings.json")),
             star_sync: JsonStarSync::new(data_dir.join("star-sync.json")),
+            agent_writes: JsonAgentWrites::new(data_dir.join(agent_writes::FILE_NAME)),
             lock: Mutex::new(()),
         }
     }

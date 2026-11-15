@@ -22,7 +22,7 @@
 _A local-first Windows desktop app built with **Tauri 2, Rust and React** that turns your browser
 bookmarks, GitHub stars and saved links into one searchable library: collections, snippets, an
 Explorer of suggested links, trending repos and star history, news from official blogs, language
-rankings, a dead-link checker, backups, and a read-only MCP server so Claude Code, Cursor and other
+rankings, a dead-link checker, backups, and an MCP server so Claude Code, Cursor and other
 coding agents can answer from what you saved. No account needed, your library stays on your
 computer, and nothing is written to your browser. [What goes online](#privacy)._
 
@@ -110,7 +110,8 @@ computer, and nothing is written to your browser. [What goes online](#privacy)._
 
 - The installed app doubles as an **MCP server** (`DevAtlas.exe --mcp`), so Claude Code, Cursor,
   Windsurf and Codex can search your library, read why you saved each link, and see which saved
-  resources match a project's dependencies. Read-only. See
+  resources match a project's dependencies. When you ask, they can also write a link's "Why it's
+  here" note, tags, status and category. See
   [Use with AI coding agents](#use-with-ai-coding-agents-mcp).
 
 ### Your data
@@ -173,13 +174,24 @@ Run `claude mcp list` (or the agent's own MCP view) to check that `devatlas` is 
 | Tool                | What the agent gets                                                                                                                                                  |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `search_library`    | Saved resources matching every word of a query, each with your "why it's here" note.                                                                                 |
+| `list_library`      | Every saved resource, or one category such as `ui-components`, by title, 50 at a time.                                                                               |
 | `get_resource`      | One resource by id or address: note, tags, collections, reading status, link health and attached code snippets.                                                      |
 | `get_project_stack` | The dependencies of a project in the agent's folder (`package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `requirements.txt`) and which of them you have saved. |
+| `update_resource`   | Changes a saved link's "Why it's here" note, tags, reading status or category. Only the fields the agent passes change; collections are kept.                        |
 
 ### Privacy and safety
 
-- **Read-only.** The server opens the library database read-only and cannot add, change or delete
-  anything.
+- **One narrow write, off until you turn it on.** Reading opens the database read-only.
+  `update_resource` refuses until you switch on **Let agents edit notes and tags** in
+  **Settings → AI coding agents**, so an agent that auto-approves every tool still can't write
+  unless you chose that. Once on, it can change only the note, tags, reading status and category
+  of a link already in your library, with the same limits as the Edit dialog, and its reply
+  includes the previous note and tags so an unwanted change can be put back. It cannot add,
+  delete or move links, or touch collections, snippets or settings. Each change is one database
+  transaction, and the Edit dialog won't save over a change an agent made after you opened it:
+  it asks you to reopen the link. A saved page's title could try to talk an agent into writing,
+  so the server tells agents to write only when you ask, and strips invisible characters from
+  every note.
 - **Local pipe.** The server makes no network requests: the agent and DevAtlas talk over
   stdin/stdout. What the agent reads goes wherever the agent sends it, usually its AI provider.
 - **Confined.** `get_project_stack` only reads inside the folder the agent was started in. It
@@ -190,7 +202,9 @@ Run `claude mcp list` (or the agent's own MCP view) to check that `devatlas` is 
   count for the last 7 days.
 
 Write the reason you saved a link in its **Why it's here** field (the **Edit** button on any
-Library card): that note is what makes the agent's answers useful.
+Library card): that note is what makes the agent's answers useful. With **Let agents edit notes and tags**
+on in Settings, the agent can write them too, for example: "Go through my saved UI components and write a Why it's here note for
+each: what it's for and how to use it." The app shows the change within seconds.
 
 ---
 
@@ -223,7 +237,7 @@ flowchart LR
   A --> D["crates/domain"]
   ST["crates/storage<br/>SQLite, browsers, GitHub, feeds"] -. implements ports .-> A
   ST --> D
-  Agent["AI agent"] -- "stdio (MCP)" --> M["DevAtlas.exe --mcp<br/>read-only"]
+  Agent["AI agent"] -- "stdio (MCP)" --> M["DevAtlas.exe --mcp<br/>reads; writes notes on request"]
   M --> A
 ```
 
@@ -238,7 +252,7 @@ flowchart LR
   `capabilities/default.json`. No `fs`, `shell` or `http` plugins.
 - **MCP mode**: `DevAtlas.exe --mcp` skips the window and serves the
   [rmcp](https://github.com/modelcontextprotocol/rust-sdk) server over stdin/stdout, with the
-  database opened read-only.
+  database opened read-only for the read tools and written only by `update_resource`.
 
 **Pages**
 
@@ -527,9 +541,10 @@ trending repos, developer news and a dead-link checker.
 
 ### How do I let Claude Code or Cursor use my bookmarks?
 
-DevAtlas includes a read-only MCP (Model Context Protocol) server. Connect it with one command from
+DevAtlas includes an MCP (Model Context Protocol) server. Connect it with one command from
 **Settings → AI coding agents**, and Claude Code, Cursor, Windsurf or Codex can search your saved
-links and notes. See [Use with AI coding agents](#use-with-ai-coding-agents-mcp).
+links and notes, and write "Why it's here" notes and tags for you when you ask. See
+[Use with AI coding agents](#use-with-ai-coding-agents-mcp).
 
 ### How do I organize my GitHub stars?
 

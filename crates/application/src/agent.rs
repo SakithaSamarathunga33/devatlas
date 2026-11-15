@@ -1,5 +1,6 @@
 //! What DevAtlas tells an AI coding agent: the user's own library, searched, looked up, and
-//! matched to a project's dependencies. Everything here only reads.
+//! matched to a project's dependencies. Everything here only reads; agents change a link's
+//! note, tags, status and category through `organizer::patch_resource`.
 
 use std::path::Path;
 
@@ -23,7 +24,7 @@ pub const MAX_SNIPPET_CHARS: usize = 4_000;
 
 /// Invisible characters that can smuggle text past a reader: zero-width and bidi controls,
 /// the soft hyphen, the byte-order mark and the Unicode tag block.
-fn is_hidden(c: char) -> bool {
+pub(crate) fn is_hidden(c: char) -> bool {
     matches!(c as u32,
         0x00AD | 0x200B..=0x200F | 0x202A..=0x202E | 0x2060..=0x2064 | 0x2066..=0x206F
         | 0xFEFF | 0xE0000..=0xE007F)
@@ -64,6 +65,15 @@ fn shareable_url(url: &str) -> String {
         Ok(parsed) => without_secrets(&parsed).into(),
         Err(_) => clean_text(url, MAX_TEXT_CHARS),
     }
+}
+
+/// Port: whether the developer lets agents change their library through the MCP server. Off
+/// until they turn it on.
+pub trait AgentWritesStore {
+    type Error: std::error::Error;
+
+    fn allowed(&self) -> Result<bool, Self::Error>;
+    fn set_allowed(&self, allowed: bool) -> Result<(), Self::Error>;
 }
 
 /// One saved resource, as an agent sees it.
@@ -172,7 +182,8 @@ fn summary(item: &LibraryItem, groups: &[Group]) -> ResourceSummary {
             .map(|tag| clean_text(tag, MAX_TEXT_CHARS))
             .filter(|tag| !tag.is_empty())
             .collect(),
-        note: item.note.clone(),
+        // Notes can arrive from a backup or an agent, so hidden characters go here too.
+        note: item.note.as_deref().map(crate::organizer::visible_note),
         status: item.status,
         collections: groups
             .iter()
@@ -244,6 +255,41 @@ pub fn search(
         .take(limit.clamp(1, MAX_RESULTS))
         .map(|(_, summary)| summary)
         .collect()
+}
+
+/// One page of the library, for an agent going through all of it or one category.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryPage {
+    /// How many resources match, across every page.
+    pub total: usize,
+    pub offset: usize,
+    pub results: Vec<ResourceSummary>,
+}
+
+/// The saved resources, optionally of one category, by title, `limit` from `offset`.
+pub fn list(
+    items: &[LibraryItem],
+    groups: &[Group],
+    category: Option<ResourceCategory>,
+    offset: usize,
+    limit: usize,
+) -> LibraryPage {
+    let mut matching: Vec<&LibraryItem> = items
+        .iter()
+        .filter(|item| category.is_none_or(|category| item.resource.category == category))
+        .collect();
+    matching.sort_by_cached_key(|item| (item.resource.title.to_lowercase(), &item.resource.id));
+    LibraryPage {
+        total: matching.len(),
+        offset,
+        results: matching
+            .into_iter()
+            .skip(offset)
+            .take(limit.clamp(1, MAX_RESULTS))
+            .map(|item| summary(item, groups))
+            .collect(),
+    }
 }
 
 /// One resource by its id or address, with everything the user added to it.
@@ -465,6 +511,24 @@ mod tests {
 
     fn ids(results: &[ResourceSummary]) -> Vec<&str> {
         results.iter().map(|result| result.id.as_str()).collect()
+    }
+
+    #[test]
+    fn lists_one_category_by_title_a_page_at_a_time() {
+        let mut items = library();
+        items[1].resource.category = ResourceCategory::UiComponents;
+        items[3].resource.category = ResourceCategory::UiComponents;
+
+        let first = list(&items, &[], Some(ResourceCategory::UiComponents), 0, 1);
+        let second = list(&items, &[], Some(ResourceCategory::UiComponents), 1, 1);
+        let everything = list(&items, &[], None, 0, MAX_RESULTS + 10);
+
+        assert_eq!(first.total, 2);
+        assert_eq!(ids(&first.results), ["plugins.example"]);
+        assert_eq!(ids(&second.results), ["recharts.org"]);
+        assert_eq!(everything.total, 4);
+        assert_eq!(everything.results.len(), 4);
+        assert!(list(&items, &[], None, 9, 10).results.is_empty());
     }
 
     #[test]

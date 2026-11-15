@@ -304,6 +304,7 @@ describe("LibraryPage", () => {
           note: "Good docs",
           groupIds: ["c1", "p1"],
         },
+        shown: { category: null, status: null, tags: [], note: null },
       });
     });
     await vi.waitFor(() => {

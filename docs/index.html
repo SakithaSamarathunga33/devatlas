@@ -18,7 +18,7 @@
     <meta property="og:title" content="DevAtlas – local-first bookmark manager for developers" />
     <meta
       property="og:description"
-      content="Your browser bookmarks, GitHub stars and saved links in one searchable Windows app, with a read-only MCP server for Claude Code, Cursor and other AI coding agents."
+      content="Your browser bookmarks, GitHub stars and saved links in one searchable Windows app, with an MCP server for Claude Code, Cursor and other AI coding agents."
     />
     <meta property="og:url" content="https://devatlas.sakitha.com/" />
     <meta property="og:image" content="https://devatlas.sakitha.com/social-preview.png" />
@@ -37,7 +37,7 @@
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "DevAtlas",
-        "description": "Local-first bookmark manager for developers. Organizes browser bookmarks, GitHub stars and saved links into one searchable library, with a read-only MCP server for AI coding agents such as Claude Code and Cursor.",
+        "description": "Local-first bookmark manager for developers. Organizes browser bookmarks, GitHub stars and saved links into one searchable library, with an MCP server for AI coding agents such as Claude Code and Cursor.",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Windows 10, Windows 11",
         "softwareVersion": "0.1.0",
@@ -72,7 +72,7 @@
             "name": "How do I let Claude Code or Cursor use my bookmarks?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "DevAtlas includes a read-only MCP (Model Context Protocol) server. Connect it with one command from Settings → AI coding agents, and Claude Code, Cursor, Windsurf or Codex can search your saved links and notes."
+              "text": "DevAtlas includes an MCP (Model Context Protocol) server. Connect it with one command from Settings → AI coding agents, and Claude Code, Cursor, Windsurf or Codex can search your saved links and notes, and write notes and tags when you ask."
             }
           },
           {
@@ -411,8 +411,8 @@
         <section aria-labelledby="mcp">
           <h2 id="mcp">MCP server for Claude Code, Cursor, Windsurf and Codex</h2>
           <p>
-            DevAtlas doubles as a read-only MCP server, so your coding agent answers from the
-            resources you saved instead of guessing. Ask it things like:
+            DevAtlas doubles as an MCP server, so your coding agent answers from the resources you
+            saved instead of guessing. Ask it things like:
           </p>
           <ul class="ask">
             <li>"Which date picker library did I save?"</li>
@@ -424,10 +424,12 @@
             <button class="copy" type="button" data-target="cmd">Copy</button>
           </div>
           <p>
-            Agents get three tools: <code>search_library</code>, <code>get_resource</code> and
-            <code>get_project_stack</code>, which matches a project's package.json, Cargo.toml,
-            go.mod or Python dependencies against what you've saved. The server opens your library
-            read-only, talks to the agent over a local pipe and makes no network requests.
+            Agents get five tools: <code>search_library</code>, <code>list_library</code>,
+            <code>get_resource</code>, <code>get_project_stack</code>, which matches a project's
+            package.json, Cargo.toml, go.mod or Python dependencies against what you've saved, and
+            <code>update_resource</code>, which writes a link's "Why it's here" note, tags, status
+            or category when you ask. The server talks to the agent over a local pipe and makes no
+            network requests.
           </p>
         </section>
 
@@ -456,9 +458,9 @@
           <details>
             <summary>How do I let Claude Code or Cursor use my bookmarks?</summary>
             <p>
-              DevAtlas includes a read-only MCP (Model Context Protocol) server. Connect it with one
-              command from Settings → AI coding agents, and Claude Code, Cursor, Windsurf or Codex
-              can search your saved links and notes.
+              DevAtlas includes an MCP (Model Context Protocol) server. Connect it with one command
+              from Settings → AI coding agents, and Claude Code, Cursor, Windsurf or Codex can
+              search your saved links and notes, and write notes and tags when you ask.
             </p>
           </details>
           <details>

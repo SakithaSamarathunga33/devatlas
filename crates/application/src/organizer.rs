@@ -6,6 +6,7 @@ use std::future::Future;
 use devatlas_domain::resource::ResourceCategory;
 use serde::{Deserialize, Serialize};
 
+use crate::agent::is_hidden;
 use crate::library::LibrarySnapshot;
 use crate::link_health::LinkHealthMap;
 
@@ -45,8 +46,9 @@ impl ReadingStatus {
 }
 
 /// What the user added to a link. Stored by resource id, so it survives the link being
-/// removed and restored.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// removed and restored. Also what the Edit dialog showed when it opened.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceAnnotation {
     /// `None` keeps the automatic category.
     pub category: Option<ResourceCategory>,
@@ -56,6 +58,13 @@ pub struct ResourceAnnotation {
 }
 
 pub type Annotations = HashMap<String, ResourceAnnotation>;
+
+/// What `OrganizerStore::change_resource` found, and whether it saved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Changed {
+    pub before: Option<ResourceAnnotation>,
+    pub written: bool,
+}
 
 /// An edit submitted from the UI.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -85,13 +94,16 @@ pub trait OrganizerStore {
     type Error: std::error::Error;
 
     fn annotations(&self) -> impl Future<Output = Result<Annotations, Self::Error>> + Send;
-    /// Replaces a link's annotation and group membership, all or nothing.
-    fn save_resource(
+    /// In one transaction, so no other save lands in between: reads a link's annotation, and
+    /// when `change` returns a new one, saves it and, given `group_ids`, the link's groups.
+    fn change_resource<F>(
         &self,
         id: &str,
-        annotation: &ResourceAnnotation,
-        group_ids: &[String],
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+        group_ids: Option<&[String]>,
+        change: F,
+    ) -> impl Future<Output = Result<Changed, Self::Error>> + Send
+    where
+        F: FnOnce(Option<&ResourceAnnotation>) -> Option<ResourceAnnotation> + Send;
     fn groups(&self) -> impl Future<Output = Result<Vec<Group>, Self::Error>> + Send;
     fn create_group(
         &self,
@@ -147,6 +159,10 @@ pub enum OrganizerError<E: std::error::Error> {
     Invalid(#[from] InvalidInput),
     #[error("DevAtlas couldn't save that change. Please try again.")]
     Store(E),
+    #[error(
+        "This link changed while you were editing it, maybe by your AI agent. Close this and open it again to see the change."
+    )]
+    Changed,
 }
 
 /// Applies the user's annotations and the last link check to a loaded library.
@@ -198,23 +214,30 @@ pub(crate) fn clean_tags(raw: &[String]) -> Result<Vec<String>, InvalidInput> {
     Ok(tags)
 }
 
+/// A note without hidden or control characters, which could carry text the developer can't
+/// see to every agent that reads it. Line breaks and tabs stay.
+pub fn visible_note(note: &str) -> String {
+    note.chars()
+        .filter(|&c| !is_hidden(c) && (c == '\n' || c == '\t' || !c.is_control()))
+        .collect()
+}
+
+/// A note as stored: visible characters only, trimmed, `None` when blank, within the limit.
+fn clean_note(note: &str) -> Result<Option<String>, InvalidInput> {
+    let visible = visible_note(note);
+    let note = visible.trim();
+    if note.chars().count() > MAX_NOTE_LEN {
+        return Err(InvalidInput::NoteTooLong);
+    }
+    Ok((!note.is_empty()).then(|| note.to_owned()))
+}
+
 pub(crate) fn clean_edit(edit: ResourceEdit) -> Result<ResourceEdit, InvalidInput> {
     if edit.group_ids.len() > MAX_GROUP_SIZE {
         return Err(InvalidInput::InvalidId);
     }
     let tags = clean_tags(&edit.tags)?;
-    let note = edit
-        .note
-        .as_deref()
-        .map(str::trim)
-        .filter(|note| !note.is_empty())
-        .map(str::to_owned);
-    if note
-        .as_ref()
-        .is_some_and(|note| note.chars().count() > MAX_NOTE_LEN)
-    {
-        return Err(InvalidInput::NoteTooLong);
-    }
+    let note = edit.note.as_deref().map(clean_note).transpose()?.flatten();
     Ok(ResourceEdit { tags, note, ..edit })
 }
 
@@ -243,11 +266,13 @@ pub(crate) fn check_id(id: &str) -> Result<(), InvalidInput> {
     Ok(())
 }
 
-/// Saves a link's category, tags, note and groups.
+/// Saves a link's category, tags, note and groups from the Edit dialog, unless the link changed
+/// after the dialog showed `shown` (an agent may have written it since).
 pub async fn update_resource<S: OrganizerStore>(
     store: &S,
     id: &str,
     edit: ResourceEdit,
+    shown: &ResourceAnnotation,
 ) -> Result<(), OrganizerError<S::Error>> {
     check_id(id)?;
     let edit = clean_edit(edit)?;
@@ -258,10 +283,57 @@ pub async fn update_resource<S: OrganizerStore>(
         tags: edit.tags,
         note: edit.note,
     };
-    store
-        .save_resource(id, &annotation, &edit.group_ids)
+    let unannotated = ResourceAnnotation::default();
+    let changed = store
+        .change_resource(id, Some(&edit.group_ids), |current| {
+            (current.unwrap_or(&unannotated) == shown).then_some(annotation)
+        })
         .await
-        .map_err(OrganizerError::Store)
+        .map_err(OrganizerError::Store)?;
+    if changed.written {
+        Ok(())
+    } else {
+        Err(OrganizerError::Changed)
+    }
+}
+
+/// A partial edit, from an AI agent: a field left `None` stays as it is.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ResourcePatch {
+    /// `Some(None)` returns to the automatic category.
+    pub category: Option<Option<ResourceCategory>>,
+    /// `Some(None)` clears the status.
+    pub status: Option<Option<ReadingStatus>>,
+    /// Replaces every tag; an empty list removes them.
+    pub tags: Option<Vec<String>>,
+    /// A blank note removes it.
+    pub note: Option<String>,
+}
+
+/// Changes only the fields a patch names, keeping the rest and the link's collections, in one
+/// transaction so a save from the app can't be lost. Returns the annotation it replaced.
+pub async fn patch_resource<S: OrganizerStore>(
+    store: &S,
+    id: &str,
+    patch: ResourcePatch,
+) -> Result<Option<ResourceAnnotation>, OrganizerError<S::Error>> {
+    check_id(id)?;
+    // Checked before the transaction, so merging inside it can't fail.
+    let tags = patch.tags.as_deref().map(clean_tags).transpose()?;
+    let note = patch.note.as_deref().map(clean_note).transpose()?;
+    let changed = store
+        .change_resource(id, None, |current| {
+            let current = current.cloned().unwrap_or_default();
+            Some(ResourceAnnotation {
+                category: patch.category.unwrap_or(current.category),
+                status: patch.status.unwrap_or(current.status),
+                tags: tags.unwrap_or(current.tags),
+                note: note.unwrap_or(current.note),
+            })
+        })
+        .await
+        .map_err(OrganizerError::Store)?;
+    Ok(changed.before)
 }
 
 pub async fn list_groups<S: OrganizerStore>(
@@ -344,6 +416,17 @@ mod tests {
         let cleaned = clean_edit(edit(&[" React ", "react", "", "  CSS"], None)).unwrap();
 
         assert_eq!(cleaned.tags, ["react", "css"]);
+    }
+
+    #[test]
+    fn notes_lose_hidden_and_control_characters_but_keep_line_breaks() {
+        let cleaned = clean_edit(edit(
+            &[],
+            Some("Use\u{202E} it\u{200B}\u{E0041}\r\n\tfor charts\u{7}"),
+        ))
+        .unwrap();
+
+        assert_eq!(cleaned.note.as_deref(), Some("Use it\n\tfor charts"));
     }
 
     #[test]

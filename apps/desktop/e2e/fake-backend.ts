@@ -296,6 +296,10 @@ export class FakeBackend {
         };
       case "get_star_sync":
         return null;
+      case "get_agent_writes":
+        return false;
+      case "set_agent_writes":
+        return args.allowed === true;
 
       default:
         this.unmocked.push(command);

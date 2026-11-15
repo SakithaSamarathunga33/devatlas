@@ -17,7 +17,7 @@ import { CATEGORY_META, STATUS_LABELS } from "@/lib/resource-categories";
 import { describeError } from "@/services/ipc";
 import { updateResource } from "@/services/organizer.service";
 import { readingStatuses, resourceCategories, type Resource } from "@/types/library.types";
-import type { Group } from "@/types/organizer.types";
+import type { Group, ResourceAnnotation } from "@/types/organizer.types";
 
 const CATEGORY_OPTIONS = [
   { value: "", label: "Automatic" },
@@ -38,6 +38,13 @@ export function EditResourceDialog({
 }) {
   const queryClient = useQueryClient();
   const groups = useGroups();
+  // What the dialog opened with; saving is refused if the link changed since.
+  const [shown] = useState<ResourceAnnotation>(() => ({
+    category: resource.categoryOverride,
+    status: resource.status,
+    tags: resource.tags,
+    note: resource.note,
+  }));
   const [category, setCategory] = useState<string>(resource.categoryOverride ?? "");
   const [status, setStatus] = useState<string>(resource.status ?? "");
   const [tags, setTags] = useState(resource.tags.join(", "));
@@ -49,22 +56,30 @@ export function EditResourceDialog({
 
   const save = useMutation({
     mutationFn: () =>
-      updateResource(resource.id, {
-        category: resourceCategories.find((value) => value === category) ?? null,
-        status: readingStatuses.find((value) => value === status) ?? null,
-        tags: tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter((tag) => tag !== ""),
-        note: note.trim() === "" ? null : note,
-        groupIds: (groups.data ?? []).filter(isMember).map((group) => group.id),
-      }),
+      updateResource(
+        resource.id,
+        {
+          category: resourceCategories.find((value) => value === category) ?? null,
+          status: readingStatuses.find((value) => value === status) ?? null,
+          tags: tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag !== ""),
+          note: note.trim() === "" ? null : note,
+          groupIds: (groups.data ?? []).filter(isMember).map((group) => group.id),
+        },
+        shown,
+      ),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: libraryQueryKey }),
         queryClient.invalidateQueries({ queryKey: groupsQueryKey }),
       ]);
       onClose();
+    },
+    // A refused save may mean an agent changed the link: reload it so reopening shows that.
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: libraryQueryKey });
     },
   });
 

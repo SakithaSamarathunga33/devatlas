@@ -13,6 +13,16 @@ export function importGithubStars(username: string): Promise<number> {
   return invokeCommand("import_github_stars", z.number().int().nonnegative(), { username });
 }
 
+/** Whether agents may change a link's note, tags, status and category. Off until turned on. */
+export function getAgentWrites(): Promise<boolean> {
+  return invokeCommand("get_agent_writes", z.boolean());
+}
+
+/** Lets agents change notes and tags, or stops them; returns the setting now saved. */
+export function setAgentWrites(allowed: boolean): Promise<boolean> {
+  return invokeCommand("set_agent_writes", z.boolean(), { allowed });
+}
+
 const syncedUserSchema = z.string().min(1).nullable();
 
 /** Whose GitHub stars are kept in sync, or `null` when syncing is off. */

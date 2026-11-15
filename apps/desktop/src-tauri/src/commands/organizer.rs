@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 use std::path::Path;
 
-use devatlas_application::organizer::{self, Group, ResourceEdit};
+use devatlas_application::organizer::{self, Group, ResourceAnnotation, ResourceEdit};
 use devatlas_application::snippets::{self, Snippet, SnippetInput};
 use devatlas_application::suggestions;
 use devatlas_storage::database::Database;
@@ -40,14 +40,16 @@ fn report<E: Debug + Display>(error: E) -> String {
     error.to_string()
 }
 
-/// Saves a link's category, tags, note and groups.
+/// Saves a link's category, tags, note and groups, unless it changed since the dialog showed
+/// `shown`.
 #[tauri::command]
 pub async fn update_resource(
     id: String,
     edit: ResourceEdit,
+    shown: ResourceAnnotation,
     organizer: State<'_, Organizer>,
 ) -> Result<(), String> {
-    organizer::update_resource(organizer.database()?, &id, edit)
+    organizer::update_resource(organizer.database()?, &id, edit, &shown)
         .await
         .map_err(report)
 }

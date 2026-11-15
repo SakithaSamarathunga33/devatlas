@@ -14,6 +14,17 @@ export type Group = z.infer<typeof groupSchema>;
 
 export const groupsSchema = z.array(groupSchema);
 
+/**
+ * Mirrors `devatlas_application::organizer::ResourceAnnotation`: what the Edit dialog showed when
+ * it opened, so a change saved since (by an AI agent) is never overwritten.
+ */
+export interface ResourceAnnotation {
+  category: ResourceCategory | null;
+  status: ReadingStatus | null;
+  tags: string[];
+  note: string | null;
+}
+
 /** Mirrors `devatlas_application::organizer::ResourceEdit`. */
 export interface ResourceEdit {
   /** `null` keeps the automatic category. */
