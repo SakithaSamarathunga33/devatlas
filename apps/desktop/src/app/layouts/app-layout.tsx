@@ -6,6 +6,7 @@ import { Link, Outlet } from "react-router";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { LibraryWatcher } from "@/components/shared/library-watcher";
+import { LibrarySyncRunner } from "@/features/settings";
 import { useOnboarded, WelcomeScreen } from "@/features/welcome";
 
 /** Astryx links route in-app, so the window never reloads. */
@@ -27,6 +28,7 @@ export function AppLayout() {
   return (
     <LinkProvider component={RouterLink}>
       <LibraryWatcher />
+      <LibrarySyncRunner />
       <AppShell
         height="fill"
         variant="elevated"

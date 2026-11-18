@@ -30,7 +30,7 @@ export function AccountSettings() {
   return (
     <SettingsSection
       title="Account"
-      description="Signing in only connects Community. Your library, collections and snippets stay on this computer either way."
+      description="Signing in connects Community, and lets you sync your library between computers. Nothing leaves this computer unless you share it or turn on sync."
     >
       {session.isPending ? (
         <div role="status" aria-busy="true">
@@ -46,7 +46,7 @@ export function AccountSettings() {
               <Text weight="semibold" maxLines={1}>
                 {user.username}
               </Text>
-              <Text type="supporting">Signed in with GitHub, used for Community</Text>
+              <Text type="supporting">Signed in with GitHub, used for Community and sync</Text>
             </VStack>
             <Button
               ref={hasSwitched ? focusOnMount : undefined}

@@ -6,6 +6,8 @@ use std::path::Path;
 
 use devatlas_application::backup::{Backup, BackupStore};
 use devatlas_application::discovery::{RepoHistoryStore, RepoRelease};
+use devatlas_application::library_sync::SyncStore;
+use devatlas_application::library_sync_merge::SyncChanges;
 use devatlas_application::link_health::{LinkHealth, LinkHealthMap, LinkHealthStore};
 use devatlas_application::organizer::{
     Annotations, Changed, Group, OrganizerStore, ReadingStatus, ResourceAnnotation,
@@ -709,6 +711,93 @@ impl RepoHistoryStore for Database {
     }
 }
 
+impl SyncStore for Database {
+    type Error = sqlx::Error;
+
+    /// One transaction, so a sync lands whole or not at all.
+    async fn apply_sync(&self, changes: &SyncChanges) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        for id in &changes.annotations.removed {
+            for table in [
+                "DELETE FROM resource_annotations WHERE resource_id = ?",
+                "DELETE FROM resource_tags WHERE resource_id = ?",
+            ] {
+                sqlx::query(table).bind(id).execute(&mut *tx).await?;
+            }
+        }
+        for annotation in &changes.annotations.put {
+            let written = ResourceAnnotation {
+                category: annotation.category,
+                status: annotation.status,
+                tags: annotation.tags.clone(),
+                note: annotation.note.clone(),
+            };
+            write_annotation(&mut tx, &annotation.resource_id, &written).await?;
+        }
+        for id in &changes.groups.removed {
+            sqlx::query("DELETE FROM link_groups WHERE id = ?")
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+        }
+        for group in &changes.groups.put {
+            sqlx::query(
+                "INSERT INTO link_groups (id, kind, name, description, created_at)
+                 VALUES (?, 'collection', ?, ?, ?)
+                 ON CONFLICT (id) DO UPDATE SET name = excluded.name,
+                 description = excluded.description",
+            )
+            .bind(&group.id)
+            .bind(&group.name)
+            .bind(group.description.as_deref())
+            .bind(group.created_at)
+            .execute(&mut *tx)
+            .await?;
+            // Members in the synced order, which is the order they were added in.
+            sqlx::query("DELETE FROM group_resources WHERE group_id = ?")
+                .bind(&group.id)
+                .execute(&mut *tx)
+                .await?;
+            for resource_id in &group.resource_ids {
+                sqlx::query(
+                    "INSERT OR IGNORE INTO group_resources (group_id, resource_id) VALUES (?, ?)",
+                )
+                .bind(&group.id)
+                .bind(resource_id)
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+        for id in &changes.snippets.removed {
+            sqlx::query("DELETE FROM snippets WHERE id = ?")
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+        }
+        for snippet in &changes.snippets.put {
+            sqlx::query(
+                "INSERT INTO snippets
+                 (id, title, language, code, tags, resource_id, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT (id) DO UPDATE SET title = excluded.title,
+                 language = excluded.language, code = excluded.code, tags = excluded.tags,
+                 resource_id = excluded.resource_id, updated_at = excluded.updated_at",
+            )
+            .bind(&snippet.id)
+            .bind(&snippet.title)
+            .bind(snippet.language.as_deref())
+            .bind(&snippet.code)
+            .bind(tags_text(&snippet.tags)?)
+            .bind(snippet.resource_id.as_deref())
+            .bind(snippet.created_at)
+            .bind(snippet.updated_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use devatlas_application::backup::{BackupAnnotation, BackupGroup};
@@ -1177,6 +1266,39 @@ mod tests {
             db.annotations().await.unwrap()["x"].note.as_deref(),
             Some("restored")
         );
+    }
+
+    #[tokio::test]
+    async fn a_sync_replaces_members_and_deletes_what_was_deleted_elsewhere() {
+        use devatlas_application::library_sync_merge::Changes;
+
+        let db = Database::in_memory().await.unwrap();
+        let kept = db.create_group("Kept", None, 1).await.unwrap();
+        let gone = db.create_group("Gone", None, 2).await.unwrap();
+        db.set_group_resources(&kept.id, &["a".to_owned(), "b".to_owned()])
+            .await
+            .unwrap();
+        save(&db, "noted", &annotation(&["t"], Some("old")), &[])
+            .await
+            .unwrap();
+
+        let changes = SyncChanges {
+            groups: Changes {
+                put: vec![backup_group(&kept.id, &["b", "c"])],
+                removed: vec![gone.id.clone()],
+            },
+            annotations: Changes {
+                put: Vec::new(),
+                removed: vec!["noted".to_owned()],
+            },
+            ..SyncChanges::default()
+        };
+        db.apply_sync(&changes).await.unwrap();
+
+        let groups = db.groups().await.unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].resource_ids, ["b", "c"]);
+        assert!(db.annotations().await.unwrap().is_empty());
     }
 
     #[tokio::test]

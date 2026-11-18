@@ -48,6 +48,7 @@ function renderSettings(
   vi.mocked(invoke).mockImplementation((command, args) => {
     if (command === "get_settings") return Promise.resolve(view);
     if (command === "community_session") return Promise.resolve(communityUser);
+    if (command === "library_sync_status") return Promise.resolve({ state: "signedOut" });
     if (command === "community_cancel_sign_in") return Promise.resolve(null);
     if (command === "community_sign_in") {
       communityUser = OCTOCAT;

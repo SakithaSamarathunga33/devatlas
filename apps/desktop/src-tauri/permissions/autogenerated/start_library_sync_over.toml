@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-start-library-sync-over"
+description = "Enables the start_library_sync_over command without any pre-configured scope."
+commands.allow = ["start_library_sync_over"]
+
+[[permission]]
+identifier = "deny-start-library-sync-over"
+description = "Denies the start_library_sync_over command without any pre-configured scope."
+commands.deny = ["start_library_sync_over"]

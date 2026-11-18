@@ -1,9 +1,10 @@
-use devatlas_application::backup::{self, BackupStore, ImportSummary};
+use devatlas_application::backup::{self, Backup, BackupStore, ImportSummary};
 use devatlas_application::library::{self, SavedLinkStore};
 use devatlas_application::link_health::{self, LinkCheckSummary};
 use devatlas_application::organizer::OrganizerStore;
 use devatlas_application::snippets::SnippetStore;
 use devatlas_storage::backup_file::{self, ImportFile};
+use devatlas_storage::database::Database;
 use tauri::{AppHandle, Runtime, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -11,7 +12,7 @@ use super::library::{LibraryStore, now_ms, selection};
 use super::organizer::Organizer;
 use super::preview::Previews;
 
-const SAVE_FAILED: &str = "DevAtlas couldn't read your data for the backup. Please try again.";
+const SAVE_FAILED: &str = "DevAtlas couldn't read your library. Please try again.";
 
 fn store_error<E: std::fmt::Debug>(message: &'static str) -> impl FnOnce(E) -> String {
     move |error| {
@@ -41,7 +42,18 @@ pub async fn export_backup<R: Runtime>(
         .into_path()
         .map_err(store_error("That location can't be used."))?;
 
-    let database = organizer.database()?;
+    let backup = library_backup(&store, organizer.database()?).await?;
+    backup_file::write_backup(&path, &backup).map_err(|error| error.to_string())?;
+    Ok(path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned()))
+}
+
+/// Everything the user added, as a backup: for backup files and for library sync.
+pub(super) async fn library_backup(
+    store: &LibraryStore,
+    database: &Database,
+) -> Result<Backup, String> {
     let (links, hidden) = {
         let _guard = store.lock.lock().await;
         (
@@ -58,12 +70,14 @@ pub async fn export_backup<R: Runtime>(
         .snippets()
         .await
         .map_err(store_error(SAVE_FAILED))?;
-
-    let backup = backup::build(links, hidden, &annotations, &groups, snippets, now_ms());
-    backup_file::write_backup(&path, &backup).map_err(|error| error.to_string())?;
-    Ok(path
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned()))
+    Ok(backup::build(
+        links,
+        hidden,
+        &annotations,
+        &groups,
+        snippets,
+        now_ms(),
+    ))
 }
 
 /// Imports a DevAtlas backup or a browser's bookmarks export, from a file the user picks.

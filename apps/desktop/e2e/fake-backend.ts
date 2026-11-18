@@ -17,6 +17,7 @@ import {
   type SharedCollection,
   type SharePreview,
 } from "../src/types/community.types";
+import { syncStatusSchema } from "../src/types/library-sync.types";
 import type { RepoRelease } from "../src/types/discovery.types";
 import {
   librarySnapshotSchema,
@@ -229,6 +230,10 @@ export class FakeBackend {
         return validated(communityUserSchema, command, this.state.user);
       case "community_cancel_sign_in":
         return null;
+      case "library_sync_status":
+        return validated(syncStatusSchema, command, {
+          state: this.state.user === null ? "signedOut" : "off",
+        });
       case "community_sign_out":
       case "delete_community_account":
         this.state.user = null;

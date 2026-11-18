@@ -12,6 +12,8 @@ pub mod community;
 pub mod community_covers;
 pub mod discovery;
 pub mod library;
+pub mod library_sync;
+pub mod library_sync_merge;
 pub mod link_health;
 pub mod news;
 pub mod organizer;

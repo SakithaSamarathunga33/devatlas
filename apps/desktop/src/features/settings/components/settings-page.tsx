@@ -29,6 +29,7 @@ import type { BookmarkSettings, SettingsView } from "@/types/settings.types";
 import { AccountSettings } from "./account-settings";
 import { AgentConnectionSettings, GithubStarsSettings } from "./agent-settings";
 import { SettingsSection } from "./settings-section";
+import { SyncSettings } from "./sync-settings";
 
 const settingsQueryKey = ["settings"] as const;
 const NO_BROWSER: BookmarkSettings = { browser: null, profile: "Default", folder: "" };
@@ -42,6 +43,8 @@ export function SettingsPage() {
       <VStack gap={6}>
         <PageHeader title="Settings" description="Choose where your library gets its links from." />
         <AccountSettings />
+        <Divider />
+        <SyncSettings />
         <Divider />
         {view.isPending && (
           <div role="status" aria-busy="true" className="max-w-xl">

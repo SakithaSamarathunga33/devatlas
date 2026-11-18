@@ -6,6 +6,7 @@ pub mod app_info;
 pub mod community;
 pub mod discovery;
 pub mod library;
+pub mod library_sync;
 pub mod news;
 pub mod organizer;
 pub mod preview;

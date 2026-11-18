@@ -66,6 +66,7 @@ pub fn run() -> tauri::Result<()> {
                 app.handle(),
                 &data_dir,
             )?);
+            app.manage(commands::library_sync::LibrarySyncSetup::new(&data_dir));
             commands::app_info::remove_previous_version();
             Ok(())
         })
@@ -85,6 +86,11 @@ pub fn run() -> tauri::Result<()> {
             commands::community::community_cancel_sign_in,
             commands::community::community_sign_out,
             commands::community::delete_community_account,
+            commands::library_sync::library_sync_status,
+            commands::library_sync::turn_on_library_sync,
+            commands::library_sync::start_library_sync_over,
+            commands::library_sync::sync_library,
+            commands::library_sync::turn_off_library_sync,
             commands::community::list_shared_collections,
             commands::community::my_shared_collections,
             commands::community::get_shared_collection,

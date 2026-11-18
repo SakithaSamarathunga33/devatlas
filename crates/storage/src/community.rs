@@ -111,11 +111,19 @@ pub(crate) fn http_client() -> Result<reqwest::Client, reqwest::Error> {
 }
 
 /// The body, at most `MAX_RESPONSE_BYTES` long.
-pub(crate) async fn read_body(mut response: Response) -> Result<Vec<u8>, SupabaseError> {
+pub(crate) async fn read_body(response: Response) -> Result<Vec<u8>, SupabaseError> {
+    read_body_up_to(response, MAX_RESPONSE_BYTES).await
+}
+
+/// The body, at most `limit` bytes long.
+pub(crate) async fn read_body_up_to(
+    mut response: Response,
+    limit: usize,
+) -> Result<Vec<u8>, SupabaseError> {
     let mut body = Vec::new();
     while let Some(chunk) = response.chunk().await? {
         body.extend_from_slice(&chunk);
-        if body.len() > MAX_RESPONSE_BYTES {
+        if body.len() > limit {
             return Err(SupabaseError::TooLarge);
         }
     }
@@ -312,12 +320,21 @@ impl SupabaseCommunity {
         &self,
         build: impl Fn(&reqwest::Client) -> RequestBuilder,
     ) -> Result<Answer, SupabaseError> {
+        self.authed_up_to(MAX_RESPONSE_BYTES, build).await
+    }
+
+    /// [`Self::authed`] for an answer of up to `limit` bytes.
+    pub(crate) async fn authed_up_to(
+        &self,
+        limit: usize,
+        build: impl Fn(&reqwest::Client) -> RequestBuilder,
+    ) -> Result<Answer, SupabaseError> {
         let response = self
             .auth
             .send(|token| self.public(build(&self.http)).bearer_auth(token))
             .await?;
         let status = response.status();
-        let body = read_body(response).await?;
+        let body = read_body_up_to(response, limit).await?;
         Ok(if status.is_success() {
             Ok(body)
         } else {

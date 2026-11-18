@@ -6,6 +6,7 @@ use devatlas_application::community::{
     SharedCollection, SharedPage, SharedSummary,
 };
 use devatlas_application::community_covers;
+use devatlas_application::library_sync;
 use devatlas_application::organizer::{self, Group};
 use devatlas_storage::community::{CommunityConfig, SupabaseCommunity, SupabaseError};
 use devatlas_storage::community_auth::{BrowserOpener, SupabaseAuth};
@@ -16,6 +17,7 @@ use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 
 use super::library::{LibraryStore, read_library};
+use super::library_sync::LibrarySyncSetup;
 use super::organizer::Organizer;
 use super::preview::Previews;
 use super::settings::keyring_service;
@@ -100,15 +102,24 @@ pub async fn community_sign_out(community: State<'_, Community>) -> Result<(), S
     community.server.auth().sign_out().await.map_err(report)
 }
 
-/// Deletes the Community account with everything it published, followed and reported, and
-/// signs out. The local library is untouched.
+/// Deletes the Community account with everything it published, followed, reported and
+/// synced, and signs out. The local library is untouched.
 #[tauri::command]
-pub async fn delete_community_account(community: State<'_, Community>) -> Result<(), String> {
+pub async fn delete_community_account(
+    community: State<'_, Community>,
+    sync: State<'_, LibrarySyncSetup>,
+) -> Result<(), String> {
     let _guard = community.lock.lock().await;
     remove_my_covers(&community).await?;
+    // The synced copy goes with the account; the key to it has nothing left to open.
+    let _sync_guard = sync.lock.lock().await;
     community::delete_account(community.server.auth(), &community.shares)
         .await
-        .map_err(report)
+        .map_err(report)?;
+    if let Err(error) = library_sync::turn_off(&sync.secrets, &sync.state) {
+        tracing::warn!(%error, "the library sync key wasn't forgotten");
+    }
+    Ok(())
 }
 
 /// Storage files don't go with the account, so its covers are removed first. If that fails the

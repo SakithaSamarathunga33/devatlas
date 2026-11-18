@@ -70,6 +70,12 @@ base64 = "0.22"
 sha2 = "0.10"
 getrandom = "0.4"
 flate2 = "1"
+# Library sync: the sync passphrase becomes a key (Argon2id), which seals the library
+# (XChaCha20-Poly1305) before it leaves the computer.
+argon2 = { version = "0.6", default-features = false, features = ["alloc"] }
+chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc"] }
+# The same passphrase typed on another OS may arrive in another Unicode form; NFC makes it one.
+unicode-normalization = "0.1"
 tokio = { version = "1", features = ["net", "rt", "sync", "time"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
