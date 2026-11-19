@@ -8,6 +8,22 @@ DevAtlas is a local-first desktop app for capturing, organizing, searching, and 
 developer resources. It is in its **foundation** stage: only the shell and one Rust command
 (`get_app_info`) exist. See [README.md](README.md) for scope.
 
+## Knowledge graph
+
+A graphify knowledge graph of this repository (code, docs, ADRs, security model, migrations)
+lives in `graphify-out/`. Use it to find where something lives and what it connects to before
+searching file by file:
+
+- Start at [graphify-out/wiki/index.md](graphify-out/wiki/index.md): one article per area of the
+  codebase, with its key symbols and links to related areas.
+- [graphify-out/GRAPH_REPORT.md](graphify-out/GRAPH_REPORT.md) lists the most connected types,
+  import cycles and cross-area links.
+- `graphify query "<question>"` answers from `graphify-out/graph.json`; run `/graphify . --update`
+  to refresh the graph after changes.
+
+The graph is a map, not the source of truth: it can lag behind recent changes, so read the actual
+code before relying on it.
+
 ## Before you change anything
 
 1. Read the code you are about to touch and its callers. Follow existing patterns.
