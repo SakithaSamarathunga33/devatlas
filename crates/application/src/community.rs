@@ -29,6 +29,8 @@ pub const PAGE_SIZE: u32 = 30;
 pub const MAX_LINKS: usize = 200;
 /// How many links' preview images a collection's card shows.
 pub const MAX_COVERS: usize = 3;
+/// How many of a collection's first links get an image; the server holds to it too.
+pub const MAX_LINK_IMAGES: usize = 24;
 pub const MAX_TITLE_CHARS: usize = 80;
 pub const MAX_DESCRIPTION_CHARS: usize = 500;
 pub const MAX_LINK_TITLE_CHARS: usize = 300;
@@ -84,6 +86,8 @@ pub struct SharedLink {
     pub host: String,
     /// The id the link would have in the library, to show whether it is saved already.
     pub library_id: String,
+    /// A copy of its preview image on the community server, when the sharer's app made one.
+    pub image_url: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

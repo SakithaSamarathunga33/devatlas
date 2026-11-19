@@ -87,6 +87,24 @@ describe("Shared collection", () => {
     expect(invoke).not.toHaveBeenCalledWith("get_resource_preview", expect.anything());
   });
 
+  it("shows the image the sharer stored, and the site's initial for a link without one", async () => {
+    const stored = `https://x.supabase.co/storage/v1/object/public/collection-covers/${COLLECTION_ID}/links/1.jpg`;
+    const [serde, tokio] = COLLECTION.links;
+    renderPage(USER, {
+      ...COLLECTION,
+      links: [
+        { ...serde, imageUrl: null },
+        { ...tokio, imageUrl: stored },
+      ],
+    } as SharedCollection);
+
+    expect(await screen.findByRole("link", { name: "Tokio" })).toBeInTheDocument();
+    // Decorative, so not in the accessibility tree: the card's link names it.
+    const images = Array.from(document.querySelectorAll("img"), (image) => image.src);
+    expect(images).toEqual([stored]);
+    expect(screen.getByText("S")).toBeInTheDocument();
+  });
+
   it("adds a link to the library", async () => {
     renderPage(USER);
 

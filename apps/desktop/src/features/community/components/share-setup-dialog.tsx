@@ -284,7 +284,7 @@ export function ShareSetupDialog({ onClose }: { onClose: () => void }) {
         )}
         {failure !== null && <Banner role="alert" status="error" title={errorMessage(failure)} />}
         {/* Pinned so the buttons stay in view while the long list scrolls the dialog. */}
-        <div className="sticky bottom-0 z-10 -mb-5 bg-(--color-background-popover) pt-3 pb-5">
+        <div className="sticky bottom-0 z-10 bg-(--color-background-surface) pt-3">
           <HStack gap={2} hAlign="end">
             {isShared && (
               <Button

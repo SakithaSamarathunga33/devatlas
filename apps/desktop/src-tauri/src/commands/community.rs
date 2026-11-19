@@ -202,8 +202,8 @@ pub async fn preview_group_share(
     ))
 }
 
-/// Publishes a local collection, or updates its published copy, then its covers: small copies
-/// of the first links' preview images. Returns the published id.
+/// Publishes a local collection, or updates its published copy, then its link images: small
+/// copies of the first links' preview images. Returns the published id.
 #[tauri::command]
 pub async fn share_group(
     group_id: String,
@@ -215,7 +215,7 @@ pub async fn share_group(
     let group = find_group(&organizer, &group_id).await?;
     let library = read_library(&store).await?;
     let id = {
-        // Released before the covers, which can take a while.
+        // Released before the images, which can take a while.
         let _guard = community.lock.lock().await;
         community::share_group(
             &community.server,
@@ -231,7 +231,7 @@ pub async fn share_group(
         .into_iter()
         .map(|link| link.url)
         .collect();
-    // Covers are a nicety: the collection is shared whether or not they upload.
+    // Images are a nicety: the collection is shared whether or not they upload.
     if let Err(error) = community_covers::refresh_covers(
         &previews.fetcher,
         &previews.cache,
@@ -242,7 +242,7 @@ pub async fn share_group(
     )
     .await
     {
-        tracing::warn!(%error, "the shared collection's covers weren't updated");
+        tracing::warn!(%error, "the shared collection's images weren't updated");
     }
     Ok(id)
 }

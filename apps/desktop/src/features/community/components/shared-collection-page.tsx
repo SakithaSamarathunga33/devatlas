@@ -1,11 +1,14 @@
+import { AspectRatio } from "@astryxdesign/core/AspectRatio";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Center } from "@astryxdesign/core/Center";
+import { Divider } from "@astryxdesign/core/Divider";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack } from "@astryxdesign/core/HStack";
 import { Icon } from "@astryxdesign/core/Icon";
 import { Link } from "@astryxdesign/core/Link";
-import { List, ListItem } from "@astryxdesign/core/List";
 import { Skeleton } from "@astryxdesign/core/Skeleton";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
@@ -17,7 +20,7 @@ import { useParams } from "react-router";
 import { toast } from "sonner";
 
 import { SaveRepoButton } from "@/features/discovery";
-import { SiteIcon } from "@/features/library";
+import { PREVIEW_RATIO, RemoteImage, SiteIcon } from "@/features/library";
 import { WebLink } from "@/features/news";
 import { libraryQueryKey, useLibrary } from "@/hooks/use-library";
 import { reportSharedCollection, unshareCollection } from "@/services/community.service";
@@ -35,26 +38,37 @@ import { ReportDialog, UnshareDialog } from "./collection-dialogs";
 import { CommunitySignInGate } from "./community-sign-in-gate";
 import { FollowButton, FollowerCount } from "./follow-button";
 
-/** No preview fetch: requesting another user's links would tell them who opened the collection
- * and when, so each row shows the host's initial instead. */
-function SharedLinkRow({ link, isSaved }: { link: SharedLink; isSaved: boolean }) {
+const CARD_GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3";
+
+/** Never fetches from the linked sites, which would tell them who opened the collection and when:
+ * the image is the copy the sharer's app stored on the Community server, else the host's initial. */
+function SharedLinkCard({ link, isSaved }: { link: SharedLink; isSaved: boolean }) {
   return (
-    <ListItem
-      startContent={<SiteIcon icon={null} host={link.host} className="size-9 rounded-lg text-sm" />}
-      label={
-        <Text weight="medium" maxLines={1}>
-          <WebLink href={link.url}>{link.title}</WebLink>
-        </Text>
-      }
-      description={
-        <Text type="code" size="xsm" color="secondary" maxLines={1}>
-          {link.host}
-        </Text>
-      }
-      endContent={
+    <Card padding={0} height="100%">
+      <AspectRatio ratio={PREVIEW_RATIO}>
+        <RemoteImage
+          src={link.imageUrl ?? null}
+          className="size-full object-cover"
+          fallback={
+            <Center height="100%">
+              <SiteIcon icon={null} host={link.host} className="size-14 rounded-2xl text-xl" />
+            </Center>
+          }
+        />
+      </AspectRatio>
+      <Divider />
+      <HStack gap={3} padding={3} vAlign="start">
+        <VStack gap={1} className="min-w-0 flex-1">
+          <Heading level={5} accessibilityLevel={2} maxLines={2}>
+            <WebLink href={link.url}>{link.title}</WebLink>
+          </Heading>
+          <Text type="code" size="xsm" color="secondary" maxLines={1}>
+            {link.host}
+          </Text>
+        </VStack>
         <SaveRepoButton repo={{ fullName: link.title, url: link.url }} saved={isSaved} compact />
-      }
-    />
+      </HStack>
+    </Card>
   );
 }
 
@@ -161,11 +175,13 @@ function CollectionView({ collection }: { collection: SharedCollection }) {
       {collection.links.length === 0 ? (
         <EmptyState headingLevel={2} title="This collection has no links." />
       ) : (
-        <List hasDividers>
+        <ul className={CARD_GRID}>
           {collection.links.map((link) => (
-            <SharedLinkRow key={link.url} link={link} isSaved={isSaved(link)} />
+            <li key={link.url}>
+              <SharedLinkCard link={link} isSaved={isSaved(link)} />
+            </li>
           ))}
-        </List>
+        </ul>
       )}
 
       {dialog === "report" && (

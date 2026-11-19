@@ -18,7 +18,8 @@ export function Modal({ title, onClose, purpose = "info", children }: ModalProps
   return (
     <Dialog isOpen onOpenChange={onOpenChange} width={512} padding={5} purpose={purpose}>
       <DialogHeader title={title} onOpenChange={onOpenChange} hasDivider={false} />
-      {children}
+      {/* Astryx clips the dialog's body, so content taller than the dialog scrolls here. */}
+      <div className="min-h-0 overflow-y-auto">{children}</div>
     </Dialog>
   );
 }

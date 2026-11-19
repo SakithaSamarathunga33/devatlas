@@ -19,7 +19,7 @@ use serde::Deserialize;
 use url::Url;
 
 use crate::community_auth::SupabaseAuth;
-use crate::community_covers::cover_urls;
+use crate::community_covers::{cover_urls, image_url};
 use crate::credentials::CredentialError;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
@@ -29,7 +29,7 @@ const MAX_KEY_LEN: usize = 512;
 const MAX_MESSAGE_CHARS: usize = 200;
 const USER_AGENT: &str = concat!("DevAtlas/", env!("CARGO_PKG_VERSION"));
 // `!owner_id`: follows give a second path to profiles, which PostgREST refuses as ambiguous (300).
-const SUMMARY_FIELDS: &str = "id,owner_id,title,description,link_count,follower_count,updated_at,covers,covers_at,owner:profiles!owner_id(username,avatar_url)";
+const SUMMARY_FIELDS: &str = "id,owner_id,title,description,link_count,follower_count,updated_at,images,covers_at,owner:profiles!owner_id(username,avatar_url)";
 
 #[derive(Debug, thiserror::Error)]
 pub enum SupabaseError {
@@ -178,8 +178,9 @@ struct RawCollection {
     owner: Option<RawOwner>,
     #[serde(default)]
     links: Vec<RawLink>,
+    /// Positions of the links that have an image.
     #[serde(default)]
-    covers: i64,
+    images: Vec<i64>,
     covers_at: Option<String>,
 }
 
@@ -198,7 +199,7 @@ fn summary(config: &CommunityConfig, raw: &RawCollection) -> Option<SharedSummar
     })
     .map(|summary| SharedSummary {
         // Built from the checked id, so a row can only point at this project's storage.
-        cover_urls: cover_urls(config, &summary.id, raw.covers, raw.covers_at.as_deref()),
+        cover_urls: cover_urls(config, &summary.id, &raw.images, raw.covers_at.as_deref()),
         ..summary
     })
 }
@@ -230,11 +231,21 @@ fn parse_collection(
         return Ok(None);
     };
     first.links.sort_by_key(|link| link.position);
+    let version = first.covers_at.as_deref();
     let links: Vec<SharedLink> = first
         .links
         .iter()
         .take(community::MAX_LINKS)
-        .filter_map(|link| community::untrusted_link(&link.url, &link.title))
+        .filter_map(|link| {
+            let has_image = first.images.contains(&link.position);
+            Some(SharedLink {
+                // Built from the checked id, so it can only point at this project's storage.
+                image_url: has_image
+                    .then(|| image_url(config, &summary.id, link.position, version))
+                    .flatten(),
+                ..community::untrusted_link(&link.url, &link.title)?
+            })
+        })
         .collect();
     Ok(Some(SharedCollection {
         summary,
@@ -542,6 +553,36 @@ mod tests {
     }
 
     #[test]
+    fn links_with_a_stored_image_point_at_it() {
+        let body = row(r#"{"position":0,"url":"https://a.dev/","title":"A"},
+               {"position":1,"url":"https://b.dev/","title":"B"}"#)
+        .replace(
+            r#""follower_count":12"#,
+            r#""follower_count":12,"images":[1]"#,
+        );
+        let collection = parse_collection(&config(), format!("[{body}]").as_bytes())
+            .unwrap()
+            .unwrap();
+        let images: Vec<_> = collection
+            .links
+            .iter()
+            .map(|link| link.image_url.as_deref())
+            .collect();
+        assert_eq!(
+            images,
+            [
+                None,
+                Some(
+                    format!(
+                        "https://x.supabase.co/storage/v1/object/public/collection-covers/{ID}/links/1.jpg"
+                    )
+                    .as_str()
+                )
+            ]
+        );
+    }
+
+    #[test]
     fn parses_a_collection_dropping_unsafe_links_in_position_order() {
         let body = row(r#"{"position":2,"url":"https://b.dev/","title":"B"},
                {"position":0,"url":"javascript:alert(1)","title":"bad"},
@@ -569,7 +610,7 @@ mod tests {
     fn a_card_shows_the_stored_covers_only() {
         let body = row("").replace(
             r#""follower_count":12"#,
-            r#""follower_count":12,"covers":2,"covers_at":"2026-11-15T10:00:00+00:00""#,
+            r#""follower_count":12,"images":[0,4],"covers_at":"2026-11-15T10:00:00+00:00""#,
         );
         let page = parse_page(&config(), format!("[{body}]").as_bytes(), 0).unwrap();
         let covers = &page.collections[0].cover_urls;

@@ -57,6 +57,7 @@ pub fn untrusted_link(url: &str, title: &str) -> Option<SharedLink> {
         title,
         host,
         library_id,
+        image_url: None,
     })
 }
 

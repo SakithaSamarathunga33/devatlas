@@ -46,9 +46,9 @@ order by reports desc, c.updated_at desc;
 -- Hide a collection. It disappears from browsing for everyone but its owner, who still sees it
 -- in their own list; nobody can start following it.
 -- update public.shared_collections set is_hidden = true where id = '00000000-0000-0000-0000-000000000000';
--- A hidden collection's covers stay readable by address: also clear its count, then delete its files in
+-- A hidden collection's images stay readable by address: also clear them, then delete its files in
 -- Dashboard > Storage > collection-covers > {id}.
--- update public.shared_collections set covers = 0 where id = '00000000-0000-0000-0000-000000000000';
+-- update public.shared_collections set images = '{}', covers = 0 where id = '00000000-0000-0000-0000-000000000000';
 --
 -- Unhide it again.
 -- update public.shared_collections set is_hidden = false where id = '00000000-0000-0000-0000-000000000000';

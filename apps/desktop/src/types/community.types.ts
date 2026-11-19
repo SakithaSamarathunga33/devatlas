@@ -40,6 +40,8 @@ export const sharedLinkSchema = z.object({
   host: z.string(),
   /** The id the link would have in the library. */
   libraryId: z.string().min(1),
+  /** A copy of its preview image on the Community server, when the sharer's app made one. */
+  imageUrl: httpsUrl.nullish(),
 });
 export type SharedLink = z.infer<typeof sharedLinkSchema>;
 

@@ -1,16 +1,17 @@
-//! Use case: covers for shared collections. Small copies of the first links' preview images,
-//! made by the owner's app when sharing and kept on the community server, so viewers see what
-//! a collection holds without ever contacting the linked sites.
+//! Use case: link images for shared collections. Small copies of the first links' preview
+//! images, made by the owner's app when sharing and kept on the community server, so viewers see
+//! what a collection holds without ever contacting the linked sites. A card shows the first few.
 
 use std::future::Future;
 
+use futures_util::{StreamExt, stream};
 use url::Url;
 
-use crate::community::{CommunityInputError, MAX_COVERS, check_id};
+use crate::community::{CommunityInputError, MAX_LINK_IMAGES, check_id};
 use crate::preview::{self, PreviewCache, PreviewSource};
 
-/// Links tried for covers, so sharing a long collection never waits on dozens of sites.
-const MAX_TRIED: usize = 6;
+/// Links read at once, so sharing doesn't wait on each site in turn.
+const AT_ONCE: usize = 4;
 
 /// Port: a small, re-encoded JPEG copy of a web image.
 pub trait CoverMaker {
@@ -19,27 +20,28 @@ pub trait CoverMaker {
     fn cover(&self, image: &Url) -> impl Future<Output = Result<Vec<u8>, Self::Error>> + Send;
 }
 
-/// Port: where a shared collection's covers are kept; only its owner may change them.
+/// Port: where a shared collection's link images are kept; only its owner may change them.
 pub trait CoverStore {
     type Error: std::error::Error;
 
-    fn put_cover(
+    /// Stores the image of the link at `position`.
+    fn put_image(
         &self,
         collection: &str,
-        index: usize,
+        position: usize,
         jpeg: &[u8],
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
-    /// Records how many covers there are, which is what cards show.
-    fn set_covers(
+    /// Records which links have an image, which is what pages and cards show.
+    fn set_images(
         &self,
         collection: &str,
-        count: usize,
+        positions: &[usize],
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
-    /// Deletes covers `from` onwards; 0 deletes them all.
-    fn delete_covers(
+    /// Deletes every stored image except those of the links at `keep`.
+    fn delete_images(
         &self,
         collection: &str,
-        from: usize,
+        keep: &[usize],
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }
 
@@ -51,9 +53,10 @@ pub enum CoverError<E: std::error::Error> {
     Store(E),
 }
 
-/// Makes covers from the first links with a preview image, in order, and stores them.
-/// Links whose image can't be read or stored are skipped, and covers left over from an earlier
-/// share are deleted, so a removed link's image doesn't stay public. Returns the new count.
+/// Makes images for the first links that have a preview image and stores them. Links whose
+/// image can't be read or stored go without, and images left over from an earlier share are
+/// deleted, so a removed link's image doesn't stay public once this succeeds. Returns the
+/// positions with an image.
 pub async fn refresh_covers<P, C, M, S>(
     previews: &P,
     cache: &C,
@@ -61,7 +64,7 @@ pub async fn refresh_covers<P, C, M, S>(
     store: &S,
     collection: &str,
     links: &[String],
-) -> Result<usize, CoverError<S::Error>>
+) -> Result<Vec<usize>, CoverError<S::Error>>
 where
     P: PreviewSource,
     C: PreviewCache,
@@ -69,50 +72,65 @@ where
     S: CoverStore,
 {
     let collection = check_id(collection)?.to_ascii_lowercase();
-    let mut count = 0;
-    for link in links.iter().take(MAX_TRIED) {
-        if count == MAX_COVERS {
-            break;
-        }
-        let Ok(found) = preview::get_preview(previews, cache, link).await else {
-            continue;
-        };
-        let Some(image) = found.image.and_then(|image| Url::parse(&image).ok()) else {
-            continue;
-        };
-        let Ok(jpeg) = maker.cover(&image).await else {
-            continue;
-        };
-        if store.put_cover(&collection, count, &jpeg).await.is_ok() {
-            count += 1;
-        }
-    }
+    let collection = collection.as_str();
+    // Made up front: a closure here would keep the command's future from being `Send`.
+    let jobs: Vec<_> = links
+        .iter()
+        .take(MAX_LINK_IMAGES)
+        .enumerate()
+        .map(|(position, link)| {
+            store_image(previews, cache, maker, store, collection, position, link)
+        })
+        .collect();
+    let stored: Vec<Option<usize>> = stream::iter(jobs).buffered(AT_ONCE).collect().await;
+    let positions: Vec<usize> = stored.into_iter().flatten().collect();
     store
-        .set_covers(&collection, count)
+        .set_images(collection, &positions)
         .await
         .map_err(CoverError::Store)?;
-    if count < MAX_COVERS {
-        store
-            .delete_covers(&collection, count)
-            .await
-            .map_err(CoverError::Store)?;
-    }
-    Ok(count)
+    store
+        .delete_images(collection, &positions)
+        .await
+        .map_err(CoverError::Store)?;
+    Ok(positions)
 }
 
-/// Removes a collection's covers; call before unsharing it, while it is still the caller's.
-/// The count goes first, so a card never points at deleted files.
+/// Makes and stores the image of the link at `position`; `None` when it has none.
+async fn store_image<P, C, M, S>(
+    previews: &P,
+    cache: &C,
+    maker: &M,
+    store: &S,
+    collection: &str,
+    position: usize,
+    link: &str,
+) -> Option<usize>
+where
+    P: PreviewSource,
+    C: PreviewCache,
+    M: CoverMaker,
+    S: CoverStore,
+{
+    let found = preview::get_preview(previews, cache, link).await.ok()?;
+    let image = Url::parse(&found.image?).ok()?;
+    let jpeg = maker.cover(&image).await.ok()?;
+    let put = store.put_image(collection, position, &jpeg).await;
+    put.is_ok().then_some(position)
+}
+
+/// Removes a collection's images; call before unsharing it, while it is still the caller's.
+/// The record goes first, so a page never points at deleted files.
 pub async fn remove_covers<S: CoverStore>(
     store: &S,
     collection: &str,
 ) -> Result<(), CoverError<S::Error>> {
     let collection = check_id(collection)?.to_ascii_lowercase();
     store
-        .set_covers(&collection, 0)
+        .set_images(&collection, &[])
         .await
         .map_err(CoverError::Store)?;
     store
-        .delete_covers(&collection, 0)
+        .delete_images(&collection, &[])
         .await
         .map_err(CoverError::Store)
 }
@@ -172,26 +190,26 @@ mod tests {
     #[derive(Default)]
     struct Store {
         puts: Mutex<Vec<(String, usize, Vec<u8>)>>,
-        count: Mutex<Option<usize>>,
-        deleted_from: Mutex<Option<usize>>,
+        recorded: Mutex<Option<Vec<usize>>>,
+        kept: Mutex<Option<Vec<usize>>>,
     }
 
     impl CoverStore for Store {
         type Error = Unavailable;
 
-        async fn put_cover(&self, id: &str, index: usize, jpeg: &[u8]) -> Result<(), Unavailable> {
+        async fn put_image(&self, id: &str, at: usize, jpeg: &[u8]) -> Result<(), Unavailable> {
             self.puts
                 .lock()
                 .unwrap()
-                .push((id.to_owned(), index, jpeg.to_vec()));
+                .push((id.to_owned(), at, jpeg.to_vec()));
             Ok(())
         }
-        async fn set_covers(&self, _: &str, count: usize) -> Result<(), Unavailable> {
-            *self.count.lock().unwrap() = Some(count);
+        async fn set_images(&self, _: &str, positions: &[usize]) -> Result<(), Unavailable> {
+            *self.recorded.lock().unwrap() = Some(positions.to_vec());
             Ok(())
         }
-        async fn delete_covers(&self, _: &str, from: usize) -> Result<(), Unavailable> {
-            *self.deleted_from.lock().unwrap() = Some(from);
+        async fn delete_images(&self, _: &str, keep: &[usize]) -> Result<(), Unavailable> {
+            *self.kept.lock().unwrap() = Some(keep.to_vec());
             Ok(())
         }
     }
@@ -208,50 +226,53 @@ mod tests {
     }
 
     #[test]
-    fn covers_the_first_three_links_that_have_a_readable_image() {
+    fn each_link_with_a_readable_image_gets_one_at_its_position() {
         let links: Vec<String> = [
             "https://plain.dev/",
             "https://img.dev/a",
             "https://img.dev/broken",
             "https://img.dev/b",
-            "https://img.dev/c",
-            "https://img.dev/d",
         ]
         .map(String::from)
         .to_vec();
         let store = Store::default();
 
-        let count = block_on(refresh_covers(&Pages, &NoCache, &Maker, &store, ID, &links)).unwrap();
+        let positions =
+            block_on(refresh_covers(&Pages, &NoCache, &Maker, &store, ID, &links)).unwrap();
 
-        assert_eq!(count, 3);
-        assert_eq!(*store.count.lock().unwrap(), Some(3));
+        assert_eq!(positions, [1, 3]);
+        assert_eq!(*store.recorded.lock().unwrap(), Some(vec![1, 3]));
+        assert_eq!(*store.kept.lock().unwrap(), Some(vec![1, 3]), "the rest go");
         let puts = store.puts.lock().unwrap();
         let made: Vec<(usize, &[u8])> = puts.iter().map(|(_, i, b)| (*i, b.as_slice())).collect();
-        assert_eq!(
-            made,
-            [
-                (0, &b"/a.png"[..]),
-                (1, &b"/b.png"[..]),
-                (2, &b"/c.png"[..])
-            ]
-        );
+        assert_eq!(made, [(1, &b"/a.png"[..]), (3, &b"/b.png"[..])]);
         assert!(puts.iter().all(|(id, _, _)| id == ID));
     }
 
     #[test]
-    fn a_collection_without_images_records_no_covers() {
+    fn only_the_first_links_get_images() {
+        let links: Vec<String> = (0..MAX_LINK_IMAGES + 5)
+            .map(|n| format!("https://img.dev/{n}"))
+            .collect();
+        let store = Store::default();
+
+        let positions =
+            block_on(refresh_covers(&Pages, &NoCache, &Maker, &store, ID, &links)).unwrap();
+
+        assert_eq!(positions, (0..MAX_LINK_IMAGES).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn a_collection_without_images_records_none_and_deletes_old_ones() {
         let store = Store::default();
         let links = vec!["https://plain.dev/".to_owned()];
-        assert_eq!(
-            block_on(refresh_covers(&Pages, &NoCache, &Maker, &store, ID, &links)).unwrap(),
-            0
+        assert!(
+            block_on(refresh_covers(&Pages, &NoCache, &Maker, &store, ID, &links))
+                .unwrap()
+                .is_empty()
         );
-        assert_eq!(*store.count.lock().unwrap(), Some(0));
-        assert_eq!(
-            *store.deleted_from.lock().unwrap(),
-            Some(0),
-            "old covers go"
-        );
+        assert_eq!(*store.recorded.lock().unwrap(), Some(vec![]));
+        assert_eq!(*store.kept.lock().unwrap(), Some(vec![]));
     }
 
     #[test]
