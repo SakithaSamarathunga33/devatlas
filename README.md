@@ -6,8 +6,6 @@
 
 <img src="docs/readme_images/devatlas-banner.png" alt="DevAtlas: Developer Resource Intelligence. Capture, organize, search, and rediscover the developer resources you rely on, all in one local-first desktop app." width="100%"/>
 
-
-
 [Website](https://devatlas.sakitha.com/) ·
 [Download for Windows](https://github.com/SakithaSamarathunga33/devatlas/releases/latest) ·
 [Use with Claude Code and Cursor](#use-with-ai-coding-agents-mcp) · [FAQ](#faq)
